@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sentrix Agent</title>
+    <link rel="stylesheet" href="./status.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="header">
+        <div>
+          <p class="eyebrow">Sentrix Agent</p>
+          <h1 id="hostname">Starting...</h1>
+        </div>
+        <span id="connection" class="status">Connecting</span>
+      </section>
+
+      <section class="panel">
+        <div>
+          <span>Server</span>
+          <strong id="serverUrl">-</strong>
+        </div>
+        <div>
+          <span>IP Address</span>
+          <strong id="ip">-</strong>
+        </div>
+        <div>
+          <span>Operating System</span>
+          <strong id="os">-</strong>
+        </div>
+      </section>
+
+      <section class="metrics">
+        <article>
+          <span>CPU</span>
+          <strong id="cpu">0%</strong>
+        </article>
+        <article>
+          <span>RAM</span>
+          <strong id="ram">0%</strong>
+        </article>
+        <article>
+          <span>Disk</span>
+          <strong id="disk">0%</strong>
+        </article>
+      </section>
+
+      <p id="lastSent" class="last-sent">Waiting for first heartbeat...</p>
+    </main>
+    <script src="./status.js"></script>
+  </body>
+</html>
