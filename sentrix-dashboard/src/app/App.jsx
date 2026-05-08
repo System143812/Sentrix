@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Activity, LoaderCircle, LogOut, RefreshCcw, UserCircle, Wifi, WifiOff } from "lucide-react";
 import { TabNav } from "../components/TabNav.jsx";
 import { SentrixLogo } from "../components/SentrixLogo.jsx";
