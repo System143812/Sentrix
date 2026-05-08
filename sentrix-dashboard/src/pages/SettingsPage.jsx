@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, Trash2, Users, Layers, Pencil } from "lucide-react";
+import { LoaderCircle, ShieldCheck, Trash2, Users, Layers, Pencil } from "lucide-react";
 import * as userApi from "../services/userApi.js";
 import * as groupApi from "../services/groupApi.js";
 
@@ -12,6 +12,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
   const [groupDescription, setGroupDescription] = useState("");
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [message, setMessage] = useState("");
+  const [pendingAction, setPendingAction] = useState(null);
 
   useEffect(() => {
     if (isNetworkAdmin) {
@@ -27,43 +28,63 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
   async function handleCreateAdmin(event) {
     event.preventDefault();
     setMessage("");
-    await userApi.createAdmin(email, password);
-    setEmail("");
-    setPassword("");
-    setMessage("Admin account created.");
-    await loadAdmins();
+    setPendingAction("create-admin");
+    try {
+      await userApi.createAdmin(email, password);
+      setEmail("");
+      setPassword("");
+      setMessage("Admin account created.");
+      await loadAdmins();
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   async function handleDeleteAdmin(id) {
     setMessage("");
-    await userApi.deleteAdmin(id);
-    setMessage("Admin account removed.");
-    await loadAdmins();
+    setPendingAction(`delete-admin-${id}`);
+    try {
+      await userApi.deleteAdmin(id);
+      setMessage("Admin account removed.");
+      await loadAdmins();
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   async function handleSaveGroup(event) {
     event.preventDefault();
     setMessage("");
+    setPendingAction("save-group");
 
-    if (editingGroupId) {
-      await groupApi.updateGroup(editingGroupId, groupName, groupDescription);
-      setMessage("Group renamed.");
-    } else {
-      await groupApi.createGroup(groupName, groupDescription);
-      setMessage("Group created.");
+    try {
+      if (editingGroupId) {
+        await groupApi.updateGroup(editingGroupId, groupName, groupDescription);
+        setMessage("Group renamed.");
+      } else {
+        await groupApi.createGroup(groupName, groupDescription);
+        setMessage("Group created.");
+      }
+
+      setEditingGroupId(null);
+      setGroupName("");
+      setGroupDescription("");
+      await onGroupsChanged?.();
+    } finally {
+      setPendingAction(null);
     }
-
-    setEditingGroupId(null);
-    setGroupName("");
-    setGroupDescription("");
-    await onGroupsChanged?.();
   }
 
   async function handleDeleteGroup(id) {
     setMessage("");
-    await groupApi.deleteGroup(id);
-    setMessage("Group deleted. Devices in that group were moved to Unassigned.");
-    await onGroupsChanged?.();
+    setPendingAction(`delete-group-${id}`);
+    try {
+      await groupApi.deleteGroup(id);
+      setMessage("Group deleted. Devices in that group were moved to Unassigned.");
+      await onGroupsChanged?.();
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   function startEditingGroup(group) {
@@ -102,8 +123,8 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
         </div>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-2">
+        <section className="min-w-0 rounded-lg border border-line bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold">Admin Accounts</h3>
@@ -132,8 +153,15 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
                 value={password}
                 required
               />
-              <button className="h-11 rounded-md bg-signal px-4 text-sm font-semibold text-white transition hover:bg-signal-dark">
-                Create admin
+              <button
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-signal px-4 text-sm font-semibold text-white transition hover:bg-signal-dark disabled:cursor-wait disabled:opacity-70"
+                disabled={pendingAction === "create-admin"}
+              >
+                {pendingAction === "create-admin" ? (
+                  <LoaderCircle className="animate-spin" size={17} />
+                ) : (
+                  "Create admin"
+                )}
               </button>
             </form>
           ) : null}
@@ -143,20 +171,25 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
               .filter((admin) => admin.role === "admin")
               .map((admin) => (
                 <div
-                  className="flex items-center justify-between rounded-md border border-line px-3 py-2"
+                  className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-line px-3 py-2"
                   key={admin.id}
                 >
-                  <div>
-                    <p className="text-sm font-semibold">{admin.email}</p>
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-semibold">{admin.email}</p>
                     <p className="text-xs text-slate-500">{admin.role}</p>
                   </div>
                   {isNetworkAdmin ? (
                     <button
-                      className="rounded-md border border-red-200 bg-red-50 p-2 text-red-700 transition hover:bg-red-100"
+                      className="grid h-9 w-9 place-items-center rounded-md border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100 disabled:cursor-wait disabled:opacity-70"
+                      disabled={pendingAction === `delete-admin-${admin.id}`}
                       onClick={() => handleDeleteAdmin(admin.id)}
                       type="button"
                     >
-                      <Trash2 size={15} />
+                      {pendingAction === `delete-admin-${admin.id}` ? (
+                        <LoaderCircle className="animate-spin" size={15} />
+                      ) : (
+                        <Trash2 size={15} />
+                      )}
                     </button>
                   ) : null}
                 </div>
@@ -164,7 +197,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
           </div>
         </section>
 
-        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
+        <section className="min-w-0 rounded-lg border border-line bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold">Groups</h3>
@@ -190,8 +223,17 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
                 placeholder="Optional description"
                 value={groupDescription}
               />
-              <button className="h-11 rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800">
-                {editingGroupId ? "Save group" : "Create group"}
+              <button
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70"
+                disabled={pendingAction === "save-group"}
+              >
+                {pendingAction === "save-group" ? (
+                  <LoaderCircle className="animate-spin" size={17} />
+                ) : editingGroupId ? (
+                  "Save group"
+                ) : (
+                  "Create group"
+                )}
               </button>
             </form>
           ) : null}
@@ -199,12 +241,12 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
           <div className="mt-5 grid gap-2">
             {groups.map((group) => (
               <div
-                className="flex items-center justify-between rounded-md border border-line px-3 py-2"
+                className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-line px-3 py-2"
                 key={group.id}
               >
-                <div>
-                  <p className="text-sm font-semibold">{group.name}</p>
-                  <p className="text-xs text-slate-500">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-semibold">{group.name}</p>
+                  <p className="break-words text-xs text-slate-500">
                     {group.description || "No description"}
                   </p>
                 </div>
@@ -218,11 +260,16 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
                       <Pencil size={15} />
                     </button>
                     <button
-                      className="rounded-md border border-red-200 bg-red-50 p-2 text-red-700 transition hover:bg-red-100"
+                      className="grid h-9 w-9 place-items-center rounded-md border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100 disabled:cursor-wait disabled:opacity-70"
+                      disabled={pendingAction === `delete-group-${group.id}`}
                       onClick={() => handleDeleteGroup(group.id)}
                       type="button"
                     >
-                      <Trash2 size={15} />
+                      {pendingAction === `delete-group-${group.id}` ? (
+                        <LoaderCircle className="animate-spin" size={15} />
+                      ) : (
+                        <Trash2 size={15} />
+                      )}
                     </button>
                   </div>
                 ) : null}

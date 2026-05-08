@@ -47,6 +47,7 @@ export async function login(req, res, next) {
     return res.json({
       success: true,
       data: {
+        token,
         user: {
           id: user.id,
           email: user.email,

@@ -9,7 +9,7 @@ export function GroupPanel({ devices = [] }) {
   }, {});
 
   return (
-    <aside className="rounded-lg border border-line bg-white p-4 shadow-sm">
+    <aside className="min-w-0 overflow-hidden rounded-lg border border-line bg-white p-4 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-base font-bold">Groups</h2>
         <span className="rounded-md border border-teal-100 bg-teal-50 p-2 text-ocean">
@@ -17,14 +17,14 @@ export function GroupPanel({ devices = [] }) {
         </span>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid max-h-[680px] gap-3 overflow-y-auto pr-1">
         {Object.entries(groups).length === 0 ? (
           <p className="text-sm text-slate-500">No groups yet.</p>
         ) : (
           Object.entries(groups).map(([group, groupDevices]) => (
-            <section className="rounded-md border border-line p-3" key={group}>
+            <section className="min-w-0 rounded-md border border-line p-3" key={group}>
               <div className="flex items-center justify-between gap-3">
-                <strong className="text-sm">{group}</strong>
+                <strong className="min-w-0 truncate text-sm">{group}</strong>
                 <span className="rounded bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
                   {groupDevices.length}
                 </span>

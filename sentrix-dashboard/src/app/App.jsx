@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, LogOut, RefreshCcw, UserCircle, Wifi, WifiOff } from "lucide-react";
+import { Activity, LoaderCircle, LogOut, RefreshCcw, UserCircle, Wifi, WifiOff } from "lucide-react";
 import { TabNav } from "../components/TabNav.jsx";
 import { SentrixLogo } from "../components/SentrixLogo.jsx";
 import { useDevices } from "../hooks/useDevices.js";
@@ -45,11 +45,7 @@ export default function App() {
         const currentUser = await authApi.getCurrentUser();
         setUser(currentUser);
       } catch (error) {
-        try {
-          await authApi.logout();
-        } catch {
-          // The API may be offline while the dashboard dev server is running.
-        }
+        authApi.clearSavedLogin();
       } finally {
         setAuthReady(true);
       }
@@ -101,8 +97,11 @@ export default function App() {
     return (
       <main className="min-h-screen bg-mist text-ink">
         <div className="mx-auto flex h-screen max-w-4xl items-center justify-center px-4">
-          <div className="rounded-3xl border border-line bg-white p-8 text-center shadow-xl">
-            <p className="text-lg font-semibold">Checking login status...</p>
+          <div className="rounded-lg border border-line bg-white p-6 text-center shadow-xl">
+            <LoaderCircle className="mx-auto mb-3 animate-spin text-signal" size={24} />
+            <p className="text-sm font-semibold text-slate-700">
+              Checking login status...
+            </p>
           </div>
         </div>
       </main>
@@ -148,7 +147,7 @@ function DashboardShell({
       <div className="border-b border-line bg-white/90 shadow-sm backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
+            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
               <SentrixLogo />
               <TabNav
                 tabs={tabs.map(getTabLabel)}
@@ -179,12 +178,17 @@ function DashboardShell({
             </span>
 
             <button
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:border-signal hover:text-signal"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:border-signal hover:text-signal disabled:cursor-wait disabled:opacity-70"
               onClick={refresh}
+              disabled={loading}
               type="button"
             >
-              <RefreshCcw size={16} />
-              Refresh
+              {loading ? (
+                <LoaderCircle className="animate-spin" size={16} />
+              ) : (
+                <RefreshCcw size={16} />
+              )}
+              <span className="hidden sm:inline">{loading ? "Refreshing" : "Refresh"}</span>
             </button>
 
             <button
@@ -201,23 +205,9 @@ function DashboardShell({
       </div>
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-ocean">Computer Lab Monitoring</p>
-          <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-normal">
-                Device lifecycle management for school labs
-              </h1>
-              <p className="mt-2 text-sm text-slate-500">
-                Signed in as {user.email}. Monitor, discover, organize, and
-                prepare agent deployment from one console.
-              </p>
-            </div>
-          </div>
-        </section>
-
         {activeTab === "home" ? (
           <HomePage
+            user={user}
             dashboardData={dashboardData}
             loading={loading}
             onUpdateGroup={updateGroup}
@@ -230,6 +220,7 @@ function DashboardShell({
             onScan={discovery.rescan}
             onDeploy={discovery.deploy}
             deployMessage={discovery.message}
+            deployingIp={discovery.deployingIp}
           />
         ) : activeTab === "devices" ? (
           <DevicesPage
@@ -240,7 +231,7 @@ function DashboardShell({
             onArchive={archiveDevice}
           />
         ) : activeTab === "analytics" ? (
-          <AnalyticsPage />
+          <AnalyticsPage dashboardData={dashboardData} loading={loading} />
         ) : (
           <SettingsPage
             user={user}

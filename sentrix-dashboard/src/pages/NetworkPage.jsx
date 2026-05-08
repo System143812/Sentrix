@@ -5,6 +5,7 @@ import {
   PackageCheck,
   Printer,
   Radar,
+  LoaderCircle,
   RefreshCcw,
   Router,
   Server,
@@ -53,7 +54,13 @@ function DeviceTypeIcon({ type, kind, gateway }) {
   );
 }
 
-export function NetworkPage({ snapshot, onScan, onDeploy, deployMessage }) {
+export function NetworkPage({
+  snapshot,
+  onScan,
+  onDeploy,
+  deployMessage,
+  deployingIp,
+}) {
   const scanResults = snapshot?.devices || [];
   const scanLoading = snapshot?.status === "scanning";
 
@@ -90,11 +97,15 @@ export function NetworkPage({ snapshot, onScan, onDeploy, deployMessage }) {
           <button
             type="button"
             onClick={onScan}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-signal px-5 text-sm font-semibold text-white transition hover:bg-signal-dark disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-signal px-5 text-sm font-semibold text-white transition hover:bg-signal-dark disabled:cursor-wait disabled:bg-slate-300"
             disabled={scanLoading}
           >
-            <RefreshCcw size={16} />
-            {scanLoading ? "Scanning..." : "Rescan"}
+            {scanLoading ? (
+              <LoaderCircle className="animate-spin" size={16} />
+            ) : (
+              <RefreshCcw size={16} />
+            )}
+            <span>{scanLoading ? "Scanning" : "Rescan"}</span>
           </button>
         </div>
 
@@ -194,7 +205,7 @@ export function NetworkPage({ snapshot, onScan, onDeploy, deployMessage }) {
                   <button
                     type="button"
                     onClick={() => onDeploy(host.ip, host.device_type)}
-                    disabled={!host.deploy_eligible}
+                    disabled={!host.deploy_eligible || deployingIp === host.ip}
                     className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
                     title={
                       host.deploy_eligible
@@ -204,8 +215,16 @@ export function NetworkPage({ snapshot, onScan, onDeploy, deployMessage }) {
                           : `Deployment is not available for ${host.device_kind || host.device_type || "this device"}`
                     }
                   >
-                    <PackageCheck size={15} />
-                    {host.deploy_eligible ? "Deploy agent" : "Not eligible"}
+                    {deployingIp === host.ip ? (
+                      <LoaderCircle className="animate-spin" size={15} />
+                    ) : (
+                      <PackageCheck size={15} />
+                    )}
+                    {host.deploy_eligible
+                      ? deployingIp === host.ip
+                        ? "Preparing"
+                        : "Deploy agent"
+                      : "Not eligible"}
                   </button>
                 </div>
               </div>

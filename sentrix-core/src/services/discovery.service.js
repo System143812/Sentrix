@@ -859,6 +859,7 @@ export async function deployAgentToHost(ip) {
   const scannedDevice = lastScanResults.get(ip);
   const serverUrl = process.env.SENTRIX_PUBLIC_SERVER_URL
     || process.env.CORE_PUBLIC_URL
+    || process.env.BACKEND_URL
     || `http://${getPrimaryInterfaceAddress() || "localhost"}:${process.env.PORT || 4000}`;
 
   if (!scannedDevice) {
