@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import { fetchJson } from "../services/api.js";
+import { fetchJson, getApiUrl } from "../services/api.js";
 import { updateClientGroup, archiveClient } from "../services/clientApi.js";
 
-const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const apiUrl = getApiUrl();
 
 const emptyDashboardData = {
   total: 0,
