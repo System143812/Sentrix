@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
+import { getApiUrl } from "../services/api.js";
 import * as discoveryApi from "../services/discoveryApi.js";
 
-const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const apiUrl = getApiUrl();
 
 const emptySnapshot = {
   status: "idle",
@@ -17,6 +18,7 @@ const emptySnapshot = {
 export function useDiscovery() {
   const [snapshot, setSnapshot] = useState(emptySnapshot);
   const [message, setMessage] = useState("");
+  const [deployingIp, setDeployingIp] = useState(null);
 
   const refreshSnapshot = useCallback(async () => {
     const nextSnapshot = await discoveryApi.getDiscoverySnapshot();
@@ -55,17 +57,21 @@ export function useDiscovery() {
   }
 
   async function deploy(ip, deviceType) {
+    setDeployingIp(ip);
     try {
       const result = await discoveryApi.deployAgent(ip, deviceType);
       setMessage(result.message || `Deployment queued for ${ip}.`);
     } catch (error) {
       setMessage(error.message || "Agent deployment failed.");
+    } finally {
+      setDeployingIp(null);
     }
   }
 
   return {
     snapshot,
     message,
+    deployingIp,
     rescan,
     deploy,
   };
