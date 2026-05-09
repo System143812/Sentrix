@@ -2,12 +2,11 @@ import { useState } from "react";
 import {
   Activity,
   CheckCircle2,
-  LoaderCircle,
   Lock,
   Mail,
   ShieldCheck,
 } from "lucide-react";
-import { SentrixLogo } from "../components/SentrixLogo.jsx";
+import { SentrixLogo, SentrixLogoLoader } from "../components/SentrixLogo.jsx";
 
 export function LoginPage({ onLogin, error }) {
   const [email, setEmail] = useState("");
@@ -87,6 +86,7 @@ export function LoginPage({ onLogin, error }) {
                   <Mail className="shrink-0 text-slate-400" size={18} />
                   <input
                     className="min-h-12 w-full min-w-0 bg-transparent text-sm outline-none"
+                    placeholder="admin@sentrix.local"
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
@@ -101,6 +101,7 @@ export function LoginPage({ onLogin, error }) {
                   <Lock className="shrink-0 text-slate-400" size={18} />
                   <input
                     className="min-h-12 w-full min-w-0 bg-transparent text-sm outline-none"
+                    placeholder="Enter your password"
                     type="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
@@ -121,10 +122,10 @@ export function LoginPage({ onLogin, error }) {
                 disabled={loading}
               >
                 {loading ? (
-                  <>
-                    <LoaderCircle className="animate-spin" size={18} />
+                  <span className="inline-flex items-center gap-2">
+                    <SentrixLogoLoader compact />
                     Signing in...
-                  </>
+                  </span>
                 ) : (
                   "Sign in"
                 )}
