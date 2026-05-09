@@ -29,17 +29,7 @@ select {
 }
 
 .analytics-shell::before {
-  background:
-    radial-gradient(circle at 18% 12%, rgba(37, 99, 235, 0.1), transparent 28%),
-    radial-gradient(circle at 84% 8%, rgba(15, 118, 110, 0.1), transparent 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(245, 247, 251, 0));
-  border-radius: 8px;
-  content: "";
-  inset: -16px -12px auto;
-  height: 260px;
-  pointer-events: none;
-  position: absolute;
-  z-index: -1;
+  content: none;
 }
 
 .analytics-reveal {
@@ -57,7 +47,6 @@ select {
 .analytics-panel,
 .analytics-card,
 .analytics-hero {
-  backdrop-filter: blur(14px);
   transition:
     border-color 220ms ease,
     box-shadow 220ms ease,
@@ -67,8 +56,8 @@ select {
 .analytics-panel:hover,
 .analytics-card:hover {
   border-color: rgba(37, 99, 235, 0.18);
-  box-shadow: 0 22px 45px rgba(15, 23, 42, 0.09);
-  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07);
+  transform: translateY(-1px);
 }
 
 .analytics-card {
@@ -76,28 +65,14 @@ select {
   position: relative;
 }
 
-.analytics-card::after {
-  animation: analytics-shine 4.5s ease-in-out infinite;
-  background: linear-gradient(
-    115deg,
-    transparent 20%,
-    rgba(255, 255, 255, 0.22) 45%,
-    transparent 70%
-  );
-  content: "";
-  inset: 0;
-  position: absolute;
-  transform: translateX(-120%);
-}
-
 .analytics-icon {
   animation: analytics-float 3.8s ease-in-out infinite;
 }
 
 .analytics-line {
-  animation: analytics-draw 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-  stroke-dasharray: 900;
-  stroke-dashoffset: 900;
+  animation: analytics-draw 1.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  stroke-dasharray: 1200;
+  stroke-dashoffset: 1200;
 }
 
 .analytics-line-delay {
@@ -105,8 +80,15 @@ select {
 }
 
 .analytics-area {
-  animation: analytics-fade-up 900ms ease both;
+  animation: analytics-fade-up 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
   transform-origin: bottom;
+}
+
+.analytics-point {
+  animation: analytics-point-pop 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  filter: drop-shadow(0 4px 8px rgba(15, 23, 42, 0.12));
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 .analytics-donut {
@@ -139,6 +121,38 @@ select {
 .analytics-progress {
   animation: analytics-fill 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
   width: var(--target-width, 0%);
+}
+
+.sentrix-logo-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+.sentrix-logo-loader {
+  animation: sentrix-logo-breathe 1.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.sentrix-logo-loader .sentrix-logo-draw {
+  animation: sentrix-logo-complete 1.55s cubic-bezier(0.16, 1, 0.3, 1)
+    infinite;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0.58;
+}
+
+.sentrix-logo-loader .sentrix-logo-delay {
+  animation-delay: 140ms;
+}
+
+.sentrix-logo-loader .sentrix-logo-fill {
+  animation: sentrix-logo-fill 1.55s ease-in-out infinite;
+}
+
+.sentrix-logo-loader .sentrix-logo-node {
+  animation: sentrix-logo-pulse 1.1s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 @keyframes analytics-reveal {
@@ -189,6 +203,66 @@ select {
   }
 }
 
+@keyframes analytics-point-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.45);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes sentrix-logo-complete {
+  0% {
+    opacity: 0.78;
+    stroke-dashoffset: 0.58;
+  }
+
+  72%,
+  100% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes sentrix-logo-breathe {
+  0%,
+  100% {
+    transform: scale(0.96);
+  }
+
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+@keyframes sentrix-logo-fill {
+  0% {
+    opacity: 0.04;
+  }
+
+  70%,
+  100% {
+    opacity: 0.24;
+  }
+}
+
+@keyframes sentrix-logo-pulse {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(0.92);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
 @keyframes analytics-ring {
   from {
     stroke-dashoffset: 276.46;
@@ -210,26 +284,22 @@ select {
   }
 }
 
-@keyframes analytics-shine {
-  0%,
-  54% {
-    transform: translateX(-120%);
-  }
-
-  100% {
-    transform: translateX(120%);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .analytics-reveal,
-  .analytics-card::after,
   .analytics-icon,
   .analytics-line,
   .analytics-area,
+  .analytics-point,
   .analytics-donut,
   .analytics-ring,
   .analytics-progress {
+    animation: none;
+  }
+
+  .sentrix-logo-loader,
+  .sentrix-logo-loader .sentrix-logo-draw,
+  .sentrix-logo-loader .sentrix-logo-fill,
+  .sentrix-logo-loader .sentrix-logo-node {
     animation: none;
   }
 

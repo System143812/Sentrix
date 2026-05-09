@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Activity, LoaderCircle, LogOut, RefreshCcw, UserCircle, Wifi, WifiOff } from "lucide-react";
 import { TabNav } from "../components/TabNav.jsx";
-import { SentrixLogo } from "../components/SentrixLogo.jsx";
+import { SentrixLogo, SentrixLogoLoader } from "../components/SentrixLogo.jsx";
 import { useDevices } from "../hooks/useDevices.js";
 import { useDiscovery } from "../hooks/useDiscovery.js";
 import { LoginPage } from "../pages/LoginPage.jsx";
@@ -98,10 +98,7 @@ export default function App() {
       <main className="min-h-screen bg-mist text-ink">
         <div className="mx-auto flex h-screen max-w-4xl items-center justify-center px-4">
           <div className="rounded-lg border border-line bg-white p-6 text-center shadow-xl">
-            <LoaderCircle className="mx-auto mb-3 animate-spin text-signal" size={24} />
-            <p className="text-sm font-semibold text-slate-700">
-              Checking login status...
-            </p>
+            <SentrixLogoLoader label="Checking login status..." />
           </div>
         </div>
       </main>
