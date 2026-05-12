@@ -1,6 +1,36 @@
 import pool from "../lib/database.js";
 
 const HEARTBEAT_TIMEOUT_MS = Number(process.env.HEARTBEAT_TIMEOUT_MS || 60000);
+const HISTORY_SAMPLE_INTERVAL_MS = Number(
+  process.env.METRICS_HISTORY_SAMPLE_INTERVAL_MS || 60000,
+);
+const MAX_HISTORY_POINTS = Number(process.env.METRICS_HISTORY_LIMIT || 1440);
+
+function buildHistoryPoint(metrics = {}, timestamp = Date.now()) {
+  return {
+    timestamp,
+    cpu: Number(metrics.cpu) || 0,
+    ram: Number(metrics.ram) || 0,
+    disk: Number(metrics.disk) || 0,
+    uptime: Number(metrics.uptime) || 0,
+  };
+}
+
+function appendMetricsHistory(currentHistory = [], metrics = {}, timestamp = Date.now()) {
+  const history = Array.isArray(currentHistory) ? currentHistory : [];
+  const lastPoint = history[history.length - 1];
+
+  if (
+    lastPoint &&
+    timestamp - Number(lastPoint.timestamp || 0) < HISTORY_SAMPLE_INTERVAL_MS
+  ) {
+    return history;
+  }
+
+  return [...history, buildHistoryPoint(metrics, timestamp)].slice(
+    -MAX_HISTORY_POINTS,
+  );
+}
 
 function normalizeClient(client) {
   if (!client) return client;
@@ -111,7 +141,12 @@ export async function registerClient(clientData) {
 
 export async function updateClientMetrics(id, metrics = {}, details = null) {
   const now = Date.now();
-  const params = [JSON.stringify(metrics), now, now];
+  const currentClient = await getClientById(id);
+
+  if (!currentClient || currentClient.archived) return null;
+
+  const history = appendMetricsHistory(currentClient.history, metrics, now);
+  const params = [JSON.stringify(metrics), JSON.stringify(history), now, now];
   let detailsSql = "";
 
   if (details) {
@@ -125,6 +160,7 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
     `
     UPDATE clients
     SET metrics = ?,
+        history = ?,
         status = 'online',
         updated_at = ?,
         last_seen_at = ?
@@ -145,8 +181,14 @@ export async function touchClientHeartbeat(id, metrics = null) {
   let metricsSql = "";
 
   if (metrics) {
-    metricsSql = ", metrics = ?";
+    const currentClient = await getClientById(id);
+
+    if (!currentClient || currentClient.archived) return null;
+
+    const history = appendMetricsHistory(currentClient.history, metrics, now);
+    metricsSql = ", metrics = ?, history = ?";
     params.push(JSON.stringify(metrics));
+    params.push(JSON.stringify(history));
   }
 
   params.push(id);
