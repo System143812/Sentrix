@@ -1,4 +1,5 @@
 # Sentrix
+
 A real-time network and screen monitoring system for computer labs.
 
 ## MVP Architecture
@@ -30,7 +31,8 @@ npm run dev
 ```bash
 cd sentrix-agent
 npm install
-npm run dev
+npm run dev //this is for headless agent
+npm run dev:electron //to run the electron app (agent)
 ```
 
 ```bash
@@ -87,6 +89,5 @@ Sentrix includes beginner-friendly collaboration docs:
 
 - `CONTRIBUTING.md`
 - `docs/TEAM_WORKFLOW.md`
-- `docs/AI_AGENT_GUIDE.md`
 
-Use these when splitting work across teammates or AI agents.
+Use these when splitting work across teammates.
