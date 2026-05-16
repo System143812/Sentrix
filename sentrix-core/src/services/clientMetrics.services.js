@@ -6,6 +6,7 @@ const HISTORY_SAMPLE_INTERVAL_MS = Number(
 const MAX_HISTORY_POINTS = Number(process.env.METRICS_HISTORY_LIMIT || 1440);
 
 function toNumber(value, fallback = null) {
+  if (value == null || value === "") return fallback;
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }
