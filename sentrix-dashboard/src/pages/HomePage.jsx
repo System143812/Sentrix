@@ -37,7 +37,7 @@ export function HomePage({
         </Card>
       </div>
 
-      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
+      <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
         <div className="min-w-0">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>

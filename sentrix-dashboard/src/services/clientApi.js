@@ -10,6 +10,20 @@ export async function getClient(id) {
   return result.data;
 }
 
+export async function getClientMetrics(id, { range = "24h", limit = 1440 } = {}) {
+  const params = new URLSearchParams({
+    range,
+    limit: String(limit),
+  });
+  const result = await fetchJson(`/api/clients/${id}/metrics?${params.toString()}`);
+  return result.data;
+}
+
+export async function getClientHardware(id) {
+  const result = await fetchJson(`/api/clients/${id}/hardware`);
+  return result.data;
+}
+
 export async function updateClientGroup(id, group) {
   const result = await fetchJson(`/api/clients/${id}/group`, {
     method: "PATCH",
