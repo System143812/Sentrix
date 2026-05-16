@@ -10,9 +10,12 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 import http from "http";
 import { Server } from "socket.io";
 const { default: createApp } = await import("./app.js");
+const { ensureDatabaseSchema } = await import("./lib/schema.js");
 const { registerDeviceSocket } = await import("./sockets/device.socket.js");
 const { startOfflineWatcher } = await import("./services/client.services.js");
 const { startDiscoveryScheduler } = await import("./services/discovery.service.js");
+
+await ensureDatabaseSchema();
 
 const app = createApp();
 const server = http.createServer(app);

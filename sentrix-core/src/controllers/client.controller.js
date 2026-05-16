@@ -29,6 +29,49 @@ export async function getClient(req, res, next) {
   }
 }
 
+export async function getClientMetrics(req, res, next) {
+  try {
+    const data = await clientService.getClientMetrics(req.params.id, {
+      range: req.query.range,
+      limit: req.query.limit,
+    });
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        message: "Client not found.",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getClientHardware(req, res, next) {
+  try {
+    const data = await clientService.getClientHardwareDetails(req.params.id);
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        message: "Client not found.",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function updateClientGroup(req, res, next) {
   try {
     const client = await clientService.updateClientGroup(
