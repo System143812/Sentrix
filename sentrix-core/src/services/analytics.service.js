@@ -24,7 +24,7 @@ function clamp(value, min = 0, max = 100) {
 
 function average(values = []) {
   const usableValues = values
-    .map((value) => Number(value))
+    .map((value) => (value == null || value === "" ? NaN : Number(value)))
     .filter((value) => Number.isFinite(value));
 
   if (!usableValues.length) return 0;
@@ -46,12 +46,22 @@ function getDeviceLoad(client) {
 
 function getDeviceIssues(client) {
   const metrics = client.metrics || {};
+  const cpuTemperature =
+    metrics.temperature?.cpu?.temperatureCelsius ?? metrics.cpuTemperature;
+  const gpuTemperature =
+    metrics.temperature?.gpu?.temperatureCelsius ?? metrics.gpuTemperature;
+  const latencyMs = metrics.network?.latencyMs ?? metrics.latencyMs;
+  const packetLoss = metrics.network?.packetLoss ?? metrics.packetLoss;
   const issues = [];
 
   if (client.status !== "online") issues.push("Offline");
   if (clamp(metrics.cpu) >= 85) issues.push("High CPU");
   if (clamp(metrics.ram) >= 85) issues.push("High RAM");
   if (clamp(metrics.disk) >= 90) issues.push("Disk pressure");
+  if (Number(cpuTemperature) >= 85) issues.push("High CPU temperature");
+  if (Number(gpuTemperature) >= 85) issues.push("High GPU temperature");
+  if (Number(packetLoss) >= 5) issues.push("Packet loss");
+  if (Number(latencyMs) >= 150) issues.push("High latency");
 
   return issues;
 }
@@ -86,6 +96,12 @@ function createBuckets(rangeKey, now = Date.now()) {
         disk: [],
         health: [],
         alerts: [],
+        cpuTemperature: [],
+        gpuTemperature: [],
+        uploadBytesPerSec: [],
+        downloadBytesPerSec: [],
+        latencyMs: [],
+        packetLoss: [],
       },
     };
   });
@@ -128,6 +144,36 @@ function addPointToBucket(buckets, point) {
   bucket.values.disk.push(point.disk);
   bucket.values.health.push(getHealthScore({ metrics: point, status: "online" }));
   bucket.values.alerts.push(getDeviceIssues({ metrics: point, status: "online" }).length);
+  bucket.values.cpuTemperature.push(point.cpuTemperature);
+  bucket.values.gpuTemperature.push(point.gpuTemperature);
+  bucket.values.uploadBytesPerSec.push(point.uploadBytesPerSec);
+  bucket.values.downloadBytesPerSec.push(point.downloadBytesPerSec);
+  bucket.values.latencyMs.push(point.latencyMs);
+  bucket.values.packetLoss.push(point.packetLoss);
+}
+
+function buildFallbackPoint(client) {
+  const metrics = client.metrics || {};
+  const network = metrics.network || {};
+  const temperature = metrics.temperature || {};
+
+  return {
+    timestamp: Date.now(),
+    cpu: metrics.cpu,
+    ram: metrics.ram,
+    disk: metrics.disk,
+    uptime: metrics.uptime,
+    cpuTemperature:
+      temperature.cpu?.temperatureCelsius ?? metrics.cpuTemperature,
+    gpuTemperature:
+      temperature.gpu?.temperatureCelsius ?? metrics.gpuTemperature,
+    uploadBytesPerSec:
+      network.uploadBytesPerSec ?? metrics.uploadBytesPerSec,
+    downloadBytesPerSec:
+      network.downloadBytesPerSec ?? metrics.downloadBytesPerSec,
+    latencyMs: network.latencyMs ?? metrics.latencyMs,
+    packetLoss: network.packetLoss ?? metrics.packetLoss,
+  };
 }
 
 function buildTrend(clients, rangeKey, metricKey) {
@@ -135,9 +181,7 @@ function buildTrend(clients, rangeKey, metricKey) {
 
   clients.forEach((client) => {
     const history = Array.isArray(client.history) ? client.history : [];
-    const points = history.length
-      ? history
-      : [{ timestamp: Date.now(), ...(client.metrics || {}) }];
+    const points = history.length ? history : [buildFallbackPoint(client)];
 
     points.forEach((point) => addPointToBucket(buckets, point));
   });
@@ -198,6 +242,12 @@ function buildGroupStats(clients) {
       cpu: average(groupClients.map((client) => client.metrics?.cpu)),
       ram: average(groupClients.map((client) => client.metrics?.ram)),
       disk: average(groupClients.map((client) => client.metrics?.disk)),
+      cpuTemperature: average(groupClients.map((client) => client.metrics?.temperature?.cpu?.temperatureCelsius ?? client.metrics?.cpuTemperature)),
+      gpuTemperature: average(groupClients.map((client) => client.metrics?.temperature?.gpu?.temperatureCelsius ?? client.metrics?.gpuTemperature)),
+      uploadBytesPerSec: average(groupClients.map((client) => client.metrics?.network?.uploadBytesPerSec ?? client.metrics?.uploadBytesPerSec)),
+      downloadBytesPerSec: average(groupClients.map((client) => client.metrics?.network?.downloadBytesPerSec ?? client.metrics?.downloadBytesPerSec)),
+      latencyMs: average(groupClients.map((client) => client.metrics?.network?.latencyMs ?? client.metrics?.latencyMs)),
+      packetLoss: average(groupClients.map((client) => client.metrics?.network?.packetLoss ?? client.metrics?.packetLoss)),
     };
   });
 }
@@ -222,6 +272,21 @@ export async function getAnalyticsSummary(options = {}) {
   const clients = filterClients(allClients, options.group);
   const deviceRows = buildDeviceRows(clients);
   const alerts = countAlerts(clients);
+  const hasCpuTemperature = clients.some((client) => client.metrics?.temperature?.cpu?.temperatureCelsius != null || client.metrics?.cpuTemperature != null);
+  const hasGpuTemperature = clients.some((client) => client.metrics?.temperature?.gpu?.temperatureCelsius != null || client.metrics?.gpuTemperature != null);
+  const hasNetwork = clients.some((client) => {
+    const network = client.metrics?.network || {};
+    return (
+      network.uploadBytesPerSec != null ||
+      network.downloadBytesPerSec != null ||
+      network.latencyMs != null ||
+      network.packetLoss != null ||
+      client.metrics?.uploadBytesPerSec != null ||
+      client.metrics?.downloadBytesPerSec != null ||
+      client.metrics?.latencyMs != null ||
+      client.metrics?.packetLoss != null
+    );
+  });
 
   return {
     range: {
@@ -244,6 +309,12 @@ export async function getAnalyticsSummary(options = {}) {
       uptime: average(clients.map((client) => client.metrics?.uptime)),
       load: average(clients.map(getDeviceLoad)),
       health: average(clients.map(getHealthScore)),
+      cpuTemperature: average(clients.map((client) => client.metrics?.temperature?.cpu?.temperatureCelsius ?? client.metrics?.cpuTemperature)),
+      gpuTemperature: average(clients.map((client) => client.metrics?.temperature?.gpu?.temperatureCelsius ?? client.metrics?.gpuTemperature)),
+      uploadBytesPerSec: average(clients.map((client) => client.metrics?.network?.uploadBytesPerSec ?? client.metrics?.uploadBytesPerSec)),
+      downloadBytesPerSec: average(clients.map((client) => client.metrics?.network?.downloadBytesPerSec ?? client.metrics?.downloadBytesPerSec)),
+      latencyMs: average(clients.map((client) => client.metrics?.network?.latencyMs ?? client.metrics?.latencyMs)),
+      packetLoss: average(clients.map((client) => client.metrics?.network?.packetLoss ?? client.metrics?.packetLoss)),
     },
     alerts,
     trends: {
@@ -252,6 +323,12 @@ export async function getAnalyticsSummary(options = {}) {
       disk: buildTrend(clients, rangeKey, "disk"),
       health: buildTrend(clients, rangeKey, "health"),
       alerts: buildTrend(clients, rangeKey, "alerts"),
+      cpuTemperature: buildTrend(clients, rangeKey, "cpuTemperature"),
+      gpuTemperature: buildTrend(clients, rangeKey, "gpuTemperature"),
+      uploadBytesPerSec: buildTrend(clients, rangeKey, "uploadBytesPerSec"),
+      downloadBytesPerSec: buildTrend(clients, rangeKey, "downloadBytesPerSec"),
+      latencyMs: buildTrend(clients, rangeKey, "latencyMs"),
+      packetLoss: buildTrend(clients, rangeKey, "packetLoss"),
     },
     groups: buildGroupStats(clients),
     devices: {
@@ -270,17 +347,39 @@ export async function getAnalyticsSummary(options = {}) {
       csv: `/api/analytics/export.csv?range=${encodeURIComponent(rangeKey)}&group=${encodeURIComponent(options.group || "all")}`,
     },
     dataQuality: {
-      realMetrics: ["status", "cpu", "ram", "disk", "uptime", "lastSeenAt"],
+      realMetrics: [
+        "status",
+        "cpu",
+        "ram",
+        "disk",
+        "uptime",
+        "lastSeenAt",
+        ...(hasCpuTemperature ? ["cpuTemperature"] : []),
+        ...(hasGpuTemperature ? ["gpuTemperature"] : []),
+        ...(hasNetwork ? [
+          "uploadBytesPerSec",
+          "downloadBytesPerSec",
+          "latencyMs",
+          "packetLoss",
+        ] : []),
+      ],
+      realMetricDetails: {
+        temperature: {
+          cpu: hasCpuTemperature,
+          gpu: hasGpuTemperature,
+        },
+        network: hasNetwork,
+      },
       storedHistory: true,
       unavailableMetrics: [
-        "cpuTemperature",
-        "gpuTemperature",
-        "networkThroughput",
-        "packetLoss",
-        "latency",
+        ...(!hasCpuTemperature ? ["cpuTemperature"] : []),
+        ...(!hasGpuTemperature ? ["gpuTemperature"] : []),
+        ...(!hasNetwork ? ["networkThroughput", "packetLoss", "latency"] : []),
       ],
       notes: [
-        "Temperature and network values need agent-side collection before they can be real backend metrics.",
+        hasCpuTemperature || hasGpuTemperature || hasNetwork
+          ? "Temperature and network metrics are populated when updated agents report them."
+          : "Temperature and network values need agent-side collection before they can be real backend metrics.",
         "Trend history starts from the time this backend change is deployed.",
       ],
     },
@@ -305,24 +404,42 @@ export async function getAnalyticsCsv(options = {}) {
     "ram",
     "disk",
     "uptime",
+    "cpuTemperature",
+    "gpuTemperature",
+    "uploadBytesPerSec",
+    "downloadBytesPerSec",
+    "latencyMs",
+    "packetLoss",
     "issues",
     "lastSeenAt",
   ];
 
-  const rows = summary.devices.rows.map((device) => [
-    device.id,
-    device.hostname,
-    device.group,
-    device.status,
-    device.health,
-    device.load,
-    device.metrics.cpu,
-    device.metrics.ram,
-    device.metrics.disk,
-    device.metrics.uptime,
-    device.issues.join("; "),
-    device.lastSeenAt,
-  ]);
+  const rows = summary.devices.rows.map((device) => {
+    const metrics = device.metrics || {};
+    const network = metrics.network || {};
+    const temperature = metrics.temperature || {};
+
+    return [
+      device.id,
+      device.hostname,
+      device.group,
+      device.status,
+      device.health,
+      device.load,
+      metrics.cpu,
+      metrics.ram,
+      metrics.disk,
+      metrics.uptime,
+      temperature.cpu?.temperatureCelsius ?? metrics.cpuTemperature,
+      temperature.gpu?.temperatureCelsius ?? metrics.gpuTemperature,
+      network.uploadBytesPerSec ?? metrics.uploadBytesPerSec,
+      network.downloadBytesPerSec ?? metrics.downloadBytesPerSec,
+      network.latencyMs ?? metrics.latencyMs,
+      network.packetLoss ?? metrics.packetLoss,
+      device.issues.join("; "),
+      device.lastSeenAt,
+    ];
+  });
 
   return [header, ...rows]
     .map((row) => row.map(escapeCsv).join(","))

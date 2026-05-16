@@ -73,6 +73,9 @@ web_modules/
 .env.*
 !.env.example
 
+#sql schema
+.sql
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

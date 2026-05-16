@@ -38,9 +38,10 @@ export function registerDeviceSocket(io) {
 
     socket.on("agent:metrics", async (payload = {}, callback) => {
       const id = payload.agentId || agentId;
+      const metrics = payload.metrics || payload.payload || {};
       const client = await updateClientMetrics(
         id,
-        payload.metrics,
+        metrics,
         payload.details,
       );
 
@@ -55,13 +56,14 @@ export function registerDeviceSocket(io) {
 
     socket.on("agent:heartbeat", async (payload = {}, callback) => {
       const id = payload.agentId || agentId;
+      const metrics = payload.metrics || payload.payload || null;
 
       if (!id) {
         callback?.({ success: false, message: "Agent is not registered." });
         return;
       }
 
-      const client = await touchClientHeartbeat(id, payload.metrics);
+      const client = await touchClientHeartbeat(id, metrics);
 
       if (!client) {
         callback?.({ success: false, message: "Agent is not registered." });
