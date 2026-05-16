@@ -56,6 +56,35 @@ export function formatBool(value) {
   return "Unknown";
 }
 
+export function formatPercent(value) {
+  if (value == null || value === "") return "Unknown";
+  const number = Number(value);
+  return Number.isFinite(number) ? `${Math.round(number)}%` : "Unknown";
+}
+
+export function formatTemperature(value) {
+  if (value == null || value === "") return "Unknown";
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? `${Math.round(number)} C` : "Unknown";
+}
+
+export function formatBytesPerSecond(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "Unknown";
+
+  const units = ["B/s", "KB/s", "MB/s", "GB/s"];
+  let nextValue = Math.max(0, number);
+  let unitIndex = 0;
+
+  while (nextValue >= 1024 && unitIndex < units.length - 1) {
+    nextValue /= 1024;
+    unitIndex += 1;
+  }
+
+  const digits = nextValue >= 10 || unitIndex === 0 ? 0 : 1;
+  return `${nextValue.toFixed(digits)} ${units[unitIndex]}`;
+}
+
 // Calculation Functions
 
 export function clamp(value, min = 0, max = 100) {
