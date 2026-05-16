@@ -1,6 +1,9 @@
 import { io } from "socket.io-client";
 
 export function connectToCore({ serverUrl, profile, onStatus }) {
+  let lastMetricsPacket = null;
+  let lastHeartbeatPacket = null;
+
   const socket = io(serverUrl, {
     query: {
       role: "agent",
@@ -13,6 +16,15 @@ export function connectToCore({ serverUrl, profile, onStatus }) {
 
   socket.on("connect", () => {
     socket.emit("agent:register", profile);
+
+    if (lastMetricsPacket) {
+      socket.emit("agent:metrics", lastMetricsPacket);
+    }
+
+    if (lastHeartbeatPacket) {
+      socket.emit("agent:heartbeat", lastHeartbeatPacket);
+    }
+
     onStatus?.({
       connection: "online",
       profile,
@@ -38,25 +50,37 @@ export function connectToCore({ serverUrl, profile, onStatus }) {
 
   return {
     sendMetrics(metrics, details) {
-      if (!socket.connected) {
-        return;
-      }
-
-      socket.emit("agent:metrics", {
+      const packet = {
+        type: "metrics",
         agentId: profile.agentId,
+        payload: metrics,
         metrics,
         details,
-      });
-    },
-    sendHeartbeat(metrics) {
+      };
+
+      lastMetricsPacket = packet;
+
       if (!socket.connected) {
         return;
       }
 
-      socket.emit("agent:heartbeat", {
+      socket.emit("agent:metrics", packet);
+    },
+    sendHeartbeat(metrics) {
+      const packet = {
+        type: "heartbeat",
         agentId: profile.agentId,
+        payload: metrics,
         metrics,
-      });
+      };
+
+      lastHeartbeatPacket = packet;
+
+      if (!socket.connected) {
+        return;
+      }
+
+      socket.emit("agent:heartbeat", packet);
     },
     isConnected() {
       return socket.connected;

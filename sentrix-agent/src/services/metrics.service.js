@@ -1,6 +1,141 @@
 import os from "os";
 import si from "systeminformation";
 import { getAgentIdAsync } from "../utils/agent-id.js";
+import { collectCpuMetrics } from "./metrics/cpu.service.js";
+import { collectDiskMetrics } from "./metrics/disk.service.js";
+import { collectMemoryMetrics } from "./metrics/memory.service.js";
+import { collectNetworkMetrics } from "./metrics/network.service.js";
+import { collectTemperatureMetrics } from "./metrics/temperature.service.js";
+import { safeString, toNumber } from "./metrics/helpers.js";
+
+const DEFAULT_METRIC_INTERVALS_MS = {
+  cpu: Number(process.env.METRICS_CPU_INTERVAL_MS || 2000),
+  memory: Number(process.env.METRICS_MEMORY_INTERVAL_MS || 2000),
+  network: Number(process.env.METRICS_NETWORK_INTERVAL_MS || 1000),
+  temperature: Number(process.env.METRICS_TEMPERATURE_INTERVAL_MS || 10000),
+  disk: Number(process.env.METRICS_DISK_INTERVAL_MS || 30000),
+};
+
+const cachedMetricSections = {
+  cpu: createCachedSection({ usage: null }),
+  memory: createCachedSection({
+    usage: null,
+    totalBytes: null,
+    usedBytes: null,
+    availableBytes: null,
+  }),
+  disk: createCachedSection({
+    usage: null,
+    totalBytes: null,
+    usedBytes: null,
+    freeBytes: null,
+    mount: process.platform === "win32" ? "C:\\" : "/",
+    filesystem: "Unknown",
+  }),
+  network: createCachedSection({
+    interface: "Unknown",
+    uploadBytesPerSec: null,
+    downloadBytesPerSec: null,
+    latencyMs: null,
+    packetLoss: null,
+  }),
+  temperature: createCachedSection({
+    cpu: {
+      temperatureCelsius: null,
+    },
+    gpu: {
+      model: "Unknown",
+      temperatureCelsius: null,
+    },
+  }),
+};
+
+function createCachedSection(initialData) {
+  return {
+    data: initialData,
+    updatedAt: 0,
+    collecting: false,
+  };
+}
+
+function getPrimaryMetricValue(value, fallback = 0) {
+  return Number.isFinite(Number(value)) ? Number(value) : fallback;
+}
+
+function getMetricTimestamp(sections) {
+  const timestamps = Object.values(sections)
+    .map((section) => Number(section.updatedAt) || 0)
+    .filter(Boolean);
+
+  return timestamps.length > 0 ? Math.max(...timestamps) : Date.now();
+}
+
+async function refreshMetricSection(sectionName, collector, intervalMs) {
+  const section = cachedMetricSections[sectionName];
+  const now = Date.now();
+
+  if (section.collecting) {
+    return;
+  }
+
+  if (now - section.updatedAt < intervalMs) {
+    return;
+  }
+
+  section.collecting = true;
+
+  try {
+    section.data = await collector();
+    section.updatedAt = Date.now();
+  } finally {
+    section.collecting = false;
+  }
+}
+
+async function refreshMetricsCache() {
+  await Promise.all([
+    refreshMetricSection("cpu", collectCpuMetrics, DEFAULT_METRIC_INTERVALS_MS.cpu),
+    refreshMetricSection("memory", collectMemoryMetrics, DEFAULT_METRIC_INTERVALS_MS.memory),
+    refreshMetricSection("disk", collectDiskMetrics, DEFAULT_METRIC_INTERVALS_MS.disk),
+    refreshMetricSection("network", collectNetworkMetrics, DEFAULT_METRIC_INTERVALS_MS.network),
+    refreshMetricSection("temperature", collectTemperatureMetrics, DEFAULT_METRIC_INTERVALS_MS.temperature),
+  ]);
+}
+
+function buildMetricsPayload(agentId, hostname) {
+  const timestamp = Date.now();
+  const lastUpdatedAt = getMetricTimestamp(cachedMetricSections);
+  const cpu = cachedMetricSections.cpu.data;
+  const memory = cachedMetricSections.memory.data;
+  const disk = cachedMetricSections.disk.data;
+  const network = cachedMetricSections.network.data;
+  const temperature = cachedMetricSections.temperature.data;
+
+  return {
+    schemaVersion: 2,
+    deviceId: agentId,
+    hostname,
+    status: "online",
+    timestamp,
+    lastUpdatedAt,
+    cpu: getPrimaryMetricValue(cpu.usage),
+    ram: getPrimaryMetricValue(memory.usage),
+    disk: getPrimaryMetricValue(disk.usage),
+    uptime: toNumber(os.uptime(), 0),
+    system: {
+      cpu,
+      memory,
+      disk,
+      uptimeSeconds: toNumber(os.uptime(), 0),
+      os: {
+        platform: safeString(os.platform()),
+        release: safeString(os.release()),
+      },
+    },
+    network,
+    temperature,
+  };
+}
 
 function getPrimaryNetwork() {
   const interfaces = os.networkInterfaces();
@@ -38,20 +173,11 @@ export async function getAgentProfile() {
 }
 
 export async function getMetrics() {
-  const [cpuLoad, memory, disks] = await Promise.all([
-    si.currentLoad(),
-    si.mem(),
-    si.fsSize(),
-  ]);
+  const agentId = await getAgentIdAsync();
 
-  const primaryDisk = disks[0];
+  await refreshMetricsCache();
 
-  return {
-    cpu: Math.round(cpuLoad.currentLoad),
-    ram: Math.round((memory.used / memory.total) * 100),
-    disk: primaryDisk ? Math.round(primaryDisk.use) : 0,
-    uptime: os.uptime(),
-  };
+  return buildMetricsPayload(agentId, os.hostname());
 }
 
 function simplifyUsbDevice(device) {
@@ -210,5 +336,9 @@ export async function getDeviceDetails() {
     },
     peripherals: classifyPeripherals(usbDevices, graphics),
     usbDevices,
+    metadata: {
+      timestamp: Date.now(),
+      status: "online",
+    },
   };
 }
