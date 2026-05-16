@@ -9,7 +9,7 @@ import { connectToCore } from "./services/socket.service.js";
 dotenv.config();
 
 const serverUrl = process.env.SENTRIX_SERVER_URL || "http://localhost:4000";
-const metricsIntervalMs = Number(process.env.METRICS_INTERVAL_MS || 5000);
+const metricsIntervalMs = Number(process.env.METRICS_INTERVAL_MS || 1000);
 const detailsIntervalMs = Number(process.env.DETAILS_INTERVAL_MS || 60000);
 const heartbeatIntervalMs = Number(process.env.HEARTBEAT_INTERVAL_MS || 10000);
 
