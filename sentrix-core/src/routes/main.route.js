@@ -9,12 +9,15 @@ import express from "express";
 
 const router = express.Router();
 
-router.get("/health", (req, res) => {
+function sendHealth(req, res) {
   res.json({
     success: true,
     message: "Sentrix core is healthy.",
   });
-});
+}
+
+router.get("/health", sendHealth);
+router.get("/api/health", sendHealth);
 
 router.use("/api/auth", authRouter);
 router.use("/api/analytics", authenticate, analyticsRouter);
