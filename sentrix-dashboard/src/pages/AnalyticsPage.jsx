@@ -18,7 +18,9 @@ import {
   Radio,
   RefreshCcw,
   ShieldCheck,
+  Thermometer,
   Timer,
+  Upload,
   Wifi,
 } from "lucide-react";
 import { SentrixLogoLoader } from "../components/SentrixLogo.jsx";
@@ -29,6 +31,9 @@ import * as analyticsApi from "../services/analyticsApi.js";
 import {
   formatUptime,
   formatTimeAgo,
+  formatBytesPerSecond,
+  formatPercent,
+  formatTemperature,
   clamp,
   getHealthScore,
   getDeviceLoad,
@@ -44,6 +49,7 @@ const timeRanges = [
   { key: "7d", label: "7d", points: ["Mon", "Tue", "Wed", "Thu", "Fri", "Now"] },
   { key: "30d", label: "30d", points: ["W1", "W2", "W3", "W4", "W5", "Now"] },
 ];
+const ANALYTICS_REFRESH_MS = 5000;
 
 function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
   const safeData = data || EMPTY_ANALYTICS;
@@ -53,6 +59,31 @@ function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
   const trends = safeData.trends || EMPTY_ANALYTICS.trends;
   const devices = safeData.devices || EMPTY_ANALYTICS.devices;
   const dataQuality = safeData.dataQuality || EMPTY_ANALYTICS.dataQuality;
+  const deviceRows = devices.rows || [];
+  const metricAverage = (getter) => {
+    const values = deviceRows
+      .map(getter)
+      .map((value) => (value == null || value === "" ? NaN : Number(value)))
+      .filter((value) => Number.isFinite(value));
+
+    if (!values.length) return null;
+    return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  };
+  const averageValue = (getter) => {
+    const computedValue = metricAverage(getter);
+    if (computedValue != null) return computedValue;
+
+    return null;
+  };
+  const temperatureAverage = (getter) => {
+    const values = deviceRows
+      .map(getter)
+      .map((value) => (value == null || value === "" ? NaN : Number(value)))
+      .filter((value) => Number.isFinite(value) && value > 0);
+
+    if (!values.length) return null;
+    return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  };
   const topIssues = (alerts.active || []).map((alert) => ({
     issue: alert.issue,
     device: {
@@ -72,6 +103,24 @@ function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
     ram: averages.ram || 0,
     disk: averages.disk || 0,
     uptime: averages.uptime || 0,
+    cpuTemperature: temperatureAverage(
+      (device) => device.metrics?.temperature?.cpu?.temperatureCelsius ?? device.metrics?.cpuTemperature,
+    ),
+    gpuTemperature: temperatureAverage(
+      (device) => device.metrics?.temperature?.gpu?.temperatureCelsius ?? device.metrics?.gpuTemperature,
+    ),
+    uploadBytesPerSec: averageValue(
+      (device) => device.metrics?.network?.uploadBytesPerSec ?? device.metrics?.uploadBytesPerSec,
+    ),
+    downloadBytesPerSec: averageValue(
+      (device) => device.metrics?.network?.downloadBytesPerSec ?? device.metrics?.downloadBytesPerSec,
+    ),
+    latencyMs: averageValue(
+      (device) => device.metrics?.network?.latencyMs ?? device.metrics?.latencyMs,
+    ),
+    packetLoss: averageValue(
+      (device) => device.metrics?.network?.packetLoss ?? device.metrics?.packetLoss,
+    ),
     pressure: averages.load || 0,
     health: averages.health || 0,
     alerts: alerts.total || 0,
@@ -85,6 +134,12 @@ function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
     cpuTrend: trends.cpu || [],
     ramTrend: trends.ram || [],
     diskTrend: trends.disk || [],
+    cpuTemperatureTrend: trends.cpuTemperature || [],
+    gpuTemperatureTrend: trends.gpuTemperature || [],
+    uploadTrend: trends.uploadBytesPerSec || [],
+    downloadTrend: trends.downloadBytesPerSec || [],
+    latencyTrend: trends.latencyMs || [],
+    packetLossTrend: trends.packetLoss || [],
     healthTrend: trends.health || [],
     alertTrend: trends.alerts || [],
     topAlerts: alerts.byType || [],
@@ -93,7 +148,7 @@ function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
     outliers: devices.outliers || [],
     recentDevices: devices.recent || [],
     statusChanges: devices.recent || [],
-    allDevices: devices.rows || [],
+    allDevices: deviceRows,
     groupStats: safeData.groups || [],
     exportUrls: safeData.exportUrls || {},
     dataQuality,
@@ -325,41 +380,134 @@ function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, select
   );
 }
 
-function UnavailableMetricsPanel({ analytics, loading }) {
-  const unavailableMetrics = analytics.dataQuality?.unavailableMetrics || [];
-  const notes = analytics.dataQuality?.notes || [];
+function AgentMetricsPanel({ analytics, loading }) {
+  const getClientMetrics = (device) => {
+    const metrics = device.metrics || {};
+    const network = metrics.network || {};
+    const temperature = metrics.temperature || {};
+
+    return {
+      cpuTemperature: temperature.cpu?.temperatureCelsius ?? metrics.cpuTemperature,
+      gpuTemperature: temperature.gpu?.temperatureCelsius ?? metrics.gpuTemperature,
+      uploadBytesPerSec: network.uploadBytesPerSec ?? metrics.uploadBytesPerSec,
+      downloadBytesPerSec: network.downloadBytesPerSec ?? metrics.downloadBytesPerSec,
+      latencyMs: network.latencyMs ?? metrics.latencyMs,
+      packetLoss: network.packetLoss ?? metrics.packetLoss,
+    };
+  };
+  const metrics = [
+    {
+      label: "CPU Temp",
+      value: formatTemperature(analytics.cpuTemperature),
+      detail: "Average reported CPU sensor",
+      icon: Thermometer,
+      tone: "rose",
+    },
+    {
+      label: "GPU Temp",
+      value: formatTemperature(analytics.gpuTemperature),
+      detail: "Average reported GPU sensor",
+      icon: Thermometer,
+      tone: "amber",
+    },
+    {
+      label: "Upload",
+      value: formatBytesPerSecond(analytics.uploadBytesPerSec),
+      detail: "Average outbound throughput",
+      icon: Upload,
+      tone: "blue",
+    },
+    {
+      label: "Download",
+      value: formatBytesPerSecond(analytics.downloadBytesPerSec),
+      detail: "Average inbound throughput",
+      icon: Download,
+      tone: "teal",
+    },
+    {
+      label: "Latency",
+      value: analytics.latencyMs == null ? "Unknown" : `${Math.round(Number(analytics.latencyMs))} ms`,
+      detail: "Average agent network latency",
+      icon: Wifi,
+      tone: "slate",
+    },
+    {
+      label: "Packet Loss",
+      value: analytics.packetLoss == null ? "Unknown" : `${Math.round(Number(analytics.packetLoss))}%`,
+      detail: "Average reported packet loss",
+      icon: Radio,
+      tone: "rose",
+    },
+  ];
+
   return (
     <Panel
-      icon={Gauge}
+      icon={Activity}
       loading={loading}
-      title="Metrics Not Reported Yet"
-      subtitle="The backend is marking these as unavailable until the agent reports real measurements"
-      tone="slate"
+      title="Agent Metrics"
+      subtitle="Temperature and network values from normalized agent telemetry"
+      tone="blue"
     >
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {(unavailableMetrics.length ? unavailableMetrics : ["temperature", "networkThroughput", "packetLoss", "latency"]).map((metric) => (
-          <div className="rounded-lg border border-slate-100 bg-slate-50 p-4" key={metric}>
-            <div className="flex items-start gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-slate-200 bg-white text-slate-500">
-                <AlertTriangle size={16} />
-              </span>
-              <div className="min-w-0">
-                <p className="break-words text-sm font-bold text-slate-800">{metric}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">Waiting for agent-side collection.</p>
+      <div className="grid gap-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {metrics.map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <div className="rounded-lg border border-slate-100 bg-white p-4 shadow-sm" key={metric.label}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium leading-5 text-slate-500">{metric.label}</p>
+                    <strong className="mt-2 block break-words text-2xl font-bold text-slate-950">
+                      {metric.value}
+                    </strong>
+                    <span className="mt-1 block text-xs leading-5 text-slate-500">
+                      {metric.detail}
+                    </span>
+                  </div>
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border shadow-sm ${ICON_TONES[metric.tone]}`}>
+                    <Icon size={18} strokeWidth={2.4} />
+                  </span>
+                </div>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      {notes.length ? (
-        <div className="mt-4 space-y-2">
-          {notes.map((note) => (
-            <p className="rounded-md bg-white p-3 text-sm leading-6 text-slate-600 ring-1 ring-slate-100" key={note}>
-              {note}
-            </p>
-          ))}
+            );
+          })}
         </div>
-      ) : null}
+
+        <div className="overflow-hidden rounded-lg border border-slate-200">
+          <div className="hidden grid-cols-[1.2fr_repeat(6,minmax(92px,1fr))] gap-3 bg-slate-900 px-4 py-3 text-xs font-bold text-white xl:grid">
+            <span>Client</span>
+            <span>CPU Temp</span>
+            <span>GPU Temp</span>
+            <span>Upload</span>
+            <span>Download</span>
+            <span>Latency</span>
+            <span>Packet Loss</span>
+          </div>
+          <div className="divide-y divide-slate-200">
+            {analytics.allDevices.length ? analytics.allDevices.map((device) => {
+              const clientMetrics = getClientMetrics(device);
+
+              return (
+                <div className="grid gap-2 bg-white px-4 py-3 text-sm xl:grid-cols-[1.2fr_repeat(6,minmax(92px,1fr))] xl:items-center xl:gap-3" key={device.id}>
+                  <span className="min-w-0 break-words font-semibold text-slate-800">
+                    {device.hostname}
+                  </span>
+                  <span>{formatTemperature(clientMetrics.cpuTemperature)}</span>
+                  <span>{formatTemperature(clientMetrics.gpuTemperature)}</span>
+                  <span>{formatBytesPerSecond(clientMetrics.uploadBytesPerSec)}</span>
+                  <span>{formatBytesPerSecond(clientMetrics.downloadBytesPerSec)}</span>
+                  <span>{clientMetrics.latencyMs == null ? "Unknown" : `${Math.round(Number(clientMetrics.latencyMs))} ms`}</span>
+                  <span>{formatPercent(clientMetrics.packetLoss)}</span>
+                </div>
+              );
+            }) : (
+              <p className="p-5 text-center text-sm text-slate-500">
+                No clients available for the selected group.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
     </Panel>
   );
 }
@@ -621,7 +769,7 @@ function TopIssuesPanel({ analytics, loading }) {
       subtitle="Most common problems with quick drill-down cues"
       tone="rose"
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
         {(analytics.topAlerts.length ? analytics.topAlerts : [{ name: "No issues", count: 0 }]).map((issue) => (
           <button
             className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white p-3 text-left transition hover:border-signal"
@@ -703,6 +851,20 @@ function GroupPerformancePanel({ analytics, loading }) {
                 <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">RAM {group.ram}%</span>
                 <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">Disk {group.disk}%</span>
               </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">
+                  CPU Temp {formatTemperature(group.cpuTemperature)}
+                </span>
+                <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">
+                  Latency {group.latencyMs == null ? "Unknown" : `${Math.round(Number(group.latencyMs))} ms`}
+                </span>
+                <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">
+                  Upload {formatBytesPerSecond(group.uploadBytesPerSec)}
+                </span>
+                <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">
+                  Download {formatBytesPerSecond(group.downloadBytesPerSec)}
+                </span>
+              </div>
             </div>
           </div>
         )) : (
@@ -722,7 +884,7 @@ function ExportPanel({ analytics, loading, onExportCsv, exporting }) {
       subtitle="Backend-generated CSV report and alert summary"
       tone="slate"
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
         <button
           className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70"
           disabled={loading || exporting}
@@ -766,9 +928,12 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
 
   useEffect(() => {
     let active = true;
+    let refreshTimer;
 
-    async function loadAnalytics() {
-      setAnalyticsLoading(true);
+    async function loadAnalytics({ background = false } = {}) {
+      if (!background) {
+        setAnalyticsLoading(true);
+      }
       setAnalyticsError("");
 
       try {
@@ -793,9 +958,13 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
     }
 
     loadAnalytics();
+    refreshTimer = setInterval(() => {
+      loadAnalytics({ background: true });
+    }, ANALYTICS_REFRESH_MS);
 
     return () => {
       active = false;
+      clearInterval(refreshTimer);
     };
   }, [rangeKey, selectedGroup]);
 
@@ -816,7 +985,7 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
   }
 
   return (
-    <div className="analytics-shell w-full min-w-0 space-y-6 rounded-lg bg-white" aria-busy={pageLoading}>
+    <div className="analytics-shell w-full min-w-0 space-y-6 rounded-lg" aria-busy={pageLoading}>
       <div className="space-y-6">
         <section className="analytics-hero analytics-reveal rounded-lg border border-line bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-col gap-5">
@@ -878,7 +1047,7 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
         </div>
 
         <div className="grid min-w-0 gap-6">
-          <UnavailableMetricsPanel analytics={analytics} loading={pageLoading} />
+          <AgentMetricsPanel analytics={analytics} loading={pageLoading} />
         </div>
 
         <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -886,13 +1055,13 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
           <HeatmapPanel devices={analytics.allDevices} loading={pageLoading} />
         </div>
 
-        <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-6 xl:grid-cols-3">
           <DistributionPanel analytics={analytics} loading={pageLoading} />
           <EventTimelinePanel analytics={analytics} loading={pageLoading} />
           <TopIssuesPanel analytics={analytics} loading={pageLoading} />
         </div>
 
-        <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-6 xl:grid-cols-3">
           <StatusTransitionsPanel analytics={analytics} loading={pageLoading} />
           <GroupPerformancePanel analytics={analytics} loading={pageLoading} />
           <ExportPanel analytics={analytics} exporting={exporting} loading={pageLoading} onExportCsv={handleExportCsv} />

@@ -44,7 +44,7 @@ function sendStatusToWindow(status) {
 
 async function startAgent() {
   const serverUrl = process.env.SENTRIX_SERVER_URL || "http://localhost:4000";
-  const intervalMs = Number(process.env.METRICS_INTERVAL_MS || 5000);
+  const intervalMs = Number(process.env.METRICS_INTERVAL_MS || 1000);
   const detailsIntervalMs = Number(process.env.DETAILS_INTERVAL_MS || 60000);
   const profile = await getAgentProfile();
   let lastDetails = profile.details;
