@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { LoaderCircle, ShieldCheck, Trash2, Users, Layers, Pencil } from "lucide-react";
+import { Card } from "../components/Card.jsx";
+import { FormInput } from "../components/FormInput.jsx";
+import { PageHeader } from "../components/PageHeader.jsx";
+import { usePendingAction } from "../hooks/usePendingAction.js";
 import * as userApi from "../services/userApi.js";
 import * as groupApi from "../services/groupApi.js";
 
@@ -12,7 +16,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
   const [groupDescription, setGroupDescription] = useState("");
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [message, setMessage] = useState("");
-  const [pendingAction, setPendingAction] = useState(null);
+  const { pending: pendingAction, setPending } = usePendingAction();
 
   useEffect(() => {
     if (isNetworkAdmin) {
@@ -28,36 +32,31 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
   async function handleCreateAdmin(event) {
     event.preventDefault();
     setMessage("");
-    setPendingAction("create-admin");
-    try {
+
+    await setPending("create-admin", async () => {
       await userApi.createAdmin(email, password);
       setEmail("");
       setPassword("");
       setMessage("Admin account created.");
       await loadAdmins();
-    } finally {
-      setPendingAction(null);
-    }
+    });
   }
 
   async function handleDeleteAdmin(id) {
     setMessage("");
-    setPendingAction(`delete-admin-${id}`);
-    try {
+
+    await setPending(`delete-admin-${id}`, async () => {
       await userApi.deleteAdmin(id);
       setMessage("Admin account removed.");
       await loadAdmins();
-    } finally {
-      setPendingAction(null);
-    }
+    });
   }
 
   async function handleSaveGroup(event) {
     event.preventDefault();
     setMessage("");
-    setPendingAction("save-group");
 
-    try {
+    await setPending("save-group", async () => {
       if (editingGroupId) {
         await groupApi.updateGroup(editingGroupId, groupName, groupDescription);
         setMessage("Group renamed.");
@@ -70,21 +69,17 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
       setGroupName("");
       setGroupDescription("");
       await onGroupsChanged?.();
-    } finally {
-      setPendingAction(null);
-    }
+    });
   }
 
   async function handleDeleteGroup(id) {
     setMessage("");
-    setPendingAction(`delete-group-${id}`);
-    try {
+
+    await setPending(`delete-group-${id}`, async () => {
       await groupApi.deleteGroup(id);
       setMessage("Group deleted. Devices in that group were moved to Unassigned.");
       await onGroupsChanged?.();
-    } finally {
-      setPendingAction(null);
-    }
+    });
   }
 
   function startEditingGroup(group) {
@@ -95,20 +90,17 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-line bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold">Settings</h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Role-based controls for account access and lab grouping.
-            </p>
-          </div>
+      <PageHeader
+        icon={ShieldCheck}
+        title="Settings"
+        subtitle="Role-based controls for account access and lab grouping."
+        action={
           <span className="inline-flex items-center gap-2 rounded-md border border-teal-100 bg-teal-50 px-3 py-2 text-sm font-semibold text-ocean">
             <ShieldCheck size={16} />
             {isNetworkAdmin ? "Network admin" : "Admin"}
           </span>
-        </div>
-      </div>
+        }
+      />
 
       {!isNetworkAdmin ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
@@ -124,7 +116,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
       ) : null}
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-2">
-        <section className="min-w-0 rounded-lg border border-line bg-white p-5 shadow-sm">
+        <Card padding="5" className="min-w-0">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold">Admin Accounts</h3>
@@ -137,16 +129,14 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
 
           {isNetworkAdmin ? (
             <form className="grid gap-3" onSubmit={handleCreateAdmin}>
-              <input
-                className="h-11 rounded-md border border-line bg-slate-50 px-3 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-blue-100"
+              <FormInput
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="admin@email.com"
                 type="email"
                 value={email}
                 required
               />
-              <input
-                className="h-11 rounded-md border border-line bg-slate-50 px-3 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-blue-100"
+              <FormInput
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Temporary password"
                 type="password"
@@ -195,9 +185,9 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
                 </div>
               ))}
           </div>
-        </section>
+        </Card>
 
-        <section className="min-w-0 rounded-lg border border-line bg-white p-5 shadow-sm">
+        <Card padding="5" className="min-w-0">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold">Groups</h3>
@@ -210,15 +200,13 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
 
           {isNetworkAdmin ? (
             <form className="grid gap-3" onSubmit={handleSaveGroup}>
-              <input
-                className="h-11 rounded-md border border-line bg-slate-50 px-3 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-blue-100"
+              <FormInput
                 onChange={(event) => setGroupName(event.target.value)}
                 placeholder="CL1 or Room303"
                 value={groupName}
                 required
               />
-              <input
-                className="h-11 rounded-md border border-line bg-slate-50 px-3 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-blue-100"
+              <FormInput
                 onChange={(event) => setGroupDescription(event.target.value)}
                 placeholder="Optional description"
                 value={groupDescription}
@@ -276,7 +264,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
               </div>
             ))}
           </div>
-        </section>
+        </Card>
       </div>
     </div>
   );

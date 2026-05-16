@@ -12,6 +12,9 @@ import {
   ServerCog,
   Smartphone,
 } from "lucide-react";
+import { Card } from "../components/Card.jsx";
+import { PageHeader } from "../components/PageHeader.jsx";
+import { ProgressBar } from "../components/ProgressBar.jsx";
 
 function formatTime(value) {
   if (!value) {
@@ -66,34 +69,11 @@ export function NetworkPage({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-line bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <span className="rounded-lg border border-teal-100 bg-teal-50 p-3 text-ocean">
-              <Radar size={22} />
-            </span>
-            <div>
-              <h2 className="text-xl font-semibold">
-                Automatic Network Discovery
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm text-slate-500">
-                Sentrix scans in the background and streams discovery updates
-                here. Use Rescan when you want to refresh the network now.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                <span className="rounded-full bg-slate-100 px-3 py-1">
-                  Subnet: {snapshot?.subnet || "Unknown"}
-                </span>
-                <span className="rounded-full bg-slate-100 px-3 py-1">
-                  Last scan: {formatTime(snapshot?.lastScanAt)}
-                </span>
-                <span className="rounded-full bg-slate-100 px-3 py-1">
-                  Next auto scan: {formatTime(snapshot?.nextScanAt)}
-                </span>
-              </div>
-            </div>
-          </div>
-
+      <PageHeader
+        icon={Radar}
+        title="Automatic Network Discovery"
+        subtitle="Sentrix scans in the background and streams discovery updates here. Use Rescan when you want to refresh the network now."
+        action={
           <button
             type="button"
             onClick={onScan}
@@ -107,20 +87,27 @@ export function NetworkPage({
             )}
             <span>{scanLoading ? "Scanning" : "Rescan"}</span>
           </button>
+        }
+      >
+        <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+          <span className="rounded-full bg-slate-100 px-3 py-1">
+            Subnet: {snapshot?.subnet || "Unknown"}
+          </span>
+          <span className="rounded-full bg-slate-100 px-3 py-1">
+            Last scan: {formatTime(snapshot?.lastScanAt)}
+          </span>
+          <span className="rounded-full bg-slate-100 px-3 py-1">
+            Next auto scan: {formatTime(snapshot?.nextScanAt)}
+          </span>
         </div>
 
         <div className="mt-5">
-          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-ocean transition-all"
-              style={{ width: `${snapshot?.progress || 0}%` }}
-            />
-          </div>
+          <ProgressBar value={snapshot?.progress || 0} color="ocean" height="h-2" />
           <p className="mt-2 text-sm text-slate-500">
             {snapshot?.message || "Waiting for discovery updates."}
           </p>
         </div>
-      </div>
+      </PageHeader>
 
       {deployMessage ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 shadow-sm">
@@ -128,7 +115,7 @@ export function NetworkPage({
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-line bg-white p-6 shadow-sm">
+      <Card padding="6">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold">Discovered hosts</h3>
@@ -231,7 +218,7 @@ export function NetworkPage({
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

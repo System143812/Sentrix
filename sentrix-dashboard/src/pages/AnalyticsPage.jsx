@@ -22,7 +22,22 @@ import {
   Wifi,
 } from "lucide-react";
 import { SentrixLogoLoader } from "../components/SentrixLogo.jsx";
+import { Card } from "../components/Card.jsx";
+import { StatusBadge } from "../components/StatusBadge.jsx";
+import { ProgressBar } from "../components/ProgressBar.jsx";
 import * as analyticsApi from "../services/analyticsApi.js";
+import {
+  formatUptime,
+  formatTimeAgo,
+  clamp,
+  getHealthScore,
+  getDeviceLoad,
+  getDeviceIssues,
+  buildSmoothSvgPath,
+  getLastSeenAt,
+} from "../shared/utils.js";
+import { EMPTY_ANALYTICS } from "../shared/emptyStates.js";
+import { ICON_TONES, STATUS_TONES, HEATMAP_STATUS_STYLES, getStatusTone } from "../styles/tones.js";
 
 const timeRanges = [
   { key: "24h", label: "Last 24h", points: ["12a", "4a", "8a", "12p", "4p", "Now"] },
@@ -30,97 +45,14 @@ const timeRanges = [
   { key: "30d", label: "30d", points: ["W1", "W2", "W3", "W4", "W5", "Now"] },
 ];
 
-const emptyAnalytics = {
-  range: { key: "24h", label: "Last 24 hours" },
-  generatedAt: null,
-  filters: { group: "all" },
-  totals: { total: 0, online: 0, offline: 0 },
-  averages: { cpu: 0, ram: 0, disk: 0, uptime: 0, load: 0, health: 0 },
-  alerts: { total: 0, critical: 0, byType: [], active: [] },
-  trends: { cpu: [], ram: [], disk: [], health: [], alerts: [] },
-  groups: [],
-  devices: { topLoad: [], outliers: [], recent: [], rows: [] },
-  exportUrls: { csv: "" },
-  dataQuality: {
-    realMetrics: [],
-    storedHistory: false,
-    unavailableMetrics: [],
-    notes: [],
-  },
-};
-
-function clamp(value, min = 0, max = 100) {
-  return Math.min(max, Math.max(min, Number(value) || 0));
-}
-
-function formatTimeAgo(timestamp) {
-  if (!timestamp) return "No heartbeat";
-
-  const minutes = Math.max(0, Math.floor((Date.now() - Number(timestamp)) / 60000));
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-function getLastSeenAt(device) {
-  return device.lastSeenAt ?? device.last_seen_at;
-}
-
-function formatUptime(seconds = 0) {
-  const hours = Math.floor((Number(seconds) || 0) / 3600);
-  if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
-}
-
-function getDeviceLoad(device) {
-  if (Number.isFinite(Number(device.load))) {
-    return Number(device.load);
-  }
-
-  const metrics = device.metrics || {};
-  return Math.round(
-    (clamp(metrics.cpu) + clamp(metrics.ram) + clamp(metrics.disk)) / 3,
-  );
-}
-
-function getHealthScore(device) {
-  if (Number.isFinite(Number(device.health))) {
-    return Number(device.health);
-  }
-
-  const load = getDeviceLoad(device);
-  const statusPenalty = device.status === "online" ? 0 : 34;
-
-  return clamp(Math.round(100 - load * 0.32 - statusPenalty));
-}
-
-function getDeviceIssues(device) {
-  if (Array.isArray(device.issues)) {
-    return device.issues;
-  }
-
-  const metrics = device.metrics || {};
-  const issues = [];
-
-  if (device.status !== "online") issues.push("Offline");
-  if (clamp(metrics.cpu) >= 85) issues.push("High CPU");
-  if (clamp(metrics.ram) >= 85) issues.push("High RAM");
-  if (clamp(metrics.disk) >= 90) issues.push("Disk pressure");
-
-  return issues;
-}
-
-function normalizeApiAnalytics(data = emptyAnalytics) {
-  const safeData = data || emptyAnalytics;
-  const totals = safeData.totals || emptyAnalytics.totals;
-  const averages = safeData.averages || emptyAnalytics.averages;
-  const alerts = safeData.alerts || emptyAnalytics.alerts;
-  const trends = safeData.trends || emptyAnalytics.trends;
-  const devices = safeData.devices || emptyAnalytics.devices;
-  const dataQuality = safeData.dataQuality || emptyAnalytics.dataQuality;
+function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
+  const safeData = data || EMPTY_ANALYTICS;
+  const totals = safeData.totals || EMPTY_ANALYTICS.totals;
+  const averages = safeData.averages || EMPTY_ANALYTICS.averages;
+  const alerts = safeData.alerts || EMPTY_ANALYTICS.alerts;
+  const trends = safeData.trends || EMPTY_ANALYTICS.trends;
+  const devices = safeData.devices || EMPTY_ANALYTICS.devices;
+  const dataQuality = safeData.dataQuality || EMPTY_ANALYTICS.dataQuality;
   const topIssues = (alerts.active || []).map((alert) => ({
     issue: alert.issue,
     device: {
@@ -168,39 +100,10 @@ function normalizeApiAnalytics(data = emptyAnalytics) {
   };
 }
 
-function getStatusTone(score) {
-  if (score >= 80) return "emerald";
-  if (score >= 60) return "amber";
-  return "red";
-}
-
-function buildSmoothSvgPath(coordinates, step) {
-  return coordinates
-    .map((point, index) => {
-      if (index === 0) return `M ${point.x} ${point.y}`;
-
-      const previous = coordinates[index - 1];
-      const controlOffset = step * 0.42;
-      return `C ${previous.x + controlOffset} ${previous.y}, ${
-        point.x - controlOffset
-      } ${point.y}, ${point.x} ${point.y}`;
-    })
-    .join(" ");
-}
-
-const iconTones = {
-  blue: "border-blue-100 bg-blue-50 text-blue-700",
-  rose: "border-rose-100 bg-rose-50 text-rose-700",
-  amber: "border-amber-100 bg-amber-50 text-amber-700",
-  teal: "border-teal-100 bg-teal-50 text-teal-700",
-  emerald: "border-emerald-100 bg-emerald-50 text-emerald-700",
-  slate: "border-slate-200 bg-slate-50 text-slate-700",
-};
-
 function TooltipIcon({ icon: Icon, label, tone = "teal" }) {
   return (
     <span
-      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border shadow-sm shadow-slate-200/70 ${iconTones[tone]}`}
+      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border shadow-sm shadow-slate-200/70 ${ICON_TONES[tone]}`}
       title={label}
       aria-label={label}
     >
@@ -226,7 +129,7 @@ function ModuleLoader({ loading }) {
 
 function Panel({ icon, title, subtitle, children, action, loading = false, tone = "teal" }) {
   return (
-    <section className="analytics-panel analytics-reveal relative flex h-full min-w-0 flex-col rounded-lg border border-line bg-white p-5 shadow-sm sm:p-6">
+    <Card padding="5" className="analytics-panel analytics-reveal relative flex h-full min-w-0 flex-col sm:p-6">
       <ModuleLoader loading={loading} />
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -241,15 +144,13 @@ function Panel({ icon, title, subtitle, children, action, loading = false, tone 
         {action}
       </div>
       <div className="flex flex-1 flex-col">{children}</div>
-    </section>
+    </Card>
   );
 }
 
 function MetricCard({ icon: Icon, label, value, detail, tone = "blue", warning = false, loading = false }) {
   return (
-    <article
-      className="analytics-card analytics-reveal relative rounded-lg border border-line bg-white p-4 shadow-sm"
-    >
+    <Card padding="4" className="analytics-card analytics-reveal relative">
       <ModuleLoader loading={loading} />
       <div className="grid grid-cols-[minmax(0,1fr)_44px] items-start gap-3">
         <div className="min-w-0">
@@ -260,13 +161,13 @@ function MetricCard({ icon: Icon, label, value, detail, tone = "blue", warning =
           </span>
         </div>
         <span
-          className={`analytics-icon grid h-11 w-11 shrink-0 place-items-center rounded-md border shadow-sm ${iconTones[warning ? "rose" : tone]}`}
+          className={`analytics-icon grid h-11 w-11 shrink-0 place-items-center rounded-md border shadow-sm ${ICON_TONES[warning ? "rose" : tone]}`}
           title={label}
         >
           {warning ? <BadgeAlert size={20} strokeWidth={2.4} /> : <Icon size={20} strokeWidth={2.4} />}
         </span>
       </div>
-    </article>
+    </Card>
   );
 }
 
@@ -363,12 +264,8 @@ function MultiLineChart({ devices = [] }) {
                   </span>
                 </div>
                 <div className="grid gap-2">
-                  <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${clamp(health)}%` }} />
-                  </div>
-                  <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-blue-500" style={{ width: `${clamp(load)}%` }} />
-                  </div>
+                  <ProgressBar value={clamp(health)} color="emerald" />
+                  <ProgressBar value={clamp(load)} color="blue" />
                 </div>
               </div>
             );
@@ -469,11 +366,6 @@ function UnavailableMetricsPanel({ analytics, loading }) {
 
 function HealthScorePanel({ analytics, loading }) {
   const tone = getStatusTone(analytics.health);
-  const colors = {
-    emerald: "text-emerald-600",
-    amber: "text-amber-600",
-    red: "text-red-600",
-  };
   const factors = [
     { label: "Utilization", value: 100 - analytics.pressure, icon: Gauge },
     { label: "CPU", value: 100 - analytics.cpu, icon: Cpu },
@@ -493,7 +385,7 @@ function HealthScorePanel({ analytics, loading }) {
         <div className="grid place-items-center rounded-lg border border-slate-100 bg-slate-50 p-5">
           <div className="grid h-40 w-40 place-items-center rounded-full border-[14px] border-slate-200 bg-white">
             <div className="text-center">
-              <strong className={`block text-4xl font-bold ${colors[tone]}`}>{analytics.health}%</strong>
+              <strong className={`block text-4xl font-bold ${STATUS_TONES[tone]}`}>{analytics.health}%</strong>
               <span className="text-xs font-medium text-slate-500">overall</span>
             </div>
           </div>
@@ -510,9 +402,7 @@ function HealthScorePanel({ analytics, loading }) {
                   </span>
                   <span className="shrink-0 text-sm font-bold">{clamp(factor.value)}%</span>
                 </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-ocean" style={{ width: `${clamp(factor.value)}%` }} />
-                </div>
+                <ProgressBar value={clamp(factor.value)} color="ocean" height="h-2" className="mt-3" />
               </div>
             );
           })}
@@ -627,14 +517,8 @@ function HeatmapPanel({ devices, loading }) {
         {devices.length ? devices.map((device) => {
           const score = getHealthScore(device);
           const tone = getStatusTone(score);
-          const styles = {
-            emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
-            amber: "border-amber-200 bg-amber-50 text-amber-800",
-            red: "border-red-200 bg-red-50 text-red-800",
-          };
-
           return (
-            <div className={`min-w-0 rounded-lg border p-3 ${styles[tone]}`} key={device.id} title={`${device.hostname}: ${score}% health`}>
+            <div className={`min-w-0 rounded-lg border p-3 ${HEATMAP_STATUS_STYLES[tone]}`} key={device.id} title={`${device.hostname}: ${score}% health`}>
               <p className="break-words text-xs font-bold leading-4">{device.hostname}</p>
               <p className="mt-2 text-2xl font-bold">{score}</p>
             </div>
@@ -651,9 +535,9 @@ function HeatmapPanel({ devices, loading }) {
 
 function DistributionPanel({ analytics, loading }) {
   const bars = [
-    { label: "CPU", value: analytics.cpu, icon: Cpu, color: "bg-rose-500" },
-    { label: "RAM", value: analytics.ram, icon: MemoryStick, color: "bg-blue-500" },
-    { label: "Disk", value: analytics.disk, icon: HardDrive, color: "bg-amber-500" },
+    { label: "CPU", value: analytics.cpu, icon: Cpu, color: "rose" },
+    { label: "RAM", value: analytics.ram, icon: MemoryStick, color: "blue" },
+    { label: "Disk", value: analytics.disk, icon: HardDrive, color: "amber" },
   ];
 
   return (
@@ -676,9 +560,7 @@ function DistributionPanel({ analytics, loading }) {
                 </span>
                 <span className="shrink-0 whitespace-nowrap font-bold">{bar.value}% average</span>
               </div>
-              <div className="h-4 overflow-hidden rounded-full bg-slate-100">
-                <div className={`h-full rounded-full ${bar.color}`} style={{ width: `${bar.value}%` }} />
-              </div>
+              <ProgressBar value={bar.value} color={bar.color} height="h-4" />
             </div>
           );
         })}
@@ -775,10 +657,7 @@ function StatusTransitionsPanel({ analytics, loading }) {
               <span className="block break-words font-semibold text-slate-800">{device.hostname}</span>
               <span className="text-xs text-slate-500">{formatTimeAgo(getLastSeenAt(device))}</span>
             </span>
-            <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-xs font-bold capitalize ${device.status === "online" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-              <Wifi size={13} />
-              {device.status}
-            </span>
+            <StatusBadge status={device.status} />
           </div>
         )) : (
           <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No transitions to show.</p>
@@ -810,18 +689,14 @@ function GroupPerformancePanel({ analytics, loading }) {
                   <span>Health</span>
                   <span>{group.health}%</span>
                 </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-emerald-500 transition-all duration-700" style={{ width: `${group.health}%` }} />
-                </div>
+                <ProgressBar value={group.health} color="emerald" height="h-2.5" />
               </div>
               <div>
                 <div className="mb-1 flex justify-between text-xs font-semibold text-slate-500">
                   <span>Load</span>
                   <span>{group.load}%</span>
                 </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-blue-500 transition-all duration-700" style={{ width: `${group.load}%` }} />
-                </div>
+                <ProgressBar value={group.load} color="blue" height="h-2.5" />
               </div>
               <div className="grid gap-2 sm:grid-cols-3">
                 <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">CPU {group.cpu}%</span>
@@ -873,7 +748,7 @@ function ExportPanel({ analytics, loading, onExportCsv, exporting }) {
 export function AnalyticsPage({ dashboardData = {}, loading = false }) {
   const [rangeKey, setRangeKey] = useState("24h");
   const [selectedGroup, setSelectedGroup] = useState("all");
-  const [analyticsData, setAnalyticsData] = useState(emptyAnalytics);
+  const [analyticsData, setAnalyticsData] = useState(EMPTY_ANALYTICS);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -903,12 +778,12 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
         });
 
         if (active) {
-          setAnalyticsData(nextAnalytics || emptyAnalytics);
+          setAnalyticsData(nextAnalytics || EMPTY_ANALYTICS);
         }
       } catch (error) {
         if (active) {
           setAnalyticsError(error.message || "Unable to load analytics.");
-          setAnalyticsData(emptyAnalytics);
+          setAnalyticsData(EMPTY_ANALYTICS);
         }
       } finally {
         if (active) {
