@@ -1,36 +1,14 @@
 import pool from "../lib/database.js";
+import {
+  appendMetricsHistory,
+  getClientHardware,
+  getClientMetricHistory,
+  normalizeMetrics,
+  saveHardwareDetails,
+  saveMetricSample,
+} from "./clientMetrics.services.js";
 
 const HEARTBEAT_TIMEOUT_MS = Number(process.env.HEARTBEAT_TIMEOUT_MS || 60000);
-const HISTORY_SAMPLE_INTERVAL_MS = Number(
-  process.env.METRICS_HISTORY_SAMPLE_INTERVAL_MS || 60000,
-);
-const MAX_HISTORY_POINTS = Number(process.env.METRICS_HISTORY_LIMIT || 1440);
-
-function buildHistoryPoint(metrics = {}, timestamp = Date.now()) {
-  return {
-    timestamp,
-    cpu: Number(metrics.cpu) || 0,
-    ram: Number(metrics.ram) || 0,
-    disk: Number(metrics.disk) || 0,
-    uptime: Number(metrics.uptime) || 0,
-  };
-}
-
-function appendMetricsHistory(currentHistory = [], metrics = {}, timestamp = Date.now()) {
-  const history = Array.isArray(currentHistory) ? currentHistory : [];
-  const lastPoint = history[history.length - 1];
-
-  if (
-    lastPoint &&
-    timestamp - Number(lastPoint.timestamp || 0) < HISTORY_SAMPLE_INTERVAL_MS
-  ) {
-    return history;
-  }
-
-  return [...history, buildHistoryPoint(metrics, timestamp)].slice(
-    -MAX_HISTORY_POINTS,
-  );
-}
 
 function normalizeClient(client) {
   if (!client) return client;
@@ -94,6 +72,7 @@ export async function registerClient(clientData) {
     disk: 0,
     uptime: 0,
   };
+  const normalizedMetrics = normalizeMetrics(metrics);
   const details = clientData.details ?? {};
   const history = clientData.history ?? [];
 
@@ -127,7 +106,7 @@ export async function registerClient(clientData) {
       clientData.os,
       clientData.device_type || "computer",
       clientGroup,
-      JSON.stringify(metrics),
+      JSON.stringify(normalizedMetrics),
       JSON.stringify(details),
       JSON.stringify(history),
       now,
@@ -135,6 +114,8 @@ export async function registerClient(clientData) {
       now,
     ],
   );
+
+  await saveHardwareDetails(id, details);
 
   return getClientById(id);
 }
@@ -145,8 +126,14 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
 
   if (!currentClient || currentClient.archived) return null;
 
-  const history = appendMetricsHistory(currentClient.history, metrics, now);
-  const params = [JSON.stringify(metrics), JSON.stringify(history), now, now];
+  const normalizedMetrics = normalizeMetrics(metrics);
+  const history = appendMetricsHistory(currentClient.history, normalizedMetrics, now);
+  const params = [
+    JSON.stringify(normalizedMetrics),
+    JSON.stringify(history),
+    now,
+    now,
+  ];
   let detailsSql = "";
 
   if (details) {
@@ -172,6 +159,9 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
 
   if (rows.affectedRows === 0) return null;
 
+  await saveMetricSample(id, normalizedMetrics, now);
+  await saveHardwareDetails(id, details);
+
   return getClientById(id);
 }
 
@@ -185,10 +175,12 @@ export async function touchClientHeartbeat(id, metrics = null) {
 
     if (!currentClient || currentClient.archived) return null;
 
-    const history = appendMetricsHistory(currentClient.history, metrics, now);
+    const normalizedMetrics = normalizeMetrics(metrics);
+    const history = appendMetricsHistory(currentClient.history, normalizedMetrics, now);
     metricsSql = ", metrics = ?, history = ?";
-    params.push(JSON.stringify(metrics));
+    params.push(JSON.stringify(normalizedMetrics));
     params.push(JSON.stringify(history));
+    await saveMetricSample(id, normalizedMetrics, now);
   }
 
   params.push(id);
@@ -272,6 +264,41 @@ export async function getClientSummary() {
     offline,
     clients,
   };
+}
+
+export async function getClientMetrics(id, options = {}) {
+  const client = await getClientById(id);
+
+  if (!client || client.archived) return null;
+
+  return getClientMetricHistory(id, options);
+}
+
+export async function getClientHardwareDetails(id) {
+  const client = await getClientById(id);
+
+  if (!client || client.archived) return null;
+
+  const hardware = await getClientHardware(id);
+
+  if (
+    !hardware.profile &&
+    !hardware.peripherals &&
+    client.details &&
+    typeof client.details === "object"
+  ) {
+    return {
+      profile: client.details.specs || null,
+      peripherals: client.details.peripherals || null,
+      disks: client.details.specs?.disks || [],
+      networkAdapters: client.details.specs?.networkAdapters || [],
+      usbDevices: client.details.usbDevices || [],
+      graphicsCards: client.details.peripherals?.graphicsCards || [],
+      displays: client.details.peripherals?.displays || [],
+    };
+  }
+
+  return hardware;
 }
 
 export function startOfflineWatcher(io) {
