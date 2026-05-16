@@ -1,4 +1,5 @@
 import { DeviceTable } from "../components/DeviceTable.jsx";
+import { PageHeader } from "../components/PageHeader.jsx";
 
 export function DevicesPage({
   dashboardData,
@@ -9,13 +10,10 @@ export function DevicesPage({
 }) {
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-line bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-semibold">Devices</h2>
-        <p className="mt-2 text-sm text-slate-500">
-          Manage device groups, expand device details, and review agent status
-          at a glance.
-        </p>
-      </div>
+      <PageHeader
+        title="Devices"
+        subtitle="Manage device groups, expand device details, and review agent status at a glance."
+      />
 
       <DeviceTable
         devices={dashboardData.clients || []}

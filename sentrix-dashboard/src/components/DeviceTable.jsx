@@ -11,40 +11,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { MetricPill } from "./MetricPill.jsx";
-
-function formatUptime(seconds = 0) {
-  const totalSeconds = Math.floor(Number(seconds) || 0);
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const secs = totalSeconds % 60;
-
-  if (days > 0) {
-    return `${days} ${days === 1 ? "day" : "days"} ${hours} ${
-      hours === 1 ? "hour" : "hours"
-    }`;
-  }
-
-  if (hours > 0) {
-    return `${hours} ${hours === 1 ? "hour" : "hours"} ${minutes} ${
-      minutes === 1 ? "minute" : "minutes"
-    }`;
-  }
-
-  if (minutes > 0) {
-    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} ${secs} ${
-      secs === 1 ? "second" : "seconds"
-    }`;
-  }
-
-  return `${secs} ${secs === 1 ? "second" : "seconds"}`;
-}
-
-function formatBool(value) {
-  if (value === true) return "Detected";
-  if (value === false) return "Not detected";
-  return "Unknown";
-}
+import { formatUptimeVerbose, formatBool } from "../shared/utils.js";
 
 function getUsbSearchText(device = {}) {
   return [device.name, device.type, device.vendor, device.id]
@@ -200,7 +167,7 @@ function DeviceDetails({ device }) {
             <DetailItem label="IP Address" value={device.ip} />
             <DetailItem label="MAC Address" value={device.mac} />
             <DetailItem label="Group" value={device.group} />
-            <DetailItem label="Uptime" value={formatUptime(metrics.uptime)} />
+            <DetailItem label="Uptime" value={formatUptimeVerbose(metrics.uptime)} />
           </dl>
         </section>
 
@@ -439,7 +406,7 @@ export function DeviceTable({
                     <MetricPill
                       icon={Timer}
                       label="Up"
-                      value={formatUptime(metrics.uptime)}
+                      value={formatUptimeVerbose(metrics.uptime)}
                     />
                   </div>
 
