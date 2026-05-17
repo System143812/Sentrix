@@ -9,10 +9,18 @@ export class Client {
     this.group = data.group ?? "Unassigned";
     this.status = "online";
     this.metrics = data.metrics ?? {
-      cpu: 0,
-      ram: 0,
-      disk: 0,
-      uptime: 0,
+      schemaVersion: 2,
+      system: {
+        cpu: { usage: 0 },
+        memory: { usage: 0 },
+        disk: { usage: 0 },
+        uptimeSeconds: 0,
+      },
+      network: { interface: "Unknown" },
+      temperature: {
+        cpu: { temperatureCelsius: null },
+        gpu: { model: "Unknown", temperatureCelsius: null },
+      },
     };
     this.createdAt = Date.now();
     this.updatedAt = Date.now();
