@@ -203,16 +203,9 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
   const displays = hardware?.displays || peripherals.displays || [];
   const metrics = device.metrics || {};
   const latestSample = metricHistory?.latest || null;
-  const sampleNetwork = hasNetworkReading(metrics.network)
-    ? metrics.network
-    : hasNetworkReading(latestSample?.network)
-    ? latestSample.network
-    : {};
-  const sampleTemperature = hasTemperatureReading(metrics.temperature)
-    ? metrics.temperature
-    : hasTemperatureReading(latestSample?.temperature)
-    ? latestSample.temperature
-    : {};
+  
+  const sampleNetwork = metrics.network || latestSample?.network || {};
+  const sampleTemperature = metrics.temperature || latestSample?.temperature || {};
   const sampleSystem = metrics.system || latestSample?.system || {};
 
   return (
@@ -303,11 +296,11 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
             <DetailItem
               label="CPU Temperature"
-              value={formatTemperature(sampleTemperature.cpu?.temperatureCelsius ?? metrics.cpuTemperature)}
+              value={formatTemperature(sampleTemperature.cpu?.temperatureCelsius)}
             />
             <DetailItem
               label="GPU Temperature"
-              value={formatTemperature(sampleTemperature.gpu?.temperatureCelsius ?? metrics.gpuTemperature)}
+              value={formatTemperature(sampleTemperature.gpu?.temperatureCelsius)}
             />
             <DetailItem label="GPU Model" value={sampleTemperature.gpu?.model} />
           </dl>
@@ -320,13 +313,13 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           </h4>
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
             <DetailItem label="Interface" value={sampleNetwork.interface} />
-            <DetailItem label="Upload" value={formatBytesPerSecond(sampleNetwork.uploadBytesPerSec ?? metrics.uploadBytesPerSec)} />
-            <DetailItem label="Download" value={formatBytesPerSecond(sampleNetwork.downloadBytesPerSec ?? metrics.downloadBytesPerSec)} />
+            <DetailItem label="Upload" value={formatBytesPerSecond(sampleNetwork.uploadBytesPerSec)} />
+            <DetailItem label="Download" value={formatBytesPerSecond(sampleNetwork.downloadBytesPerSec)} />
             <DetailItem
               label="Latency"
               value={sampleNetwork.latencyMs == null ? "Unknown" : `${Math.round(Number(sampleNetwork.latencyMs))} ms`}
             />
-            <DetailItem label="Packet Loss" value={formatPercent(sampleNetwork.packetLoss ?? metrics.packetLoss)} />
+            <DetailItem label="Packet Loss" value={formatPercent(sampleNetwork.packetLoss)} />
           </dl>
         </section>
 
