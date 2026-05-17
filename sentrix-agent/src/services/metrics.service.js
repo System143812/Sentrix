@@ -118,10 +118,6 @@ function buildMetricsPayload(agentId, hostname) {
     status: "online",
     timestamp,
     lastUpdatedAt,
-    cpu: getPrimaryMetricValue(cpu.usage),
-    ram: getPrimaryMetricValue(memory.usage),
-    disk: getPrimaryMetricValue(disk.usage),
-    uptime: toNumber(os.uptime(), 0),
     system: {
       cpu,
       memory,
