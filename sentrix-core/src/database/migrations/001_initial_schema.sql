@@ -1,4 +1,5 @@
--- sentrix-core MySQL schema
+-- Migration: 001_initial_schema
+-- Description: Initial database setup including core tables and specialized metric tables.
 
 CREATE TABLE IF NOT EXISTS client_groups (
   id CHAR(36) PRIMARY KEY,
@@ -25,7 +26,7 @@ CREATE TABLE IF NOT EXISTS clients (
   ip VARCHAR(45),
   mac VARCHAR(17),
   os VARCHAR(255),
-  device_type VARCHAR(100),
+  device_type VARCHAR(100) NOT NULL DEFAULT 'computer',
   client_group VARCHAR(255) NOT NULL DEFAULT 'Unassigned',
   status ENUM('online', 'offline', 'idle') NOT NULL DEFAULT 'offline',
   metrics JSON NOT NULL,
@@ -40,7 +41,7 @@ CREATE TABLE IF NOT EXISTS clients (
 CREATE TABLE IF NOT EXISTS client_metric_samples (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   client_id CHAR(36) NOT NULL,
-  schema_version INT NOT NULL DEFAULT 1,
+  schema_version INT NOT NULL DEFAULT 2,
   recorded_at BIGINT NOT NULL,
   cpu_usage DECIMAL(6,2),
   ram_usage DECIMAL(6,2),
