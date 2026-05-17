@@ -155,6 +155,10 @@ select {
   transform-origin: center;
 }
 
+.device-detail-view {
+  animation: device-detail-view 260ms ease-out both;
+}
+
 @keyframes analytics-reveal {
   from {
     opacity: 0;
@@ -263,6 +267,18 @@ select {
   }
 }
 
+@keyframes device-detail-view {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes analytics-ring {
   from {
     stroke-dashoffset: 276.46;
@@ -299,7 +315,8 @@ select {
   .sentrix-logo-loader,
   .sentrix-logo-loader .sentrix-logo-draw,
   .sentrix-logo-loader .sentrix-logo-fill,
-  .sentrix-logo-loader .sentrix-logo-node {
+  .sentrix-logo-loader .sentrix-logo-node,
+  .device-detail-view {
     animation: none;
   }
 
