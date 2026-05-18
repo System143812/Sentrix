@@ -3,23 +3,39 @@
   "version": "1.0.0",
   "description": "Sentrix device agent for lab computer monitoring.",
   "main": "src/main/main.js",
+  "bin": "src/headless.js",
   "scripts": {
     "dev": "node src/headless.js",
     "start": "node src/headless.js",
     "dev:electron": "electron .",
     "start:electron": "electron .",
-    "install:windows": "powershell -ExecutionPolicy Bypass -File scripts/install-windows.ps1"
+    "install:windows": "powershell -ExecutionPolicy Bypass -File scripts/install-windows.ps1",
+    "build:exe": "powershell -ExecutionPolicy Bypass -File scripts/build-dist.ps1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
+  "pkg": {
+    "assets": [
+      "src/services/metrics/temp-bridge.ps1",
+      "bin/hardware/*.dll",
+      ".env"
+    ],
+    "targets": [
+      "node22-win-x64"
+    ],
+    "outputPath": "dist"
+  },
   "dependencies": {
     "dotenv": "^17.4.2",
+    "esbuild": "^0.28.0",
     "socket.io-client": "^4.8.3",
     "systeminformation": "^5.27.13"
   },
   "devDependencies": {
-    "electron": "^38.5.1"
+    "@vercel/nft": "^1.5.0",
+    "electron": "^38.5.1",
+    "pkg": "^5.8.1"
   }
 }

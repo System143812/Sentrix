@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { isAdmin, elevate } from "./utils/elevation.js";
 import {
   getAgentProfile,
   getDeviceDetails,
@@ -8,7 +9,19 @@ import { connectToCore } from "./services/socket.service.js";
 
 dotenv.config();
 
-const serverUrl = process.env.SENTRIX_SERVER_URL || "http://localhost:4000";
+// Auto-elevate on Windows to ensure hardware sensor access
+if (process.platform === "win32" && !isAdmin()) {
+  console.log("[Elevation] Sentrix Agent requires administrative privileges for hardware monitoring.");
+  console.log("[Elevation] Attempting to relaunch as administrator...");
+  elevate();
+}
+
+// Parse CLI arguments
+const args = process.argv.slice(2);
+const serverUrlArg = args.find(arg => arg.startsWith("--server-url="))?.split("=")[1] 
+                   || args[args.indexOf("--server-url") + 1];
+
+const serverUrl = serverUrlArg || process.env.SENTRIX_SERVER_URL || "http://localhost:4000";
 const metricsIntervalMs = Number(process.env.METRICS_INTERVAL_MS || 1000);
 const detailsIntervalMs = Number(process.env.DETAILS_INTERVAL_MS || 60000);
 const heartbeatIntervalMs = Number(process.env.HEARTBEAT_INTERVAL_MS || 10000);
