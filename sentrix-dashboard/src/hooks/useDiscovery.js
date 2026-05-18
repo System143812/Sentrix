@@ -58,6 +58,7 @@ export function useDiscovery() {
 
   async function deploy(ip, deviceType, credentials = null) {
     setDeployingIp(ip);
+    setMessage("");
     try {
       const result = await discoveryApi.deployAgent(ip, deviceType, credentials);
       setMessage(result.message || `Deployment queued for ${ip}.`);
