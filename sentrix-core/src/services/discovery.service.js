@@ -855,7 +855,77 @@ export function startDiscoveryScheduler(io) {
   setInterval(runAndEmit, AUTO_SCAN_INTERVAL_MS);
 }
 
-export async function deployAgentToHost(ip) {
+export async function deployAgentToHostRemote(ip, credentials = null) {
+  const serverUrl = process.env.SENTRIX_PUBLIC_SERVER_URL
+    || process.env.CORE_PUBLIC_URL
+    || process.env.BACKEND_URL
+    || `http://${getPrimaryInterfaceAddress() || "localhost"}:${process.env.PORT || 4000}`;
+
+  // Paths to local artifacts
+  const agentExePath = path.resolve(process.cwd(), "../sentrix-agent/dist/sentrix-agent.exe");
+  const assetsPath = path.resolve(process.cwd(), "../sentrix-agent/dist/assets");
+
+  if (!credentials) {
+    return {
+      success: false,
+      message: "Credentials are required for remote deployment.",
+      needsCredentials: true,
+      ip
+    };
+  }
+
+  const { username, password } = credentials;
+
+  // PowerShell script for remote deployment
+  // 1. Create directory on target
+  // 2. Copy exe and assets
+  // 3. Create scheduled task
+  const deployScript = `
+    $ip = "${ip}"
+    $user = "${username}"
+    $pass = "${password}" | ConvertTo-SecureString -AsPlainText -Force
+    $cred = New-Object System.Management.Automation.PSCredential($user, $pass)
+    
+    $targetDir = "C:\\ProgramData\\SentrixAgent"
+    $session = New-PSSession -ComputerName $ip -Credential $cred -ErrorAction Stop
+
+    try {
+        Invoke-Command -Session $session -ScriptBlock {
+            param($dir)
+            if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force }
+        } -ArgumentList $targetDir
+
+        # Copy files
+        Copy-Item -Path "${agentExePath}" -Destination "$targetDir\\sentrix-agent.exe" -ToSession $session
+        Copy-Item -Path "${assetsPath}" -Destination "$targetDir" -Recurse -Force -ToSession $session
+
+        Invoke-Command -Session $session -ScriptBlock {
+            param($dir, $url)
+            Set-Location $dir
+            
+            # Register task
+            $action = New-ScheduledTaskAction -Execute "$dir\\sentrix-agent.exe" -WorkingDirectory $dir
+            $trigger = New-ScheduledTaskTrigger -AtStartup
+            $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
+            $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+            
+            Register-ScheduledTask -TaskName "Sentrix Agent" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
+            Start-ScheduledTask -TaskName "Sentrix Agent"
+        } -ArgumentList $targetDir, "${serverUrl}"
+    } finally {
+        Remove-PSSession $session
+    }
+  `;
+
+  try {
+    await execFileAsync("powershell.exe", ["-Command", deployScript], { timeout: 60000 });
+    return { success: true, message: `Successfully deployed agent to ${ip}`, ip };
+  } catch (error) {
+    return { success: false, message: `Deployment failed: ${error.message}`, ip };
+  }
+}
+
+export async function deployAgentToHost(ip, credentials = null) {
   const scannedDevice = lastScanResults.get(ip);
   const serverUrl = process.env.SENTRIX_PUBLIC_SERVER_URL
     || process.env.CORE_PUBLIC_URL
@@ -878,16 +948,20 @@ export async function deployAgentToHost(ip) {
     };
   }
 
+  if (credentials) {
+    return await deployAgentToHostRemote(ip, credentials);
+  }
+
   return {
     success: true,
-    message: `Deployment package prepared for ${ip}. Run the lightweight installer on the target PC or configure remote deployment credentials.`,
+    message: `Deployment package prepared for ${ip}. Run the standalone agent on the target PC or provide credentials for remote deployment.`,
     ip,
     device: scannedDevice,
     serverUrl,
     installer: {
-      type: "windows-scheduled-task",
-      agent: "sentrix-agent/scripts/install-windows.ps1",
-      command: `powershell -ExecutionPolicy Bypass -File scripts\\install-windows.ps1 -ServerUrl "${serverUrl}"`,
+      type: "standalone-exe",
+      agent: "sentrix-agent/dist/sentrix-agent.exe",
+      command: `sentrix-agent.exe --server-url "${serverUrl}"`,
     },
   };
 }

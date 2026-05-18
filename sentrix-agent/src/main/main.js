@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { app, BrowserWindow, ipcMain } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
+import { isAdmin, elevate } from "../utils/elevation.js";
 import {
   getAgentProfile,
   getMetrics,
@@ -10,6 +11,11 @@ import {
 import { connectToCore } from "../services/socket.service.js";
 
 dotenv.config();
+
+// Auto-elevate on Windows to ensure hardware sensor access
+if (process.platform === "win32" && !isAdmin()) {
+  elevate();
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
