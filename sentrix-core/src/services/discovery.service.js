@@ -1,8 +1,9 @@
-import { execFile } from "child_process";
 import os from "os";
+import path from "path";
 import { promisify } from "util";
 import dns from "dns";
 import net from "net";
+import { execFile } from "child_process";
 import { getAllClients } from "./client.services.js";
 
 const execFileAsync = promisify(execFile);
@@ -932,24 +933,17 @@ export async function deployAgentToHost(ip, credentials = null) {
     || process.env.BACKEND_URL
     || `http://${getPrimaryInterfaceAddress() || "localhost"}:${process.env.PORT || 4000}`;
 
+  // If we have credentials, we can attempt a remote deployment even if not in scan results
+  if (credentials) {
+    return await deployAgentToHostRemote(ip, credentials);
+  }
+
   if (!scannedDevice) {
     return {
       success: false,
-      message: "Deploy is only available for devices found in the latest scan.",
+      message: "Manual deployment requires credentials. Otherwise, deployment is only available for devices found in the latest scan.",
       ip,
     };
-  }
-
-  if (!scannedDevice.deploy_eligible) {
-    return {
-      success: false,
-      message: `Cannot deploy to ${scannedDevice.device_type} devices. Deployment is only available for scanned PCs.`,
-      ip,
-    };
-  }
-
-  if (credentials) {
-    return await deployAgentToHostRemote(ip, credentials);
   }
 
   return {
