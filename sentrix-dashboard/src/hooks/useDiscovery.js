@@ -56,13 +56,15 @@ export function useDiscovery() {
     }
   }
 
-  async function deploy(ip, deviceType) {
+  async function deploy(ip, deviceType, credentials = null) {
     setDeployingIp(ip);
     try {
-      const result = await discoveryApi.deployAgent(ip, deviceType);
+      const result = await discoveryApi.deployAgent(ip, deviceType, credentials);
       setMessage(result.message || `Deployment queued for ${ip}.`);
+      return result;
     } catch (error) {
       setMessage(error.message || "Agent deployment failed.");
+      throw error;
     } finally {
       setDeployingIp(null);
     }
