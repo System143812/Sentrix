@@ -134,17 +134,47 @@ function buildMetricsPayload(agentId, hostname) {
 }
 
 function getPrimaryNetwork() {
-  const interfaces = os.networkInterfaces();
+  if (process.env.AGENT_IP_OVERRIDE) {
+    return {
+      ip: process.env.AGENT_IP_OVERRIDE,
+      mac: "Override",
+    };
+  }
 
-  for (const records of Object.values(interfaces)) {
+  const interfaces = os.networkInterfaces();
+  const candidates = [];
+
+  for (const [name, records] of Object.entries(interfaces)) {
     for (const record of records || []) {
       if (record.family === "IPv4" && !record.internal) {
-        return {
-          ip: record.address,
+        const isVirtual = /virtual|vbox|vmware|docker|veth|vpn|sandbox/i.test(name);
+        candidates.push({
+          name,
+          address: record.address,
           mac: record.mac,
-        };
+          isVirtual,
+          isCommonLan: record.address.startsWith("192.168.") || record.address.startsWith("10.")
+        });
       }
     }
+  }
+
+  // Sort candidates:
+  // 1. Not virtual + common LAN
+  // 2. Not virtual
+  // 3. Common LAN
+  // 4. Anything else
+  candidates.sort((a, b) => {
+    if (a.isVirtual !== b.isVirtual) return a.isVirtual ? 1 : -1;
+    if (a.isCommonLan !== b.isCommonLan) return a.isCommonLan ? -1 : 1;
+    return 0;
+  });
+
+  if (candidates.length > 0) {
+    return {
+      ip: candidates[0].address,
+      mac: candidates[0].mac,
+    };
   }
 
   return {

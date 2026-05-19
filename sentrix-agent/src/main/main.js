@@ -17,8 +17,13 @@ if (process.platform === "win32" && !isAdmin()) {
   elevate();
 }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Robust way to get __dirname in both ESM and CJS/bundled environments
+const __filename = typeof __filename !== "undefined" 
+  ? __filename 
+  : (import.meta && import.meta.url ? fileURLToPath(import.meta.url) : "");
+const __dirname = typeof __dirname !== "undefined" 
+  ? __dirname 
+  : (path && __filename ? path.dirname(__filename) : "");
 
 let mainWindow;
 let socketClient;
