@@ -1,13 +1,20 @@
 import si from "systeminformation";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { collectSafely, safeString, toNumber } from "./helpers.js";
 
 const execFileAsync = promisify(execFile);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+
+// Robust way to get __dirname in both ESM and CJS/bundled environments
+const __filename = typeof __filename !== "undefined" 
+  ? __filename 
+  : (import.meta && import.meta.url ? fileURLToPath(import.meta.url) : "");
+const __dirname = typeof __dirname !== "undefined" 
+  ? __dirname 
+  : (path && __filename ? path.dirname(__filename) : "");
 
 const TEMP_BRIDGE_PATH = path.resolve(__dirname, "temp-bridge.ps1");
 
@@ -94,15 +101,12 @@ async function getLibreHardwareTemperature() {
     
     // Check if we are running inside pkg
     if (process.pkg) {
-      // In pkg, we might need to extract the script to a temp folder if it fails
-      // but let's try reading it first and passing it via -Command or just use the local path if it works
-      // Actually, standard pkg practice is to let the user know they need to keep assets external 
-      // OR we use a helper to extract it.
-      // For now, let's assume the build script will also copy assets to a 'bin' folder next to the exe
-      // or we use a more robust pathing.
-      
-      const path = await import("path");
       scriptPath = path.join(path.dirname(process.execPath), "assets", "temp-bridge.ps1");
+    }
+
+    if (!fs.existsSync(scriptPath)) {
+      console.warn(`[Temperature] Bridge script missing at: ${scriptPath}. Hardware sensors will be limited.`);
+      return null;
     }
 
     const { stdout } = await execFileAsync("powershell.exe", [
