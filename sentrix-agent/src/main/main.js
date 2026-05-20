@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { app, BrowserWindow, ipcMain } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
+import { isAdmin, elevate } from "../utils/elevation.js";
 import {
   getAgentProfile,
   getMetrics,
@@ -11,8 +12,18 @@ import { connectToCore } from "../services/socket.service.js";
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Auto-elevate on Windows to ensure hardware sensor access
+if (process.platform === "win32" && !isAdmin()) {
+  elevate();
+}
+
+// Robust way to get __dirname in both ESM and CJS/bundled environments
+const __filename = typeof __filename !== "undefined" 
+  ? __filename 
+  : (import.meta && import.meta.url ? fileURLToPath(import.meta.url) : "");
+const __dirname = typeof __dirname !== "undefined" 
+  ? __dirname 
+  : (path && __filename ? path.dirname(__filename) : "");
 
 let mainWindow;
 let socketClient;
