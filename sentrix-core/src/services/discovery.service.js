@@ -949,10 +949,22 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
       await deployAgentViaAdminPush(ip, credentials, serverUrl);
       return { success: true, message: `Successfully deployed agent to ${ip} via Zero-Touch Admin Push`, ip };
     } catch (pushError) {
-      let message = `Deployment failed: ${pushError.message}`;
-      if (pushError.message.includes("Access is denied")) {
-        message = `Deployment failed: Access is denied. \n\nEnsure the target PC has been prepped with the Sentrix Master Prep script (scripts/prep-master-image.ps1) and that you are using the 'Administrator' account.`;
+      let message = pushError.message;
+      
+      if (message.includes("Access is denied")) {
+        message = "Blocked by UAC: Windows restricted remote access. Ensure you have run the 'Sentrix Master Prep' script on the target PC and are using the built-in 'Administrator' account.";
+      } else if (message.includes("network name cannot be found")) {
+        message = "PC Offline: The target computer could not be found on the network. Check the IP address and ensure the PC is turned on.";
+      } else if (message.includes("RPC server is unavailable")) {
+        message = "Firewall Blocked: The RPC/WMI service is blocked by the target PC's firewall. Run the 'Sentrix Master Prep' script to open the necessary ports.";
+      } else if (message.includes("logon failure") || message.includes("unknown user name or bad password")) {
+        message = "Login Failed: The username or password you entered is incorrect.";
+      } else if (message.includes("WinRM client cannot process the request")) {
+        message = "WinRM Disabled: Remote management is not enabled on the target PC. Run the 'Sentrix Master Prep' script to enable WinRM and TrustedHosts.";
+      } else {
+        message = `Deployment failed: ${message.split("\n")[0]}`;
       }
+
       return { success: false, message, ip };
     }
   }

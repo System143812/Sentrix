@@ -41,7 +41,7 @@ export function DeployDialog({ ip, onCancel, onConfirm, loading, error }) {
           <div className="rounded-md bg-blue-50/50 p-3 text-xs leading-relaxed text-blue-800 ring-1 ring-blue-100">
             <strong>💡 Zero-Touch Mode:</strong> For automated lab deployment, use the 
             built-in <code>Administrator</code> account. Ensure you have run the 
-            <code>scripts/prep-master-image.ps1</code> script on your master image first.
+            <code>scripts/Sentrix-PC-Provisioner.ps1</code> script on your master image first.
           </div>
 
           {error ? (
