@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import { isAdmin, elevate } from "./utils/elevation.js";
+import { isAdmin, isSystem, elevate } from "./utils/elevation.js";
 import {
   getAgentProfile,
   getDeviceDetails,
@@ -23,6 +23,21 @@ const __dirname_robust = typeof __dirname !== "undefined"
 // Priority 3: Default dotenv behavior (process.cwd())
 const exeDir = process.pkg ? path.dirname(process.execPath) : __dirname_robust;
 const externalEnvPath = path.join(exeDir, ".env");
+const logFilePath = path.join(exeDir, "agent.log");
+
+function log(message, extra = "") {
+  const suffix = extra ? ` ${extra}` : "";
+  const timestamp = new Date().toISOString();
+  const line = `[${timestamp}] ${message}${suffix}\n`;
+  
+  process.stdout.write(line);
+  
+  try {
+    fs.appendFileSync(logFilePath, line);
+  } catch (err) {
+    // Ignore log file write errors
+  }
+}
 
 if (fs.existsSync(externalEnvPath)) {
   dotenv.config({ path: externalEnvPath });
@@ -30,10 +45,17 @@ if (fs.existsSync(externalEnvPath)) {
   dotenv.config();
 }
 
+log("--- Sentrix Agent Starting ---");
+log(`Executable: ${process.execPath}`);
+log(`Working Dir: ${process.cwd()}`);
+log(`Platform: ${process.platform}`);
+log(`Is Admin: ${isAdmin()}`);
+log(`Is System: ${isSystem()}`);
+
 // Auto-elevate on Windows to ensure hardware sensor access
-if (process.platform === "win32" && !isAdmin()) {
-  console.log("[Elevation] Sentrix Agent requires administrative privileges for hardware monitoring.");
-  console.log("[Elevation] Attempting to relaunch as administrator...");
+if (process.platform === "win32" && !isAdmin() && !isSystem()) {
+  log("[Elevation] Sentrix Agent requires administrative privileges for hardware monitoring.");
+  log("[Elevation] Attempting to relaunch as administrator...");
   elevate();
 }
 
@@ -48,6 +70,9 @@ let serverUrl = serverUrlArg || process.env.SENTRIX_SERVER_URL || "http://localh
 if (serverUrl && !serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
   serverUrl = `http://${serverUrl}`;
 }
+
+log(`Server URL: ${serverUrl}`);
+
 const metricsIntervalMs = Number(process.env.METRICS_INTERVAL_MS || 1000);
 const detailsIntervalMs = Number(process.env.DETAILS_INTERVAL_MS || 60000);
 const heartbeatIntervalMs = Number(process.env.HEARTBEAT_INTERVAL_MS || 10000);
@@ -60,11 +85,6 @@ let lastDetails = null;
 let lastDetailsAt = 0;
 let collectingMetrics = false;
 let collectingDetails = false;
-
-function log(message, extra = "") {
-  const suffix = extra ? ` ${extra}` : "";
-  console.log(`[${new Date().toISOString()}] ${message}${suffix}`);
-}
 
 async function refreshDetails(force = false) {
   if (collectingDetails) return;
