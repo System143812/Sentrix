@@ -1,8 +1,9 @@
-import { execFile } from "child_process";
 import os from "os";
+import path from "path";
 import { promisify } from "util";
 import dns from "dns";
 import net from "net";
+import { execFile } from "child_process";
 import { getAllClients } from "./client.services.js";
 
 const execFileAsync = promisify(execFile);
@@ -158,15 +159,42 @@ const NETWORK_DEVICE_VENDORS = [
 ];
 
 function getLocalSubnet() {
-  const interfaces = os.networkInterfaces();
+  if (process.env.DISCOVERY_SUBNET) {
+    console.log(`[Discovery] Using environment override for subnet: ${process.env.DISCOVERY_SUBNET}`);
+    return process.env.DISCOVERY_SUBNET;
+  }
 
-  for (const records of Object.values(interfaces)) {
+  const interfaces = os.networkInterfaces();
+  const candidates = [];
+
+  for (const [name, records] of Object.entries(interfaces)) {
     for (const record of records || []) {
       if (record.family === "IPv4" && !record.internal) {
+        const isVirtual = /virtual|vbox|vmware|docker|veth|vpn|sandbox/i.test(name);
         const parts = record.address.split(".");
-        return `${parts[0]}.${parts[1]}.${parts[2]}`;
+        const subnet = `${parts[0]}.${parts[1]}.${parts[2]}`;
+        
+        candidates.push({
+          name,
+          address: record.address,
+          subnet,
+          isVirtual,
+          isCommonLan: record.address.startsWith("192.168.") || record.address.startsWith("10.")
+        });
       }
     }
+  }
+
+  candidates.sort((a, b) => {
+    if (a.isVirtual !== b.isVirtual) return a.isVirtual ? 1 : -1;
+    if (a.isCommonLan !== b.isCommonLan) return a.isCommonLan ? -1 : 1;
+    return 0;
+  });
+
+  if (candidates.length > 0) {
+    const best = candidates[0];
+    console.log(`[Discovery] Selected subnet ${best.subnet} from interface ${best.name} (${best.address})`);
+    return best.subnet;
   }
 
   return null;
@@ -198,13 +226,30 @@ function getLocalGatewayCandidates(subnet) {
 
 function getPrimaryInterfaceAddress() {
   const interfaces = os.networkInterfaces();
+  const candidates = [];
 
-  for (const records of Object.values(interfaces)) {
+  for (const [name, records] of Object.entries(interfaces)) {
     for (const record of records || []) {
       if (record.family === "IPv4" && !record.internal) {
-        return record.address;
+        const isVirtual = /virtual|vbox|vmware|docker|veth|vpn|sandbox/i.test(name);
+        candidates.push({
+          name,
+          address: record.address,
+          isVirtual,
+          isCommonLan: record.address.startsWith("192.168.") || record.address.startsWith("10.")
+        });
       }
     }
+  }
+
+  candidates.sort((a, b) => {
+    if (a.isVirtual !== b.isVirtual) return a.isVirtual ? 1 : -1;
+    if (a.isCommonLan !== b.isCommonLan) return a.isCommonLan ? -1 : 1;
+    return 0;
+  });
+
+  if (candidates.length > 0) {
+    return candidates[0].address;
   }
 
   return null;
@@ -399,7 +444,6 @@ async function getHostnameForIp(ip) {
       };
     }
   } catch {
-    // Try other local name sources below.
   }
 
   const pingName = await pingHostname(ip);
@@ -421,7 +465,6 @@ async function getHostnameForIp(ip) {
         };
       }
     } catch {
-      // NetBIOS name lookup is best-effort.
     }
   }
 
@@ -435,7 +478,6 @@ async function getHostnameForIp(ip) {
       };
     }
   } catch {
-    // nslookup is best-effort.
   }
 
   return {
@@ -600,71 +642,7 @@ function detectDeviceType(
   const macPrefix = getMacPrefix(mac);
 
   const mobileOUIs = [
-    "001018", // Apple iPhone
-    "00238C", // Apple iPad
-    "001217", // Apple
-    "0080C6", // Apple
-    "086C39", // Apple
-    "0C8DEB", // Apple
-    "185AED", // Apple
-    "1C3647", // Apple
-    "2426C0", // Apple
-    "34363B", // Apple
-    "38F9D3", // Apple
-    "3C2EFF", // Apple
-    "3CBAF8", // Apple
-    "48A482", // Apple
-    "4C87FB", // Apple
-    "50E551", // Apple
-    "509A4C", // Apple
-    "60F81D", // Apple
-    "68A86B", // Apple
-    "705F43", // Apple
-    "74C25D", // Apple
-    "7C1007", // Apple
-    "7C2658", // Apple
-    "ACBC32", // Apple
-    "A0D2B8", // Apple
-    "AAABBC", // Apple
-    "AABBCC", // Apple
-    "BC0A45", // Apple
-    "E01040", // Apple
-    "FAFFFF", // Apple
-    "AABBCC", // Samsung
-    "001E46", // Samsung
-    "0021E9", // Samsung
-    "0054A4", // Samsung
-    "105C7E", // Samsung
-    "1C328D", // Samsung
-    "201E77", // Samsung
-    "2859A6", // Samsung
-    "2CC4D7", // Samsung
-    "34C38A", // Samsung
-    "440AF9", // Samsung
-    "5065F3", // Samsung
-    "60A10D", // Samsung
-    "68873E", // Samsung
-    "685BEC", // Samsung
-    "6CC2CB", // Samsung
-    "7042B5", // Samsung
-    "78DBBF", // Samsung
-    "7C1E52", // Samsung
-    "8CD21E", // Samsung
-    "98B0E9", // Samsung
-    "ACDC38", // Samsung
-    "BC4CC4", // Samsung
-    "C0F2FA", // Samsung
-    "D076F0", // Samsung
-    "F03F2E", // Samsung
-    "F4E9D4", // Samsung
-    "0020E0", // HTC
-    "001083", // HTC
-    "0010FA", // HTC
-    "001E72", // HTC
-    "002152", // LG
-    "002256", // LG
-    "001A3A", // Motorola
-    "001E8F", // Nokia
+    "001018", "00238C", "001217", "0080C6", "086C39", "0C8DEB", "185AED", "1C3647", "2426C0", "34363B", "38F9D3", "3C2EFF", "3CBAF8", "48A482", "4C87FB", "50E551", "509A4C", "60F81D", "68A86B", "705F43", "74C25D", "7C1007", "7C2658", "ACBC32", "A0D2B8", "AAABBC", "AABBCC", "BC0A45", "E01040", "FAFFFF", "001E46", "0021E9", "0054A4", "105C7E", "1C328D", "201E77", "2859A6", "2CC4D7", "34C38A", "440AF9", "5065F3", "60A10D", "68873E", "685BEC", "6CC2CB", "7042B5", "78DBBF", "7C1E52", "8CD21E", "98B0E9", "ACDC38", "BC4CC4", "C0F2FA", "D076F0", "F03F2E", "F4E9D4", "0020E0", "001083", "0010FA", "001E72", "002152", "002256", "001A3A", "001E8F"
   ];
 
   if (mobileOUIs.includes(macPrefix)) {
@@ -855,39 +833,172 @@ export function startDiscoveryScheduler(io) {
   setInterval(runAndEmit, AUTO_SCAN_INTERVAL_MS);
 }
 
-export async function deployAgentToHost(ip) {
+async function deployAgentViaAdminPush(ip, credentials, serverUrl) {
+  const agentExePath = path.resolve(process.cwd(), "../sentrix-agent/dist/sentrix-agent.exe").replace(/\\/g, "\\\\");
+  const assetsPath = path.resolve(process.cwd(), "../sentrix-agent/dist/assets").replace(/\\/g, "\\\\");
+  const { username, password } = credentials;
+
+  const pushScript = `
+    \$ip = "${ip}"
+    \$user = "${username}"
+    \$pass = "${password}" | ConvertTo-SecureString -AsPlainText -Force
+    \$cred = New-Object System.Management.Automation.PSCredential(\$user, \$pass)
+    
+    \$targetDir = "C:\\\\ProgramData\\\\SentrixAgent"
+    
+    Write-Host "Mapping administrative share..."
+    \$driveName = "SentrixPush"
+    if (Get-PSDrive \$driveName -ErrorAction SilentlyContinue) { Remove-PSDrive \$driveName -Force }
+    New-PSDrive -Name \$driveName -PSProvider FileSystem -Root "\\\\\$ip\\C\$" -Credential \$cred -ErrorAction Stop
+    
+    try {
+        \$remotePath = "\${driveName}:\\\\ProgramData\\\\SentrixAgent"
+        if (-not (Test-Path \$remotePath)) {
+            New-Item -ItemType Directory -Path \$remotePath -Force | Out-Null
+        }
+        
+        Write-Host "Copying agent files..."
+        Copy-Item -Path "${agentExePath}" -Destination "\$remotePath\\\\sentrix-agent.exe" -Force
+        if (Test-Path "${assetsPath}") {
+            Copy-Item -Path "${assetsPath}" -Destination \$remotePath -Recurse -Force
+        }
+        
+        "SENTRIX_SERVER_URL=${serverUrl}" | Out-File -FilePath "\$remotePath\\\\.env" -Encoding utf8
+        
+        Write-Host "Triggering remote installation via WMI..."
+        \$innerCommand = "
+            \$dir = 'C:\\\\ProgramData\\\\SentrixAgent'
+            \$action = New-ScheduledTaskAction -Execute '\$dir\\\\sentrix-agent.exe' -Argument '--server-url ${serverUrl}' -WorkingDirectory \$dir
+            \$trigger = New-ScheduledTaskTrigger -AtStartup
+            \$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest
+            \$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+            Register-ScheduledTask -TaskName 'Sentrix Agent' -Action \$action -Trigger \$trigger -Principal \$principal -Settings \$settings -Force
+            Start-ScheduledTask -TaskName 'Sentrix Agent'
+        "
+        \$encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes(\$innerCommand))
+        \$commandLine = "powershell.exe -ExecutionPolicy Bypass -EncodedCommand \$encodedCommand"
+        
+        Invoke-WmiMethod -Path Win32_Process -Name Create -ArgumentList \$commandLine -ComputerName \$ip -Credential \$cred | Out-Null
+    } finally {
+        Remove-PSDrive -Name \$driveName -Force -ErrorAction SilentlyContinue
+    }
+  `;
+
+  await execFileAsync("powershell.exe", ["-Command", pushScript], { timeout: 90000 });
+}
+
+export async function deployAgentToHostRemote(ip, credentials = null) {
+  const serverUrl = process.env.SENTRIX_PUBLIC_SERVER_URL
+    || process.env.CORE_PUBLIC_URL
+    || process.env.BACKEND_URL
+    || `http://${getPrimaryInterfaceAddress() || "localhost"}:${process.env.PORT || 4000}`;
+
+  if (!credentials) {
+    return {
+      success: false,
+      message: "Credentials are required for remote deployment.",
+      needsCredentials: true,
+      ip
+    };
+  }
+
+  try {
+    const { username, password } = credentials;
+    const agentExePath = path.resolve(process.cwd(), "../sentrix-agent/dist/sentrix-agent.exe");
+    const assetsPath = path.resolve(process.cwd(), "../sentrix-agent/dist/assets");
+
+    const winrmScript = `
+      \$ip = "${ip}"
+      \$user = "${username}"
+      \$pass = "${password}" | ConvertTo-SecureString -AsPlainText -Force
+      \$cred = New-Object System.Management.Automation.PSCredential(\$user, \$pass)
+      
+      \$targetDir = "C:\\\\ProgramData\\\\SentrixAgent"
+      \$session = New-PSSession -ComputerName \$ip -Credential \$cred -ErrorAction Stop
+
+      try {
+          Invoke-Command -Session \$session -ScriptBlock {
+              param(\$dir)
+              if (-not (Test-Path \$dir)) { New-Item -ItemType Directory -Path \$dir -Force }
+          } -ArgumentList \$targetDir
+
+          Copy-Item -Path "${agentExePath.replace(/\\/g, "\\\\")}" -Destination "\$targetDir\\\\sentrix-agent.exe" -ToSession \$session
+          Copy-Item -Path "${assetsPath.replace(/\\/g, "\\\\")}" -Destination "\$targetDir" -Recurse -Force -ToSession \$session
+
+          Invoke-Command -Session \$session -ScriptBlock {
+              param(\$dir, \$url)
+              "SENTRIX_SERVER_URL=\$url" | Out-File -FilePath "\$dir\\\\.env" -Encoding utf8
+              \$action = New-ScheduledTaskAction -Execute "\$dir\\\\sentrix-agent.exe" -Argument "--server-url \$url" -WorkingDirectory \$dir
+              \$trigger = New-ScheduledTaskTrigger -AtStartup
+              \$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
+              \$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+              Register-ScheduledTask -TaskName "Sentrix Agent" -Action \$action -Trigger \$trigger -Principal \$principal -Settings \$settings -Force
+              Start-ScheduledTask -TaskName "Sentrix Agent"
+          } -ArgumentList \$targetDir, "${serverUrl}"
+      } finally {
+          Remove-PSSession \$session
+      }
+    `;
+
+    await execFileAsync("powershell.exe", ["-Command", winrmScript], { timeout: 60000 });
+    return { success: true, message: `Successfully deployed agent to ${ip} via WinRM`, ip };
+  } catch (winrmError) {
+    console.log(`WinRM deployment failed for ${ip}, trying Admin Push fallback...`, winrmError.message);
+    
+    try {
+      await deployAgentViaAdminPush(ip, credentials, serverUrl);
+      return { success: true, message: `Successfully deployed agent to ${ip} via Zero-Touch Admin Push`, ip };
+    } catch (pushError) {
+      let message = pushError.message;
+      
+      if (message.includes("Access is denied")) {
+        message = "Blocked by UAC: Windows restricted remote access. Ensure you have run the 'Sentrix Master Prep' script on the target PC and are using the built-in 'Administrator' account.";
+      } else if (message.includes("network name cannot be found")) {
+        message = "PC Offline: The target computer could not be found on the network. Check the IP address and ensure the PC is turned on.";
+      } else if (message.includes("RPC server is unavailable")) {
+        message = "Firewall Blocked: The RPC/WMI service is blocked by the target PC's firewall. Run the 'Sentrix Master Prep' script to open the necessary ports.";
+      } else if (message.includes("logon failure") || message.includes("unknown user name or bad password")) {
+        message = "Login Failed: The username or password you entered is incorrect.";
+      } else if (message.includes("WinRM client cannot process the request")) {
+        message = "WinRM Disabled: Remote management is not enabled on the target PC. Run the 'Sentrix Master Prep' script to enable WinRM and TrustedHosts.";
+      } else {
+        message = `Deployment failed: ${message.split("\n")[0]}`;
+      }
+
+      return { success: false, message, ip };
+    }
+  }
+}
+
+export async function deployAgentToHost(ip, credentials = null) {
   const scannedDevice = lastScanResults.get(ip);
   const serverUrl = process.env.SENTRIX_PUBLIC_SERVER_URL
     || process.env.CORE_PUBLIC_URL
     || process.env.BACKEND_URL
     || `http://${getPrimaryInterfaceAddress() || "localhost"}:${process.env.PORT || 4000}`;
 
+  if (credentials) {
+    return await deployAgentToHostRemote(ip, credentials);
+  }
+
   if (!scannedDevice) {
     return {
       success: false,
-      message: "Deploy is only available for devices found in the latest scan.",
-      ip,
-    };
-  }
-
-  if (!scannedDevice.deploy_eligible) {
-    return {
-      success: false,
-      message: `Cannot deploy to ${scannedDevice.device_type} devices. Deployment is only available for scanned PCs.`,
+      message: "Manual deployment requires credentials. Otherwise, deployment is only available for devices found in the latest scan.",
       ip,
     };
   }
 
   return {
     success: true,
-    message: `Deployment package prepared for ${ip}. Run the lightweight installer on the target PC or configure remote deployment credentials.`,
+    message: `Deployment package prepared for ${ip}. Run the standalone agent on the target PC or provide credentials for remote deployment.`,
     ip,
     device: scannedDevice,
     serverUrl,
     installer: {
-      type: "windows-scheduled-task",
-      agent: "sentrix-agent/scripts/install-windows.ps1",
-      command: `powershell -ExecutionPolicy Bypass -File scripts\\install-windows.ps1 -ServerUrl "${serverUrl}"`,
+      type: "standalone-exe",
+      agent: "sentrix-agent/dist/sentrix-agent.exe",
+      command: `sentrix-agent.exe --server-url "${serverUrl}"`,
     },
   };
 }

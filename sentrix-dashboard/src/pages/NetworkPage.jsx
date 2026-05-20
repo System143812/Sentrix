@@ -11,10 +11,13 @@ import {
   Server,
   ServerCog,
   Smartphone,
+  X,
 } from "lucide-react";
+import { useState } from "react";
 import { Card } from "../components/Card.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { ProgressBar } from "../components/ProgressBar.jsx";
+import { DeployDialog } from "../components/DeployDialog.jsx";
 
 function formatTime(value) {
   if (!value) {
@@ -64,11 +67,35 @@ export function NetworkPage({
   deployMessage,
   deployingIp,
 }) {
+  const [selectedIp, setSelectedIp] = useState(null);
   const scanResults = snapshot?.devices || [];
   const scanLoading = snapshot?.status === "scanning";
 
+  async function handleDeploy(credentials) {
+    try {
+      await onDeploy(selectedIp, "PC", credentials);
+      setSelectedIp(null);
+    } catch (error) {
+      // Error is handled by useDiscovery and shown in the dialog/message
+    }
+  }
+
+  const isError = deployMessage?.toLowerCase().includes("failed") || 
+                  deployMessage?.toLowerCase().includes("error") ||
+                  deployMessage?.toLowerCase().includes("wrong");
+
   return (
     <div className="space-y-6">
+      {selectedIp ? (
+        <DeployDialog
+          ip={selectedIp}
+          onCancel={() => setSelectedIp(null)}
+          onConfirm={handleDeploy}
+          loading={deployingIp === selectedIp}
+          error={isError ? deployMessage : null}
+        />
+      ) : null}
+
       <PageHeader
         icon={Radar}
         title="Automatic Network Discovery"
@@ -109,8 +136,12 @@ export function NetworkPage({
         </div>
       </PageHeader>
 
-      {deployMessage ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 shadow-sm">
+      {deployMessage && !selectedIp ? (
+        <div className={`rounded-lg border p-4 text-sm shadow-sm ${
+          isError 
+            ? "border-red-200 bg-red-50 text-red-800" 
+            : "border-emerald-200 bg-emerald-50 text-emerald-800"
+        }`}>
           {deployMessage}
         </div>
       ) : null}
@@ -191,7 +222,7 @@ export function NetworkPage({
                 <div className="flex justify-start lg:justify-end">
                   <button
                     type="button"
-                    onClick={() => onDeploy(host.ip, host.device_type)}
+                    onClick={() => setSelectedIp(host.ip)}
                     disabled={!host.deploy_eligible || deployingIp === host.ip}
                     className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
                     title={

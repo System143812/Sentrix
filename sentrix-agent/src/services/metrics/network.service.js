@@ -113,12 +113,12 @@ function parsePingOutput(output = "") {
 
 async function collectPingMetrics() {
   const args = process.platform === "win32"
-    ? ["-n", "2", "-w", "1000", PING_TARGET]
-    : ["-c", "2", "-W", "1", PING_TARGET];
+    ? ["-n", "4", "-w", "1000", PING_TARGET]
+    : ["-c", "4", "-W", "1", PING_TARGET];
 
   try {
     const { stdout } = await execFileAsync("ping", args, {
-      timeout: 3500,
+      timeout: 5000,
       windowsHide: true,
     });
 

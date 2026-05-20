@@ -35,7 +35,7 @@ export async function getSnapshot(req, res, next) {
 
 export async function deploy(req, res, next) {
   try {
-    const { ip } = req.body;
+    const { ip, credentials } = req.body;
 
     if (!ip) {
       return res
@@ -43,10 +43,10 @@ export async function deploy(req, res, next) {
         .json({ success: false, message: "IP address is required." });
     }
 
-    const result = await deployAgentToHost(ip);
+    const result = await deployAgentToHost(ip, credentials);
 
     if (!result.success) {
-      return res.status(400).json({ success: false, message: result.message });
+      return res.status(200).json({ success: false, ...result });
     }
 
     res.json({
