@@ -1,9 +1,10 @@
 import dotenv from "dotenv";
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import {
   getAgentProfile,
+  getLiveProfileSnapshot,
   getMetrics,
   getDeviceDetails,
 } from "../services/metrics.service.js";
@@ -18,14 +19,19 @@ let mainWindow;
 let socketClient;
 let latestStatus = {
   connection: "starting",
+  startedAt: new Date().toISOString(),
 };
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 420,
-    height: 360,
-    resizable: false,
+    width: 1320,
+    height: 860,
+    minWidth: 1100,
+    minHeight: 760,
+    resizable: true,
     title: "Sentrix Agent",
+    backgroundColor: "#131315",
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
     },
@@ -39,15 +45,17 @@ function sendStatusToWindow(status) {
     ...latestStatus,
     ...status,
   };
-  mainWindow?.webContents.send("agent:status", status);
+  mainWindow?.webContents.send("agent:status", latestStatus);
 }
 
 async function startAgent() {
   const serverUrl = process.env.SENTRIX_SERVER_URL || "http://localhost:4000";
   const intervalMs = Number(process.env.METRICS_INTERVAL_MS || 1000);
+  const profileIntervalMs = Number(process.env.PROFILE_INTERVAL_MS || 10000);
   const detailsIntervalMs = Number(process.env.DETAILS_INTERVAL_MS || 60000);
-  const profile = await getAgentProfile();
+  let profile = await getAgentProfile();
   let lastDetails = profile.details;
+  let lastProfileAt = Date.now();
   let lastDetailsAt = Date.now();
   let lastMetrics = null;
   let lastMetricsSentAt = 0;
@@ -74,11 +82,29 @@ async function startAgent() {
 
     try {
       const metrics = await getMetrics();
+      const shouldRefreshProfile = Date.now() - lastProfileAt >= profileIntervalMs;
       const shouldRefreshDetails = Date.now() - lastDetailsAt >= detailsIntervalMs;
 
-      if (shouldRefreshDetails) {
-        lastDetails = await getDeviceDetails();
-        lastDetailsAt = Date.now();
+      if (shouldRefreshProfile || shouldRefreshDetails) {
+        const tasks = [getLiveProfileSnapshot()];
+
+        if (shouldRefreshDetails) {
+          tasks.push(getDeviceDetails());
+        }
+
+        const [liveProfile, nextDetails] = await Promise.all(tasks);
+
+        profile = {
+          ...profile,
+          ...liveProfile,
+          details: nextDetails || lastDetails,
+        };
+        lastProfileAt = Date.now();
+
+        if (nextDetails) {
+          lastDetails = nextDetails;
+          lastDetailsAt = Date.now();
+        }
       }
 
       socketClient.sendMetrics(metrics, shouldRefreshDetails ? lastDetails : undefined);
@@ -91,6 +117,9 @@ async function startAgent() {
         profile,
         metrics,
         details: lastDetails,
+        profileUpdatedAt: new Date(lastProfileAt).toISOString(),
+        detailsUpdatedAt: new Date(lastDetailsAt).toISOString(),
+        metricsUpdatedAt: new Date(metrics.lastUpdatedAt || Date.now()).toISOString(),
         lastSentAt: new Date().toISOString(),
       });
     } catch (error) {
@@ -136,4 +165,9 @@ ipcMain.handle("agent:get-status", async () => {
     ...latestStatus,
     connected: socketClient?.isConnected() ?? false,
   };
+});
+
+ipcMain.handle("agent:copy-text", async (_, value) => {
+  clipboard.writeText(String(value || ""));
+  return true;
 });
