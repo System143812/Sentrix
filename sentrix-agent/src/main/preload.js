@@ -7,4 +7,7 @@ contextBridge.exposeInMainWorld("sentrixAgent", {
   getStatus() {
     return ipcRenderer.invoke("agent:get-status");
   },
+  copyText(value) {
+    return ipcRenderer.invoke("agent:copy-text", value);
+  },
 });
