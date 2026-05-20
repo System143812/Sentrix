@@ -158,8 +158,19 @@ function getPrimaryNetwork() {
 }
 
 export async function getAgentProfile() {
+  const profile = await getLiveProfileSnapshot();
+  const details = await getDeviceDetails();
+
+  return {
+    ...profile,
+    device_type: "PC",
+    details,
+  };
+}
+
+export async function getLiveProfileSnapshot() {
   const network = getPrimaryNetwork();
-  const [osInfo, details] = await Promise.all([si.osInfo(), getDeviceDetails()]);
+  const osInfo = await si.osInfo();
 
   return {
     agentId: await getAgentIdAsync(),
@@ -167,8 +178,6 @@ export async function getAgentProfile() {
     os: `${osInfo.distro || os.type()} ${osInfo.release || os.release()}`,
     ip: network.ip,
     mac: network.mac,
-    device_type: "PC",
-    details,
   };
 }
 
