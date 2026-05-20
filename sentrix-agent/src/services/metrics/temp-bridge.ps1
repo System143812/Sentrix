@@ -1,5 +1,5 @@
 param (
-    [string]$DllPath = "..\..\..\bin\hardware\LibreHardwareMonitorLib.dll"
+    [string]$DllPath = "bin\hardware\LibreHardwareMonitorLib.dll"
 )
 
 $ErrorActionPreference = "Stop"
