@@ -318,9 +318,41 @@ function DetailViewSwitch({ activeView, onChange }) {
 }
 
 function NetworkActivityDetails({ device }) {
+  const metrics = device.metrics || {};
   const [selectedProcesses, setSelectedProcesses] = useState([]);
   const [endedProcesses, setEndedProcesses] = useState([]);
-  const activity = buildSampleNetworkActivity(device);
+
+  const hasRealData = Array.isArray(metrics.processes) && metrics.processes.length > 0;
+
+  const activity = hasRealData ? {
+    activeDns: (metrics.networkActivity?.activeConnections || []).map((conn, idx) => ({
+      id: `dns-active-${idx}`,
+      domain: conn.domain || "Direct IP",
+      url: conn.domain ? `https://${conn.domain}` : `http://${conn.peerAddress}`,
+      remoteAddress: conn.peerAddress,
+      processName: conn.process || "Unknown",
+      openedAt: "Active",
+      status: conn.state === "LISTEN" ? "Listening" : "Active",
+    })).slice(0, 15),
+    dnsHistory: (metrics.networkActivity?.dnsCache || []).map((dns, idx) => ({
+      id: `dns-history-${idx}`,
+      domain: dns.domain,
+      resolvedAddress: dns.resolvedAddress,
+      processName: "DNS Cache",
+      checkedAt: "Recent",
+    })).slice(0, 30),
+    processes: (metrics.processes || []).map((p, idx) => ({
+      id: `proc-${idx}`,
+      pid: p.pid,
+      name: p.name,
+      user: p.user,
+      cpu: p.cpu,
+      memoryMb: p.memoryMb,
+      network: "...",
+      status: p.state.charAt(0).toUpperCase() + p.state.slice(1),
+    })),
+  } : buildSampleNetworkActivity(device);
+
   const processes = activity.processes.map((process) => ({
     ...process,
     status: endedProcesses.includes(process.id) ? "Ended" : process.status,
