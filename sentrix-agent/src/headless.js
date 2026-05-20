@@ -1,4 +1,8 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import { isAdmin, elevate } from "./utils/elevation.js";
 import {
   getAgentProfile,
   getDeviceDetails,
@@ -6,9 +10,44 @@ import {
 } from "./services/metrics.service.js";
 import { connectToCore } from "./services/socket.service.js";
 
-dotenv.config();
+// Robust way to get the directory where the EXE (or script) is located
+const __filename_robust = typeof __filename !== "undefined" 
+  ? __filename 
+  : (import.meta && import.meta.url ? fileURLToPath(import.meta.url) : "");
+const __dirname_robust = typeof __dirname !== "undefined" 
+  ? __dirname 
+  : (path && __filename_robust ? path.dirname(__filename_robust) : "");
 
-const serverUrl = process.env.SENTRIX_SERVER_URL || "http://localhost:4000";
+// Priority 1: .env file next to the EXE (process.execPath)
+// Priority 2: .env file next to the script (__dirname)
+// Priority 3: Default dotenv behavior (process.cwd())
+const exeDir = process.pkg ? path.dirname(process.execPath) : __dirname_robust;
+const externalEnvPath = path.join(exeDir, ".env");
+
+if (fs.existsSync(externalEnvPath)) {
+  dotenv.config({ path: externalEnvPath });
+} else {
+  dotenv.config();
+}
+
+// Auto-elevate on Windows to ensure hardware sensor access
+if (process.platform === "win32" && !isAdmin()) {
+  console.log("[Elevation] Sentrix Agent requires administrative privileges for hardware monitoring.");
+  console.log("[Elevation] Attempting to relaunch as administrator...");
+  elevate();
+}
+
+// Parse CLI arguments
+const args = process.argv.slice(2);
+const serverUrlArg = args.find(arg => arg.startsWith("--server-url="))?.split("=")[1] 
+                   || args[args.indexOf("--server-url") + 1];
+
+let serverUrl = serverUrlArg || process.env.SENTRIX_SERVER_URL || "http://localhost:4000";
+
+// Ensure protocol is present
+if (serverUrl && !serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
+  serverUrl = `http://${serverUrl}`;
+}
 const metricsIntervalMs = Number(process.env.METRICS_INTERVAL_MS || 1000);
 const detailsIntervalMs = Number(process.env.DETAILS_INTERVAL_MS || 60000);
 const heartbeatIntervalMs = Number(process.env.HEARTBEAT_INTERVAL_MS || 10000);

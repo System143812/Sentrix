@@ -1,11 +1,14 @@
 import {
   Archive,
   ChevronDown,
+  CircleStop,
   Cpu,
+  Globe2,
   HardDrive,
   MemoryStick,
   Monitor,
   Network,
+  RadioTower,
   Thermometer,
   Timer,
   Usb,
@@ -189,7 +192,285 @@ function ConfirmDialog({ device, onCancel, onConfirm }) {
   );
 }
 
+function buildSampleNetworkActivity(device) {
+  const hostname = device.hostname || "client-pc";
+  const ip = device.ip || "192.168.1.24";
+
+  return {
+    activeDns: [
+      {
+        id: "dns-active-1",
+        domain: "classroom.portal.local",
+        url: "https://classroom.portal.local/dashboard",
+        remoteAddress: "192.168.1.10",
+        processName: "chrome.exe",
+        openedAt: "Now",
+        status: "Active",
+      },
+      {
+        id: "dns-active-2",
+        domain: "updates.microsoft.com",
+        url: "https://updates.microsoft.com",
+        remoteAddress: "20.53.203.50",
+        processName: "svchost.exe",
+        openedAt: "2 minutes ago",
+        status: "Active",
+      },
+    ],
+    dnsHistory: [
+      {
+        id: "dns-history-1",
+        domain: "accounts.google.com",
+        resolvedAddress: "142.250.190.45",
+        processName: "chrome.exe",
+        checkedAt: "8 minutes ago",
+      },
+      {
+        id: "dns-history-2",
+        domain: "cdn.jsdelivr.net",
+        resolvedAddress: "151.101.1.229",
+        processName: "msedge.exe",
+        checkedAt: "14 minutes ago",
+      },
+      {
+        id: "dns-history-3",
+        domain: hostname.toLowerCase().replaceAll(" ", "-"),
+        resolvedAddress: ip,
+        processName: "sentrix-agent.exe",
+        checkedAt: "21 minutes ago",
+      },
+    ],
+    processes: [
+      {
+        id: "proc-1",
+        pid: 4820,
+        name: "chrome.exe",
+        user: "Student",
+        cpu: 7,
+        memoryMb: 420,
+        network: "1.8 MB/s",
+        status: "Running",
+      },
+      {
+        id: "proc-2",
+        pid: 1196,
+        name: "sentrix-agent.exe",
+        user: "SYSTEM",
+        cpu: 2,
+        memoryMb: 96,
+        network: "220 KB/s",
+        status: "Running",
+      },
+      {
+        id: "proc-3",
+        pid: 764,
+        name: "svchost.exe",
+        user: "SYSTEM",
+        cpu: 1,
+        memoryMb: 138,
+        network: "80 KB/s",
+        status: "Running",
+      },
+      {
+        id: "proc-4",
+        pid: 3328,
+        name: "msedge.exe",
+        user: "Student",
+        cpu: 4,
+        memoryMb: 310,
+        network: "640 KB/s",
+        status: "Running",
+      },
+    ],
+  };
+}
+
+function DetailViewSwitch({ activeView, onChange }) {
+  const buttons = [
+    { id: "specification", label: "Specification", icon: Monitor },
+    { id: "networkActivity", label: "Network Activity", icon: RadioTower },
+  ];
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      {buttons.map((button) => {
+        const Icon = button.icon;
+        const selected = activeView === button.id;
+
+        return (
+          <button
+            className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition ${
+              selected
+                ? "border-signal bg-blue-50 text-signal shadow-sm"
+                : "border-line bg-white text-slate-600 hover:border-signal hover:text-signal"
+            }`}
+            key={button.id}
+            onClick={() => onChange(button.id)}
+            type="button"
+          >
+            <Icon size={16} />
+            {button.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function NetworkActivityDetails({ device }) {
+  const [selectedProcesses, setSelectedProcesses] = useState([]);
+  const [endedProcesses, setEndedProcesses] = useState([]);
+  const activity = buildSampleNetworkActivity(device);
+  const processes = activity.processes.map((process) => ({
+    ...process,
+    status: endedProcesses.includes(process.id) ? "Ended" : process.status,
+  }));
+
+  function toggleProcess(processId) {
+    setSelectedProcesses((current) =>
+      current.includes(processId)
+        ? current.filter((id) => id !== processId)
+        : [...current, processId],
+    );
+  }
+
+  function endSelectedProcesses() {
+    setEndedProcesses((current) => [
+      ...new Set([...current, ...selectedProcesses]),
+    ]);
+    setSelectedProcesses([]);
+  }
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
+      <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+          <Globe2 size={15} />
+          DNS Logging
+        </h4>
+
+        <div className="grid gap-3">
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase text-slate-500">
+              Active URLs and DNS
+            </p>
+            <div className="grid gap-2">
+              {activity.activeDns.map((item) => (
+                <div
+                  className="rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70"
+                  key={item.id}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="break-words text-sm font-semibold text-slate-800">
+                      {item.domain}
+                    </p>
+                    <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                      {item.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 break-words text-xs leading-5 text-slate-500">
+                    {item.url}
+                  </p>
+                  <p className="text-xs leading-5 text-slate-500">
+                    {item.remoteAddress} - {item.processName} - {item.openedAt}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase text-slate-500">
+              DNS History
+            </p>
+            <div className="grid max-h-64 gap-2 overflow-auto pr-1">
+              {activity.dnsHistory.map((item) => (
+                <ListItem
+                  detail={`${item.resolvedAddress} - ${item.processName} - ${item.checkedAt}`}
+                  key={item.id}
+                  title={item.domain}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h4 className="flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+            <CircleStop size={15} />
+            Process Monitoring
+          </h4>
+          <button
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={selectedProcesses.length === 0}
+            onClick={endSelectedProcesses}
+            type="button"
+          >
+            <CircleStop size={15} />
+            End selected
+          </button>
+        </div>
+
+        <div className="overflow-hidden rounded-md border border-line bg-white">
+          <div className="hidden grid-cols-[44px_1fr_80px_80px_100px_90px] gap-3 bg-slate-100 px-3 py-2 text-xs font-bold uppercase text-slate-500 lg:grid">
+            <div />
+            <div>Process</div>
+            <div>CPU</div>
+            <div>Memory</div>
+            <div>Network</div>
+            <div>Status</div>
+          </div>
+
+          <div className="divide-y divide-line">
+            {processes.map((process) => {
+              const ended = process.status === "Ended";
+
+              return (
+                <label
+                  className={`grid gap-2 px-3 py-3 text-sm transition lg:grid-cols-[44px_1fr_80px_80px_100px_90px] lg:items-center lg:gap-3 ${
+                    ended ? "bg-slate-50 text-slate-400" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                  key={process.id}
+                >
+                  <input
+                    checked={selectedProcesses.includes(process.id)}
+                    className="h-4 w-4 rounded border-line text-signal focus:ring-signal"
+                    disabled={ended}
+                    onChange={() => toggleProcess(process.id)}
+                    type="checkbox"
+                  />
+                  <div className="min-w-0">
+                    <p className="break-words font-semibold">{process.name}</p>
+                    <p className="text-xs text-slate-500">
+                      PID {process.pid} - {process.user}
+                    </p>
+                  </div>
+                  <span>{process.cpu}%</span>
+                  <span>{process.memoryMb} MB</span>
+                  <span>{process.network}</span>
+                  <span
+                    className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${
+                      ended
+                        ? "bg-slate-100 text-slate-500"
+                        : "bg-emerald-50 text-emerald-700"
+                    }`}
+                  >
+                    {process.status}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
+  const [activeView, setActiveView] = useState("specification");
   const details = device.details || {};
   const specs = hardware?.profile || details.specs || {};
   const usbDevices = hardware?.usbDevices || details.usbDevices || [];
@@ -203,16 +484,9 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
   const displays = hardware?.displays || peripherals.displays || [];
   const metrics = device.metrics || {};
   const latestSample = metricHistory?.latest || null;
-  const sampleNetwork = hasNetworkReading(metrics.network)
-    ? metrics.network
-    : hasNetworkReading(latestSample?.network)
-    ? latestSample.network
-    : {};
-  const sampleTemperature = hasTemperatureReading(metrics.temperature)
-    ? metrics.temperature
-    : hasTemperatureReading(latestSample?.temperature)
-    ? latestSample.temperature
-    : {};
+  
+  const sampleNetwork = metrics.network || latestSample?.network || {};
+  const sampleTemperature = metrics.temperature || latestSample?.temperature || {};
   const sampleSystem = metrics.system || latestSample?.system || {};
 
   return (
@@ -228,7 +502,11 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
         </p>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <DetailViewSwitch activeView={activeView} onChange={setActiveView} />
+
+      {activeView === "specification" ? (
+        <div className="device-detail-view">
+          <div className="grid gap-4 xl:grid-cols-3">
         <section className="rounded-lg border border-line bg-slate-100/80 p-4">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
             <Monitor size={15} />
@@ -303,11 +581,11 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
             <DetailItem
               label="CPU Temperature"
-              value={formatTemperature(sampleTemperature.cpu?.temperatureCelsius ?? metrics.cpuTemperature)}
+              value={formatTemperature(sampleTemperature.cpu?.temperatureCelsius)}
             />
             <DetailItem
               label="GPU Temperature"
-              value={formatTemperature(sampleTemperature.gpu?.temperatureCelsius ?? metrics.gpuTemperature)}
+              value={formatTemperature(sampleTemperature.gpu?.temperatureCelsius)}
             />
             <DetailItem label="GPU Model" value={sampleTemperature.gpu?.model} />
           </dl>
@@ -320,13 +598,13 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           </h4>
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
             <DetailItem label="Interface" value={sampleNetwork.interface} />
-            <DetailItem label="Upload" value={formatBytesPerSecond(sampleNetwork.uploadBytesPerSec ?? metrics.uploadBytesPerSec)} />
-            <DetailItem label="Download" value={formatBytesPerSecond(sampleNetwork.downloadBytesPerSec ?? metrics.downloadBytesPerSec)} />
+            <DetailItem label="Upload" value={formatBytesPerSecond(sampleNetwork.uploadBytesPerSec)} />
+            <DetailItem label="Download" value={formatBytesPerSecond(sampleNetwork.downloadBytesPerSec)} />
             <DetailItem
               label="Latency"
               value={sampleNetwork.latencyMs == null ? "Unknown" : `${Math.round(Number(sampleNetwork.latencyMs))} ms`}
             />
-            <DetailItem label="Packet Loss" value={formatPercent(sampleNetwork.packetLoss ?? metrics.packetLoss)} />
+            <DetailItem label="Packet Loss" value={formatPercent(sampleNetwork.packetLoss)} />
           </dl>
         </section>
 
@@ -430,6 +708,12 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           </div>
         </section>
       </div>
+        </div>
+      ) : (
+        <div className="device-detail-view">
+          <NetworkActivityDetails device={device} />
+        </div>
+      )}
     </div>
   );
 }

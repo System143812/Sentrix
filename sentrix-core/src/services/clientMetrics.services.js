@@ -34,20 +34,18 @@ export function normalizeMetrics(metrics = {}) {
   const system = metrics.system || {};
   const network = metrics.network || {};
   const temperature = metrics.temperature || {};
+  const cpu = system.cpu || {};
   const memory = system.memory || {};
   const disk = system.disk || {};
 
   return {
-    schemaVersion: toNumber(metrics.schemaVersion, 1),
+    schemaVersion: toNumber(metrics.schemaVersion, 2),
     timestamp: toNumber(metrics.timestamp, Date.now()),
     lastUpdatedAt: toNumber(metrics.lastUpdatedAt, metrics.timestamp || Date.now()),
-    cpu: toNumber(metrics.cpu, toNumber(getNestedMetric(system, ["cpu", "usage"]), 0)),
-    ram: toNumber(metrics.ram, toNumber(memory.usage, 0)),
-    disk: toNumber(metrics.disk, toNumber(disk.usage, 0)),
-    uptime: toNumber(
-      metrics.uptime,
-      toNumber(system.uptimeSeconds, toNumber(getNestedMetric(system, ["uptime"]), 0)),
-    ),
+    cpu: toNumber(cpu.usage, 0),
+    ram: toNumber(memory.usage, 0),
+    disk: toNumber(disk.usage, 0),
+    uptime: toNumber(system.uptimeSeconds, 0),
     system,
     network: {
       interface: network.interface || "Unknown",
