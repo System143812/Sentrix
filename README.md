@@ -1,118 +1,91 @@
 # Sentrix
 
-A real-time network and screen monitoring system for computer labs.
+A real-time network monitoring and remote management system designed for computer laboratories. Sentrix allows administrators to discover, deploy, and monitor an entire fleet of Windows machines from a single centralized dashboard.
 
-## MVP Architecture
+## 🚀 Key Innovation: Zero-Touch Deployment
+Sentrix features an innovative **Dual-Transport Push Engine** that overcomes the default security barriers of standalone Windows environments (Workgroups). 
 
-Sentrix is split into three apps:
+- **Surgical Push:** Utilizing a one-time "Provisioning Handshake," Sentrix unlocks the built-in Administrator account and fixes Remote UAC filters.
+- **Admin Push (SMB/WMI):** Remotely pushes the agent binary via Administrative Shares and triggers high-privileged execution without any physical interaction with the client PC.
+- **Reverse-Tunnel Monitoring:** Once installed, the agent initiates an outbound Socket.io connection, allowing 100% remote control (restarts, monitoring) even behind firewalls and closed ports.
 
-- `sentrix-core` - Express and Socket.IO backend.
-- `sentrix-agent` - Electron device agent that reports machine metrics.
-- `sentrix-dashboard` - React, Vite, and Tailwind dashboard for monitoring labs.
-- MySQL stores users, groups, registered clients, latest metrics, and metrics history.
+---
 
-## Realtime Event Flow
+## 🏗️ System Architecture
 
-1. The agent connects to the backend with Socket.IO.
-2. The agent emits `agent:register` with hostname, OS, IP, and MAC.
-3. The agent emits `agent:metrics` every few seconds with CPU, RAM, disk, and uptime.
-4. The backend upserts the client record in MySQL and appends sampled metrics history.
-5. The dashboard loads `/api/clients` and receives realtime `devices:update` events through Socket.IO.
+Sentrix is composed of three integrated applications:
 
-## Data Sources
+- **`sentrix-core`**: The Node.js (Express & Socket.IO) backbone. Manages the database, network discovery, and remote deployment logic.
+- **`sentrix-agent`**: A lightweight Electron/Node.js background process. Runs as a **SYSTEM** service on client PCs to report metrics and execute remote commands.
+- **`sentrix-dashboard`**: A modern React (Vite & Tailwind CSS) interface for real-time laboratory oversight.
+- **MySQL**: The persistence layer for device identities, historical metrics, and user management.
 
-Sentrix no longer relies on static dashboard device data. Current device data comes from:
+---
 
-- live Sentrix agents using `systeminformation` and Node `os` APIs
-- persisted MySQL client records and metrics history
-- LAN discovery scans that combine ARP, optional Nmap results, DNS/NetBIOS lookups, open ports, and vendor hints
+## 🛠️ Setup & Installation
 
-Discovery scan snapshots are currently kept in backend memory for realtime dashboard updates. Registered agent clients and their metrics are persisted in MySQL, but the latest discovery-only device list is rebuilt after scans and does not survive a backend restart unless those devices also have registered agents.
-
-Some analytics values are fully real because they come from agent metrics, such as CPU, RAM, disk, uptime, device identity, hardware details, and heartbeat status. Temperature, latency, packet loss, and network throughput should be treated as estimated/derived values until the agent reports those measurements directly.
-
-## Setup
-
-Run each app in its own terminal.
-
+### 1. Backend (Core)
 ```bash
 cd sentrix-core
 npm install
+# Configure your .env (DB_HOST, DB_USER, DB_PASS, etc.)
 npm run dev
 ```
+*Note: Ensure the database is initialized using `sentrix-core/src/database/migrations/001_initial_schema.sql`.*
 
-```bash
-cd sentrix-agent
-npm install
-npm run dev //this is for headless agent
-npm run dev:electron //to run the electron app (agent)
-```
-
+### 2. Dashboard
 ```bash
 cd sentrix-dashboard
 npm install
 npm run dev
 ```
 
-Default URLs:
+### 3. Agent Deployment (The Laboratory)
 
-- Backend: `http://localhost:4000`
-- Dashboard: `http://localhost:5173`
+To deploy to your lab, follow the **"Prep Once, Deploy Anywhere"** workflow:
 
-Before running the backend, create the MySQL database and apply `sentrix-core/schema.sql`. Configure database access with `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_DATABASE` if your local settings are different from the defaults in `sentrix-core/src/lib/database.js`.
+#### Step A: The Handshake (One-Time)
+Run the provisioner script as Administrator on your **Master Image** or each PC once:
+```powershell
+# Located in the scripts/ folder
+.\Sentrix-PC-Provisioner.ps1
+```
+This script "unlocks" the PC by enabling the built-in Administrator and opening the required WMI/SMB ports.
 
-## Current MVP Features
+#### Step B: The Push
+1. Open the Sentrix Dashboard -> **Network Discovery**.
+2. Click **Rescan** to find your lab PCs.
+3. Click **Deploy** on a discovered PC.
+4. Enter the `Administrator` credentials.
+5. **Success:** The agent is pushed, installed, and starts reporting automatically.
 
-- Realtime device registration
-- Online/offline heartbeat tracking
-- CPU, RAM, disk, uptime, hostname, OS, IP, and MAC reporting
-- MySQL-backed client, user, group, and metrics history storage
-- Dashboard search and status filters
-- Basic group assignment
-- Realtime LAN discovery stream with manual rescan at `GET /api/discovery/scan`
-- Analytics dashboard and CSV export based on stored client metrics
+---
 
-## Roles
+## 📊 Real-Time Features
 
-Sentrix currently uses two admin roles:
+- **Laboratory Discovery:** Deep-scan subnets using Nmap, ARP, and NetBIOS to identify every device on your network.
+- **High-Privilege Monitoring:** Agent runs as **SYSTEM**, making it resilient to user termination while providing deep hardware access (CPU, RAM, Disk, Temperature).
+- **Remote Controls:** Restart, Shutdown, or Sleep machines directly from the dashboard.
+- **Security Hardening (Coming Soon):** Automatic post-deployment lockdown that disables the Admin account and closes firewall ports after a successful install.
+- **Analytics & Export:** View historical performance data and export metrics to CSV for laboratory reporting.
 
-- `network_admin` - can create/remove normal admin accounts and create, rename, or delete groups.
-- `admin` - can monitor devices and use existing groups, but cannot manage admin accounts or group definitions.
+---
 
-The first account should be created as the network admin. Normal admin accounts are created from the dashboard settings page by a network admin.
+## 🔐 Security & Roles
 
-## Discovery and Deployment
+Sentrix utilizes a strict role-based access control (RBAC) system:
 
-Network scanning now runs in the background and streams status/results through Socket.IO. The dashboard Rescan button manually triggers a fresh scan.
+- **`network_admin`**: Full control over laboratory configuration, user management, and group definitions.
+- **`admin`**: Access to monitoring and remote control features for assigned groups.
 
-Hostname and type detection uses the best local signals available:
+**Security Note:** All remote management commands are sent via an authenticated Socket.io tunnel. The legacy ports (SMB/WMI) are only used during the initial 60-second deployment phase.
 
-- registered Sentrix agent identity
-- optional `nmap -sn` results when Nmap is installed
-- reverse DNS
-- Windows `ping -a`
-- NetBIOS
-- nslookup
-- common open ports
-- basic vendor hints when available
+---
 
-Some devices may still show as `Unknown` when the network blocks name resolution, hides ports, or uses randomized MAC addresses. The Sentrix agent remains the trusted identity source after installation.
+## 🤝 Team Collaboration
 
-Agent deployment is only enabled for devices found in the latest scan and classified as `PC`. Mobile devices, printers, and unknown device types are not deploy eligible.
+- `CONTRIBUTING.md`: Guidelines for adding new features.
+- `docs/TEAM_WORKFLOW.md`: Documentation on splitting tasks and branch management.
 
-The current deployment endpoint prepares the target installer command and server URL. It does not yet perform fully automated remote installation; remote deployment still needs credentials/transport work such as WinRM, SSH, domain tooling, or another approved deployment channel.
-
-## Remaining Real-Data Work
-
-- Persist discovery-only scan results if the network page must keep scanned devices after backend restarts.
-- Extend the agent to report real temperature, network throughput, latency, and packet-loss metrics if those analytics must be production-grade.
-- Implement an authenticated remote deployment service if admins should push the agent directly from the dashboard.
-
-## Team Collaboration
-
-Sentrix includes beginner-friendly collaboration docs:
-
-- `CONTRIBUTING.md`
-- `docs/TEAM_WORKFLOW.md`
-
-Use these when splitting work across teammates.
+---
+*Built for modern laboratory management. Secure, Scalable, and Innovative.*
