@@ -1,5 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { Activity, LoaderCircle, LogOut, RefreshCcw, UserCircle, Wifi, WifiOff } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  Home,
+  LoaderCircle,
+  LogOut,
+  MonitorCog,
+  Network,
+  RefreshCcw,
+  Settings,
+  UserCircle,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
 import { TabNav } from "../components/TabNav.jsx";
 import { SentrixLogo, SentrixLogoLoader } from "../components/SentrixLogo.jsx";
 import { useDevices } from "../hooks/useDevices.js";
@@ -13,24 +26,13 @@ import { SettingsPage } from "../pages/SettingsPage.jsx";
 import * as authApi from "../services/authApi.js";
 import * as groupApi from "../services/groupApi.js";
 
-const tabs = ["home", "network", "devices", "analytics", "settings"];
-
-function getTabLabel(tab) {
-  switch (tab) {
-    case "home":
-      return "Home";
-    case "network":
-      return "Network";
-    case "devices":
-      return "Devices";
-    case "analytics":
-      return "Analytics";
-    case "settings":
-      return "Settings";
-    default:
-      return tab;
-  }
-}
+const tabs = [
+  { id: "home", label: "Home", icon: Home },
+  { id: "network", label: "Network", icon: Network },
+  { id: "devices", label: "Devices", icon: MonitorCog },
+  { id: "analytics", label: "Analytics", icon: BarChart3 },
+  { id: "settings", label: "Settings", icon: Settings },
+];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("home");
@@ -147,13 +149,9 @@ function DashboardShell({
             <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
               <SentrixLogo />
               <TabNav
-                tabs={tabs.map(getTabLabel)}
-                activeTab={getTabLabel(activeTab)}
-                onSelect={(label) =>
-                  setActiveTab(
-                    tabs[tabs.findIndex((tab) => getTabLabel(tab) === label)],
-                  )
-                }
+                tabs={tabs}
+                activeTab={activeTab}
+                onSelect={setActiveTab}
               />
             </div>
 

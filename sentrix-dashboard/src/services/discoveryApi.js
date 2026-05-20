@@ -10,10 +10,10 @@ export async function getDiscoverySnapshot() {
   return result.data;
 }
 
-export async function deployAgent(ip, device_type) {
+export async function deployAgent(ip, device_type, credentials = null) {
   const result = await fetchJson("/api/discovery/deploy", {
     method: "POST",
-    body: JSON.stringify({ ip, device_type }),
+    body: JSON.stringify({ ip, device_type, credentials }),
   });
   return result.data;
 }
