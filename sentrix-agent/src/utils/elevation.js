@@ -10,9 +10,67 @@ export function isAdmin() {
   }
 
   try {
-    // 'net session' requires administrative privileges
-    execSync("net session", { stdio: "ignore" });
-    return true;
+    // Check for High Mandatory Level (S-1-16-12288) or System Mandatory Level (S-1-16-16384)
+    // Also check for the Administrators group (S-1-5-32-544)
+    const { stdout } = execSync("whoami /groups /fo csv /nh", { 
+      encoding: "utf8", 
+      stdio: ["ignore", "pipe", "ignore"],
+      windowsHide: true
+    });
+    
+    const hasHighIntegrity = stdout.includes("S-1-16-12288") || stdout.includes("S-1-16-16384");
+    const isLocalAdmin = stdout.includes("S-1-5-32-544");
+    
+    if (hasHighIntegrity || isLocalAdmin) return true;
+
+    // Fallback if whoami groups is ambiguous
+    try {
+      execSync("net session", { stdio: "ignore", windowsHide: true });
+      return true;
+    } catch {
+      return false;
+    }
+  } catch {
+    // Ultimate fallback
+    try {
+      execSync("net session", { stdio: "ignore", windowsHide: true });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/**
+ * Checks if the current process is running as the SYSTEM account.
+ * @returns {boolean}
+ */
+export function isSystem() {
+  if (process.platform !== "win32") return false;
+  try {
+    // Check for System Mandatory Level (S-1-16-16384) in groups
+    const { stdout: groups } = execSync("whoami /groups /fo csv /nh", { 
+      encoding: "utf8", 
+      stdio: ["ignore", "pipe", "ignore"],
+      windowsHide: true
+    });
+    if (groups.includes("S-1-16-16384")) return true;
+
+    // Check if the user SID is SYSTEM (S-1-5-18)
+    const { stdout: user } = execSync("whoami /user /fo csv /nh", { 
+      encoding: "utf8", 
+      stdio: ["ignore", "pipe", "ignore"],
+      windowsHide: true
+    });
+    if (user.includes("S-1-5-18")) return true;
+
+    // Fallback to name check (less reliable but okay as last resort)
+    const { stdout: name } = execSync("whoami", { 
+      encoding: "utf8", 
+      stdio: ["ignore", "pipe", "ignore"],
+      windowsHide: true
+    });
+    return name.trim().toLowerCase().includes("system") || name.toLowerCase().includes("système");
   } catch {
     return false;
   }
@@ -23,7 +81,7 @@ export function isAdmin() {
  * This will trigger a UAC prompt if not already elevated.
  */
 export function elevate() {
-  if (process.platform !== "win32" || isAdmin()) {
+  if (process.platform !== "win32" || isAdmin() || isSystem()) {
     return false;
   }
 

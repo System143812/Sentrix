@@ -1,10 +1,15 @@
 import os from "os";
 import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 import { promisify } from "util";
 import dns from "dns";
 import net from "net";
 import { execFile } from "child_process";
 import { getAllClients } from "./client.services.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const execFileAsync = promisify(execFile);
 const dnsLookup = promisify(dns.reverse);
@@ -834,14 +839,24 @@ export function startDiscoveryScheduler(io) {
 }
 
 async function deployAgentViaAdminPush(ip, credentials, serverUrl) {
-  const agentExePath = path.resolve(process.cwd(), "../sentrix-agent/dist/sentrix-agent.exe").replace(/\\/g, "\\\\");
-  const assetsPath = path.resolve(process.cwd(), "../sentrix-agent/dist/assets").replace(/\\/g, "\\\\");
+  const agentExePath = path.resolve(__dirname, "../../../sentrix-agent/dist/sentrix-agent.exe");
+  const assetsPath = path.resolve(__dirname, "../../../sentrix-agent/dist/assets");
+  
+  if (!fs.existsSync(agentExePath)) {
+    throw new Error(`Agent executable not found at ${agentExePath}. Run 'npm run build:exe' in the sentrix-agent directory first.`);
+  }
+
   const { username, password } = credentials;
+  
+  const b64 = (str) => Buffer.from(str || "").toString("base64");
 
   const pushScript = `
-    \$ip = "${ip}"
-    \$user = "${username}"
-    \$pass = "${password}" | ConvertTo-SecureString -AsPlainText -Force
+    \$ip = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64(ip)}'))
+    \$user = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64(username)}'))
+    \$passRaw = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64(password)}'))
+    \$url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64(serverUrl)}'))
+    
+    \$pass = \$passRaw | ConvertTo-SecureString -AsPlainText -Force
     \$cred = New-Object System.Management.Automation.PSCredential(\$user, \$pass)
     
     \$targetDir = "C:\\\\ProgramData\\\\SentrixAgent"
@@ -858,33 +873,54 @@ async function deployAgentViaAdminPush(ip, credentials, serverUrl) {
         }
         
         Write-Host "Copying agent files..."
-        Copy-Item -Path "${agentExePath}" -Destination "\$remotePath\\\\sentrix-agent.exe" -Force
-        if (Test-Path "${assetsPath}") {
-            Copy-Item -Path "${assetsPath}" -Destination \$remotePath -Recurse -Force
+        Copy-Item -Path "${agentExePath.replace(/\\/g, "\\\\")}" -Destination "\$remotePath\\\\sentrix-agent.exe" -Force
+        if (Test-Path "${assetsPath.replace(/\\/g, "\\\\")}") {
+            Copy-Item -Path "${assetsPath.replace(/\\/g, "\\\\")}" -Destination \$remotePath -Recurse -Force
         }
         
-        "SENTRIX_SERVER_URL=${serverUrl}" | Out-File -FilePath "\$remotePath\\\\.env" -Encoding utf8
+        "SENTRIX_SERVER_URL=\$url" | Out-File -FilePath "\$remotePath\\\\.env" -Encoding utf8
         
         Write-Host "Triggering remote installation via WMI..."
-        \$innerCommand = "
-            \$dir = 'C:\\\\ProgramData\\\\SentrixAgent'
-            \$action = New-ScheduledTaskAction -Execute '\$dir\\\\sentrix-agent.exe' -Argument '--server-url ${serverUrl}' -WorkingDirectory \$dir
-            \$trigger = New-ScheduledTaskTrigger -AtStartup
-            \$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest
-            \$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-            Register-ScheduledTask -TaskName 'Sentrix Agent' -Action \$action -Trigger \$trigger -Principal \$principal -Settings \$settings -Force
+        $innerCommand = @"
+            \`$dir = 'C:\ProgramData\SentrixAgent'
+            # Registration and Start
+            \`$action = New-ScheduledTaskAction -Execute "\`$dir\sentrix-agent.exe" -Argument "--server-url $url" -WorkingDirectory \`$dir
+            \`$trigger = New-ScheduledTaskTrigger -AtStartup
+            \`$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest
+            \`$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+            
+            # Remove existing task if any
+            Unregister-ScheduledTask -TaskName 'Sentrix Agent' -Confirm:\`$false -ErrorAction SilentlyContinue
+            
+            Register-ScheduledTask -TaskName 'Sentrix Agent' -Action \`$action -Trigger \`$trigger -Principal \`$principal -Settings \`$settings -Force
             Start-ScheduledTask -TaskName 'Sentrix Agent'
-        "
-        \$encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes(\$innerCommand))
-        \$commandLine = "powershell.exe -ExecutionPolicy Bypass -EncodedCommand \$encodedCommand"
+            
+            # Lockdown Phase: Re-secure the machine
+            Write-Host 'Securing machine...'
+            Disable-LocalUser -Name 'Administrator' -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'LocalAccountTokenFilterPolicy' -Value 0 -ErrorAction SilentlyContinue
+            \`$rules = @('WINRM-HTTP-In-TCP', 'WINRM-HTTP-In-TCP-PUBLIC', 'FPS-SMB-In-TCP', 'WMI-In-TCP')
+            foreach (\`$rule in \`$rules) { Disable-NetFirewallRule -Name \`$rule -ErrorAction SilentlyContinue }
+"@
         
-        Invoke-WmiMethod -Path Win32_Process -Name Create -ArgumentList \$commandLine -ComputerName \$ip -Credential \$cred | Out-Null
+        $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($innerCommand))
+        $commandLine = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedCommand"
+        
+        \$result = Invoke-WmiMethod -Path Win32_Process -Name Create -ArgumentList \$commandLine -ComputerName \$ip -Credential \$cred
+        if (\$result.ReturnValue -ne 0) {
+            throw "Failed to start remote installation process via WMI. ReturnValue: \$(\$result.ReturnValue)"
+        }
     } finally {
         Remove-PSDrive -Name \$driveName -Force -ErrorAction SilentlyContinue
     }
   `;
 
-  await execFileAsync("powershell.exe", ["-Command", pushScript], { timeout: 90000 });
+  try {
+    await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", pushScript], { timeout: 90000 });
+  } catch (error) {
+    const stderr = error.stderr ? `\nStderr: ${error.stderr}` : "";
+    throw new Error(`${error.message}${stderr}`);
+  }
 }
 
 export async function deployAgentToHostRemote(ip, credentials = null) {
@@ -904,15 +940,39 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
 
   try {
     const { username, password } = credentials;
-    const agentExePath = path.resolve(process.cwd(), "../sentrix-agent/dist/sentrix-agent.exe");
-    const assetsPath = path.resolve(process.cwd(), "../sentrix-agent/dist/assets");
+    const agentExePath = path.resolve(__dirname, "../../../sentrix-agent/dist/sentrix-agent.exe");
+    const assetsPath = path.resolve(__dirname, "../../../sentrix-agent/dist/assets");
+
+    if (!fs.existsSync(agentExePath)) {
+      throw new Error(`Agent executable not found at ${agentExePath}. Run 'npm run build:exe' in the sentrix-agent directory first.`);
+    }
+
+    const b64 = (str) => Buffer.from(str || "").toString("base64");
 
     const winrmScript = `
-      \$ip = "${ip}"
-      \$user = "${username}"
-      \$pass = "${password}" | ConvertTo-SecureString -AsPlainText -Force
+      \$ip = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64(ip)}'))
+      \$user = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64(username)}'))
+      \$passRaw = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64(password)}'))
+      \$url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64(serverUrl)}'))
+
+      \$pass = \$passRaw | ConvertTo-SecureString -AsPlainText -Force
       \$cred = New-Object System.Management.Automation.PSCredential(\$user, \$pass)
       
+      # Add to TrustedHosts if not already present (Best Effort)
+      try {
+          \$localIsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
+          if (\$localIsAdmin) {
+              \$currentTrusted = (Get-Item WSMan:\\localhost\\Client\\TrustedHosts).Value
+              \$trustedList = if (\$currentTrusted) { \$currentTrusted.Split(',') } else { @() }
+              if (\$trustedList -notcontains \$ip -and \$currentTrusted -ne '*') {
+                  \$newTrusted = if (\$currentTrusted) { "\$currentTrusted,\$ip" } else { \$ip }
+                  Set-Item WSMan:\\localhost\\Client\\TrustedHosts -Value \$newTrusted -Force
+              }
+          }
+      } catch {
+          # Silently ignore TrustedHosts access errors
+      }
+
       \$targetDir = "C:\\\\ProgramData\\\\SentrixAgent"
       \$session = New-PSSession -ComputerName \$ip -Credential \$cred -ErrorAction Stop
 
@@ -923,34 +983,55 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
           } -ArgumentList \$targetDir
 
           Copy-Item -Path "${agentExePath.replace(/\\/g, "\\\\")}" -Destination "\$targetDir\\\\sentrix-agent.exe" -ToSession \$session
-          Copy-Item -Path "${assetsPath.replace(/\\/g, "\\\\")}" -Destination "\$targetDir" -Recurse -Force -ToSession \$session
+          if (Test-Path "${assetsPath.replace(/\\/g, "\\\\")}") {
+              Copy-Item -Path "${assetsPath.replace(/\\/g, "\\\\")}" -Destination "\$targetDir" -Recurse -Force -ToSession \$session
+          }
 
           Invoke-Command -Session \$session -ScriptBlock {
-              param(\$dir, \$url)
-              "SENTRIX_SERVER_URL=\$url" | Out-File -FilePath "\$dir\\\\.env" -Encoding utf8
-              \$action = New-ScheduledTaskAction -Execute "\$dir\\\\sentrix-agent.exe" -Argument "--server-url \$url" -WorkingDirectory \$dir
+              param(\$dir, \$u)
+              \$envContent = "SENTRIX_SERVER_URL=\$u"
+              \$envContent | Out-File -FilePath "\$dir\\.env" -Encoding utf8
+              
+              \$action = New-ScheduledTaskAction -Execute "\$dir\\sentrix-agent.exe" -Argument "--server-url \$u" -WorkingDirectory \$dir
               \$trigger = New-ScheduledTaskTrigger -AtStartup
               \$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
-              \$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+              \$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+              
+              # Remove existing task if any
+              Unregister-ScheduledTask -TaskName "Sentrix Agent" -Confirm:\$false -ErrorAction SilentlyContinue
+              
               Register-ScheduledTask -TaskName "Sentrix Agent" -Action \$action -Trigger \$trigger -Principal \$principal -Settings \$settings -Force
               Start-ScheduledTask -TaskName "Sentrix Agent"
-          } -ArgumentList \$targetDir, "${serverUrl}"
+
+              # Lockdown Phase: Re-secure the machine
+              Disable-LocalUser -Name "Administrator" -ErrorAction SilentlyContinue
+              Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" -Name "LocalAccountTokenFilterPolicy" -Value 0 -ErrorAction SilentlyContinue
+              \$rules = @("WINRM-HTTP-In-TCP", "WINRM-HTTP-In-TCP-PUBLIC", "FPS-SMB-In-TCP", "WMI-In-TCP")
+              foreach (\$rule in \$rules) { Disable-NetFirewallRule -Name \$rule -ErrorAction SilentlyContinue }
+          } -ArgumentList \$targetDir, \$url
       } finally {
           Remove-PSSession \$session
       }
     `;
 
-    await execFileAsync("powershell.exe", ["-Command", winrmScript], { timeout: 60000 });
+    try {
+      await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", winrmScript], { timeout: 60000 });
+    } catch (error) {
+      const stderr = error.stderr ? `\nStderr: ${error.stderr}` : "";
+      console.error(`[Deployment] WinRM command execution failed for ${ip}:${stderr}\nMessage: ${error.message}`);
+      throw new Error(`${error.message}${stderr}`);
+    }
     return { success: true, message: `Successfully deployed agent to ${ip} via WinRM`, ip };
   } catch (winrmError) {
-    console.log(`WinRM deployment failed for ${ip}, trying Admin Push fallback...`, winrmError.message);
-    
+    console.log(`[Deployment] WinRM connection failed for ${ip}. Trying Zero-Touch Admin Push...`);
+
     try {
       await deployAgentViaAdminPush(ip, credentials, serverUrl);
+      console.log(`[Deployment] Successfully deployed agent to ${ip} via Zero-Touch Admin Push.`);
       return { success: true, message: `Successfully deployed agent to ${ip} via Zero-Touch Admin Push`, ip };
     } catch (pushError) {
+      console.error(`[Deployment] Admin Push execution failed for ${ip}:\n${pushError.message}`);
       let message = pushError.message;
-      
       if (message.includes("Access is denied")) {
         message = "Blocked by UAC: Windows restricted remote access. Ensure you have run the 'Sentrix Master Prep' script on the target PC and are using the built-in 'Administrator' account.";
       } else if (message.includes("network name cannot be found")) {
