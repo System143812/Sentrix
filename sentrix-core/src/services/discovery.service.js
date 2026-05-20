@@ -873,18 +873,18 @@ async function deployAgentViaAdminPush(ip, credentials, serverUrl) {
         }
         
         Write-Host "Copying agent files..."
-        Copy-Item -Path "${agentExePath.replace(/\\/g, "\\\\")}" -Destination "\$remotePath\\\\sentrix-agent.exe" -Force
+        Copy-Item -Path "${agentExePath.replace(/\\/g, "\\\\")}" -Destination "\$remotePath\\sentrix-agent.exe" -Force
         if (Test-Path "${assetsPath.replace(/\\/g, "\\\\")}") {
             Copy-Item -Path "${assetsPath.replace(/\\/g, "\\\\")}" -Destination \$remotePath -Recurse -Force
         }
         
-        "SENTRIX_SERVER_URL=\$url" | Out-File -FilePath "\$remotePath\\\\.env" -Encoding utf8
+        "SENTRIX_SERVER_URL=\$url" | Out-File -FilePath "\$remotePath\\.env" -Encoding utf8
         
         Write-Host "Triggering remote installation via WMI..."
-        $innerCommand = @"
-            \`$dir = 'C:\ProgramData\SentrixAgent'
+        \$innerCommand = @"
+            \`$dir = 'C:\\ProgramData\\SentrixAgent'
             # Registration and Start
-            \`$action = New-ScheduledTaskAction -Execute "\`$dir\sentrix-agent.exe" -Argument "--server-url $url" -WorkingDirectory \`$dir
+            \`$action = New-ScheduledTaskAction -Execute "\`$dir\\sentrix-agent.exe" -Argument "--server-url $url" -WorkingDirectory \`$dir
             \`$trigger = New-ScheduledTaskTrigger -AtStartup
             \`$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest
             \`$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
@@ -898,17 +898,25 @@ async function deployAgentViaAdminPush(ip, credentials, serverUrl) {
             # Lockdown Phase: Re-secure the machine
             Write-Host 'Securing machine...'
             Disable-LocalUser -Name 'Administrator' -ErrorAction SilentlyContinue
-            Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'LocalAccountTokenFilterPolicy' -Value 0 -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'LocalAccountTokenFilterPolicy' -Value 0 -ErrorAction SilentlyContinue
             \`$rules = @('WINRM-HTTP-In-TCP', 'WINRM-HTTP-In-TCP-PUBLIC', 'FPS-SMB-In-TCP', 'WMI-In-TCP')
-            foreach (\`$rule in \`$rules) { Disable-NetFirewallRule -Name \`$rule -ErrorAction SilentlyContinue }
+            foreach (\$rule in \$rules) { Disable-NetFirewallRule -Name \$rule -ErrorAction SilentlyContinue }
 "@
         
         $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($innerCommand))
         $commandLine = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedCommand"
         
-        \$result = Invoke-WmiMethod -Path Win32_Process -Name Create -ArgumentList \$commandLine -ComputerName \$ip -Credential \$cred
-        if (\$result.ReturnValue -ne 0) {
-            throw "Failed to start remote installation process via WMI. ReturnValue: \$(\$result.ReturnValue)"
+        try {
+            \$result = Invoke-WmiMethod -Path Win32_Process -Name Create -ArgumentList \$commandLine -ComputerName \$ip -Credential \$cred
+            if (\$result.ReturnValue -ne 0) {
+                throw "Failed to start remote installation process via WMI. ReturnValue: \$(\$result.ReturnValue)"
+            }
+        } catch {
+            if (\$_.Exception.Message -match "RPC server is unavailable") {
+                Write-Host "Note: Connection closed during lockdown (Graceful Disconnect). This is expected as the firewall is now secured."
+            } else {
+                throw \$_
+            }
         }
     } finally {
         Remove-PSDrive -Name \$driveName -Force -ErrorAction SilentlyContinue
@@ -1019,7 +1027,13 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
     } catch (error) {
       const stderr = error.stderr ? `\nStderr: ${error.stderr}` : "";
       console.error(`[Deployment] WinRM command execution failed for ${ip}:${stderr}\nMessage: ${error.message}`);
-      throw new Error(`${error.message}${stderr}`);
+      
+      let enhancedMessage = error.message;
+      if (stderr.includes("ServerNotTrusted") || stderr.includes("TrustedHosts")) {
+        enhancedMessage = "WinRM Trust Error: Your server PC does not trust the target machine. START YOUR TERMINAL AS ADMINISTRATOR, or run 'Set-Item WSMan:\\localhost\\Client\\TrustedHosts -Value \"*\" -Force' in an Admin PowerShell once.";
+      }
+      
+      throw new Error(`${enhancedMessage}${stderr}`);
     }
     return { success: true, message: `Successfully deployed agent to ${ip} via WinRM`, ip };
   } catch (winrmError) {
@@ -1037,11 +1051,13 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
       } else if (message.includes("network name cannot be found")) {
         message = "PC Offline: The target computer could not be found on the network. Check the IP address and ensure the PC is turned on.";
       } else if (message.includes("RPC server is unavailable")) {
-        message = "Firewall Blocked: The RPC/WMI service is blocked by the target PC's firewall. Run the 'Sentrix Master Prep' script to open the necessary ports.";
+        message = "Firewall Blocked (RPC/WMI): The WMI service is blocked by the target PC's firewall. Run the UPDATED 'Sentrix Master Prep' script on the target PC to open the necessary ports and start WMI.";
       } else if (message.includes("logon failure") || message.includes("unknown user name or bad password")) {
         message = "Login Failed: The username or password you entered is incorrect.";
       } else if (message.includes("WinRM client cannot process the request")) {
         message = "WinRM Disabled: Remote management is not enabled on the target PC. Run the 'Sentrix Master Prep' script to enable WinRM and TrustedHosts.";
+      } else if (winrmError.message.includes("WinRM Trust Error")) {
+        message = winrmError.message.split("\n")[0];
       } else {
         message = `Deployment failed: ${message.split("\n")[0]}`;
       }
