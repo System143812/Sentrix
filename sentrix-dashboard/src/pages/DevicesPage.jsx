@@ -13,6 +13,7 @@ export function DevicesPage({
       <PageHeader
         title="Devices"
         subtitle="Manage device groups, expand device details, and review agent status at a glance."
+        backgroundImage="/love_computer.jpg"
       />
 
       <DeviceTable

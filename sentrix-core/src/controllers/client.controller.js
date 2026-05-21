@@ -1,27 +1,44 @@
 import * as clientService from "../services/client.services.js";
 import { AppError } from "../utils/appError.utils.js";
 
+const ALLOWED_DEVICE_COMMANDS = new Set([
+  "shutdown",
+  "restart",
+  "sleep",
+  "lock",
+  "update",
+]);
+
+async function emitAgentCommand(req, clientId, command, args = {}) {
+  const io = req.app.get("io");
+  const room = `agent:${clientId}`;
+  const sockets = await io.in(room).fetchSockets();
+
+  if (sockets.length === 0) {
+    throw new AppError(400, "Agent is offline or not connected.");
+  }
+
+  try {
+    return await sockets[0].timeout(5000).emitWithAck("agent:command", {
+      command,
+      args,
+    });
+  } catch (error) {
+    if (error.name === "TimeoutError") {
+      throw new AppError(504, "Agent did not respond in time. The command might still be running.");
+    }
+
+    throw error;
+  }
+}
+
 export async function killClientProcess(req, res, next) {
   try {
     const { id, pid } = req.params;
-    const io = req.app.get("io");
-
-    // Check if the agent is online and has a socket
-    const room = `agent:${id}`;
-    const sockets = await io.in(room).fetchSockets();
-
-    if (sockets.length === 0) {
-      throw new AppError(400, "Agent is offline or not connected.");
-    }
-
-    // Emit the command to the first available socket for this agent
-    const agentSocket = sockets[0];
     
     try {
-      // Use timeout to prevent hanging if agent doesn't respond
-      const result = await agentSocket.timeout(5000).emitWithAck("agent:command", {
-        command: "kill-process",
-        args: { pid: parseInt(pid, 10) }
+      const result = await emitAgentCommand(req, id, "kill-process", {
+        pid: parseInt(pid, 10),
       });
 
       console.log(`[CORE] Agent result for kill-process (PID ${pid}):`, result);
@@ -45,6 +62,31 @@ export async function killClientProcess(req, res, next) {
       }
       throw err;
     }
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function sendClientCommand(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { command, payload = {} } = req.body || {};
+
+    if (!ALLOWED_DEVICE_COMMANDS.has(command)) {
+      throw new AppError(400, "Unsupported remote command.");
+    }
+
+    const result = await emitAgentCommand(req, id, command, payload);
+
+    if (!result?.success) {
+      throw new AppError(400, result?.message || "Remote command failed.");
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: result.message || "Remote command accepted.",
+      data: result,
+    });
   } catch (error) {
     next(error);
   }

@@ -61,3 +61,11 @@ export async function killClientProcess(id, pid) {
   });
   return result;
 }
+
+export async function sendDeviceCommand(id, command, payload = {}) {
+  const result = await fetchJson(`/api/clients/${id}/command`, {
+    method: "POST",
+    body: JSON.stringify({ command, payload }),
+  });
+  return result;
+}

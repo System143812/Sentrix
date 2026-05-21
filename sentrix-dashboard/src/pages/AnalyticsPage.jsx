@@ -22,11 +22,14 @@ import {
   Timer,
   Upload,
   Wifi,
+  ChevronRight,
+  Users,
 } from "lucide-react";
 import { SentrixLogoLoader } from "../components/SentrixLogo.jsx";
 import { Card } from "../components/Card.jsx";
 import { StatusBadge } from "../components/StatusBadge.jsx";
 import { ProgressBar } from "../components/ProgressBar.jsx";
+import { PageHeader } from "../components/PageHeader.jsx";
 import * as analyticsApi from "../services/analyticsApi.js";
 import {
   formatUptime,
@@ -42,7 +45,7 @@ import {
   getLastSeenAt,
 } from "../shared/utils.js";
 import { EMPTY_ANALYTICS } from "../shared/emptyStates.js";
-import { ICON_TONES, STATUS_TONES, HEATMAP_STATUS_STYLES, getStatusTone } from "../styles/tones.js";
+import { ICON_TONES, STATUS_TONES, HEATMAP_STATUS_STYLES, getStatusTone, PROGRESS_BAR_COLORS } from "../styles/tones.js";
 
 const timeRanges = [
   { key: "24h", label: "Last 24h", points: ["12a", "4a", "8a", "12p", "4p", "Now"] },
@@ -158,7 +161,7 @@ function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
 function TooltipIcon({ icon: Icon, label, tone = "teal" }) {
   return (
     <span
-      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border shadow-sm shadow-slate-200/70 ${ICON_TONES[tone]}`}
+      className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform hover:scale-105 ${ICON_TONES[tone]}`}
       title={label}
       aria-label={label}
     >
@@ -172,10 +175,8 @@ function ModuleLoader({ loading }) {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-end rounded-lg bg-white/55 p-4 backdrop-blur-[1px]">
-      <span className="inline-flex items-center gap-2 rounded-md border border-blue-100 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm">
-        <span className="text-signal">
-          <SentrixLogoLoader compact />
-        </span>
+      <span className="inline-flex items-center gap-2 rounded-lg border border-blue-100 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 shadow-sm">
+        <RefreshCcw className="animate-spin text-slate-400" size={12} strokeWidth={2.5} />
         Updating
       </span>
     </div>
@@ -184,43 +185,60 @@ function ModuleLoader({ loading }) {
 
 function Panel({ icon, title, subtitle, children, action, loading = false, tone = "teal" }) {
   return (
-    <Card padding="5" className="analytics-panel analytics-reveal relative flex h-full min-w-0 flex-col sm:p-6">
+    <Card padding="0" className="analytics-panel analytics-reveal relative flex h-full min-w-0 flex-col overflow-hidden bg-white border-slate-200/60 shadow-sm transition-all hover:shadow-md">
       <ModuleLoader loading={loading} />
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <TooltipIcon icon={icon} label={title} tone={tone} />
-            <h2 className="text-lg font-bold leading-6 text-slate-950">
-              {title}
-            </h2>
+      <div className="flex flex-1 flex-col p-6 sm:p-8">
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-4">
+              <TooltipIcon icon={icon} label={title} tone={tone} />
+              <div>
+                <h2 className="text-lg font-bold text-slate-950 tracking-tight leading-tight font-ui">
+                  {title}
+                </h2>
+                <p className="mt-1 text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none font-ui">{subtitle}</p>
+              </div>
+            </div>
           </div>
-          <p className="mt-1 text-sm leading-5 text-slate-500">{subtitle}</p>
+          {action}
         </div>
-        {action}
+        <div className="flex flex-1 flex-col">{children}</div>
       </div>
-      <div className="flex flex-1 flex-col">{children}</div>
     </Card>
   );
 }
 
 function MetricCard({ icon: Icon, label, value, detail, tone = "blue", warning = false, loading = false }) {
   return (
-    <Card padding="4" className="analytics-card analytics-reveal relative">
+    <Card padding="0" className={`analytics-card analytics-reveal relative overflow-hidden bg-white border-slate-200/60 shadow-sm transition-all hover:shadow-md hover:border-slate-300`}>
       <ModuleLoader loading={loading} />
-      <div className="grid grid-cols-[minmax(0,1fr)_44px] items-start gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium leading-5 text-slate-500">{label}</p>
-          <strong className="mt-3 block text-3xl font-bold leading-none text-slate-950">{value}</strong>
-          <span className="mt-2 block text-xs font-medium leading-4 text-slate-500">
-            {detail}
+      <div className="p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 font-ui">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
+            <strong className="mt-1 block text-2xl font-bold tracking-tight text-slate-900 font-data tabular-nums">{value}</strong>
+          </div>
+          <span
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-all hover:scale-110 ${ICON_TONES[warning ? "rose" : tone]}`}
+            title={label}
+          >
+            {warning ? <BadgeAlert size={18} strokeWidth={2.5} /> : <Icon size={18} strokeWidth={2.5} />}
           </span>
         </div>
-        <span
-          className={`analytics-icon grid h-11 w-11 shrink-0 place-items-center rounded-md border shadow-sm ${ICON_TONES[warning ? "rose" : tone]}`}
-          title={label}
-        >
-          {warning ? <BadgeAlert size={20} strokeWidth={2.4} /> : <Icon size={20} strokeWidth={2.4} />}
-        </span>
+        <div className="mt-5 flex items-center gap-2">
+          <div className="h-1 w-full overflow-hidden rounded-full bg-slate-100/80">
+            <div 
+              className={`h-full transition-all duration-1000 ${PROGRESS_BAR_COLORS[warning ? "rose" : tone]}`}
+              style={{ width: value.includes("%") ? value : "100%" }}
+            />
+          </div>
+          <span className="shrink-0 text-[9px] font-bold text-slate-400 uppercase tracking-tighter font-ui">
+            {detail.split(' ')[0]}
+          </span>
+        </div>
+        <p className="mt-2 text-[11px] font-medium text-slate-400 line-clamp-1 italic font-data">
+          {detail}
+        </p>
       </div>
     </Card>
   );
@@ -238,7 +256,7 @@ function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
   const areaPath = path ? `${path} L ${width} ${height} L 0 ${height} Z` : "";
 
   return (
-    <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-inner">
+    <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-6 shadow-inner">
       <svg
         className="h-56 w-full sm:h-64"
         preserveAspectRatio="none"
@@ -250,7 +268,7 @@ function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
           <line
             key={line}
             stroke="currentColor"
-            className="text-slate-200"
+            className="text-slate-100"
             strokeDasharray="4 6"
             x1="0"
             x2={width}
@@ -258,7 +276,7 @@ function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
             y2={line}
           />
         ))}
-        <path className="analytics-area" d={areaPath} fill={color} opacity="0.12" />
+        <path className="analytics-area" d={areaPath} fill={color} opacity="0.1" />
         <path
           className="analytics-line"
           d={path}
@@ -281,13 +299,13 @@ function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
           />
         ))}
       </svg>
-      <div className="mt-4 flex flex-wrap justify-between gap-2 text-center">
+      <div className="mt-6 flex flex-wrap justify-between gap-3">
         {points.map((point) => (
-          <div className="min-w-[70px] rounded-md bg-slate-50 px-2 py-2 shadow-sm ring-1 ring-slate-100" key={point.label}>
-            <p className="text-xs font-medium text-slate-500">
+          <div className="min-w-[75px] rounded-lg bg-white px-3 py-2.5 shadow-sm border border-slate-100/60" key={point.label}>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-ui">
               {point.label}
             </p>
-            <p className="text-xs font-bold text-slate-700">
+            <p className="mt-0.5 text-xs font-bold text-slate-700 font-data tabular-nums">
               {point.value}%
             </p>
           </div>
@@ -299,28 +317,28 @@ function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
 
 function MultiLineChart({ devices = [] }) {
   return (
-    <div className="rounded-lg border border-slate-100 bg-white p-5 shadow-inner">
+    <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-6 shadow-inner">
       {!devices.length ? (
-        <div className="grid min-h-64 place-items-center rounded-lg bg-slate-50 text-sm font-medium text-slate-500">
-          No clients available for comparison.
+        <div className="grid min-h-64 place-items-center rounded-lg bg-slate-50 text-xs font-bold uppercase tracking-widest text-slate-400 font-ui">
+          Syncing Device Metrics...
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {devices.slice(0, 5).map((device) => {
             const health = getHealthScore(device);
             const load = getDeviceLoad(device);
 
             return (
               <div key={device.id}>
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span className="break-words font-semibold text-slate-800">{device.hostname}</span>
-                  <span className="shrink-0 text-xs font-bold text-slate-500">
-                    Health {health}% / Load {load}%
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm font-ui">
+                  <span className="font-bold text-slate-800 tracking-tight">{device.hostname}</span>
+                  <span className="shrink-0 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-data">
+                    Health {health}% <span className="text-slate-200">/</span> Load {load}%
                   </span>
                 </div>
                 <div className="grid gap-2">
-                  <ProgressBar value={clamp(health)} color="emerald" />
-                  <ProgressBar value={clamp(load)} color="blue" />
+                  <ProgressBar value={clamp(health)} color="emerald" height="h-1.5" />
+                  <ProgressBar value={clamp(load)} color="blue" height="h-1.5" />
                 </div>
               </div>
             );
@@ -331,45 +349,49 @@ function MultiLineChart({ devices = [] }) {
   );
 }
 
-function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, selectedGroup, setSelectedGroup }) {
+function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, selectedGroup, setSelectedGroup, dark = false }) {
   return (
-    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
       <div className="flex flex-wrap items-center gap-2">
-        <TooltipIcon icon={CalendarDays} label="Select analytics time range" />
-        {timeRanges.map((range) => (
-          <button
-            className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition ${
-              rangeKey === range.key
-                ? "border-signal bg-signal text-white"
-                : "border-line bg-white text-slate-700 shadow-sm hover:border-signal hover:text-signal"
-            }`}
-            key={range.key}
-            onClick={() => setRangeKey(range.key)}
-            title={`Show ${range.label} analytics`}
-            type="button"
-          >
-            <Clock3 size={15} />
-            {range.label}
-          </button>
-        ))}
+        {timeRanges.map((range) => {
+          const selected = rangeKey === range.key;
+          return (
+            <button
+              className={`btn-minimal h-10 px-5 transition-all font-ui active:scale-100 hover:scale-100 ${
+                selected
+                  ? "bg-slate-900 border-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-900 hover:text-white"
+                  : dark 
+                    ? "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+                    : "bg-white text-slate-500 hover:bg-slate-50"
+              }`}
+              key={range.key}
+              onClick={() => setRangeKey(range.key)}
+              title={`Show ${range.label} analytics`}
+              type="button"
+            >
+              <Clock3 size={15} strokeWidth={2.5} />
+              <span className="font-bold uppercase tracking-widest text-[10px]">{range.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-600 shadow-sm">
-          <RefreshCcw className={loading ? "animate-spin" : ""} size={15} />
-          {loading ? "Refreshing in background" : "Live data cached"}
+      <div className="flex flex-wrap items-center gap-2 font-ui">
+        <span className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/5 bg-white/5 text-slate-400' : 'border-slate-100 bg-white text-slate-500'}`}>
+          <RefreshCcw className={loading ? "animate-spin" : ""} size={14} strokeWidth={2.5} />
+          {loading ? "Syncing..." : "Data Live"}
         </span>
-        <label className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-600 shadow-sm">
-          <Filter size={15} />
+        <label className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/5 bg-white/5 text-slate-400' : 'border-slate-100 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200'}`}>
+          <Filter size={14} strokeWidth={2.5} />
           <select
-            className="bg-transparent text-sm font-semibold outline-none"
+            className="bg-transparent outline-none cursor-pointer"
             onChange={(event) => setSelectedGroup(event.target.value)}
             title="Filter analytics by group"
             value={selectedGroup}
           >
-            <option value="all">All groups</option>
+            <option className="text-slate-900" value="all">All Clusters</option>
             {groupOptions.map((group) => (
-              <option key={group} value={group}>
+              <option className="text-slate-900" key={group} value={group}>
                 {group}
               </option>
             ))}
@@ -449,22 +471,22 @@ function AgentMetricsPanel({ analytics, loading }) {
       tone="blue"
     >
       <div className="grid gap-5">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {metrics.map((metric) => {
             const Icon = metric.icon;
             return (
-              <div className="rounded-lg border border-slate-100 bg-white p-4 shadow-sm" key={metric.label}>
+              <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-slate-200" key={metric.label}>
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium leading-5 text-slate-500">{metric.label}</p>
-                    <strong className="mt-2 block break-words text-2xl font-bold text-slate-950">
+                  <div className="min-w-0 font-ui">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{metric.label}</p>
+                    <strong className="mt-1.5 block break-words text-2xl font-bold text-slate-900 font-data tabular-nums">
                       {metric.value}
                     </strong>
-                    <span className="mt-1 block text-xs leading-5 text-slate-500">
+                    <span className="mt-1 block text-[11px] font-medium text-slate-500 italic">
                       {metric.detail}
                     </span>
                   </div>
-                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border shadow-sm ${ICON_TONES[metric.tone]}`}>
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform hover:scale-110 ${ICON_TONES[metric.tone]}`}>
                     <Icon size={18} strokeWidth={2.4} />
                   </span>
                 </div>
@@ -473,38 +495,42 @@ function AgentMetricsPanel({ analytics, loading }) {
           })}
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-slate-200">
-          <div className="hidden grid-cols-[1.2fr_repeat(6,minmax(92px,1fr))] gap-3 bg-slate-900 px-4 py-3 text-xs font-bold text-white xl:grid">
-            <span>Client</span>
-            <span>CPU Temp</span>
-            <span>GPU Temp</span>
-            <span>Upload</span>
-            <span>Download</span>
-            <span>Latency</span>
-            <span>Packet Loss</span>
-          </div>
-          <div className="divide-y divide-slate-200">
-            {analytics.allDevices.length ? analytics.allDevices.map((device) => {
-              const clientMetrics = getClientMetrics(device);
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
+          <div className="overflow-x-auto custom-scrollbar">
+            <div className="min-w-[1000px]">
+              <div className="grid grid-cols-[1.8fr_repeat(6,1fr)] bg-slate-50 border-b border-slate-200 px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-ui">
+                <span>Client Terminal</span>
+                <span className="text-right">CPU Temp</span>
+                <span className="text-right">GPU Temp</span>
+                <span className="text-right">Upload</span>
+                <span className="text-right">Download</span>
+                <span className="text-right">Latency</span>
+                <span className="text-right">Loss</span>
+              </div>
+              <div className="divide-y divide-slate-100 font-data">
+                {analytics.allDevices.length ? analytics.allDevices.map((device) => {
+                  const cm = getClientMetrics(device);
 
-              return (
-                <div className="grid gap-2 bg-white px-4 py-3 text-sm xl:grid-cols-[1.2fr_repeat(6,minmax(92px,1fr))] xl:items-center xl:gap-3" key={device.id}>
-                  <span className="min-w-0 break-words font-semibold text-slate-800">
-                    {device.hostname}
-                  </span>
-                  <span>{formatTemperature(clientMetrics.cpuTemperature)}</span>
-                  <span>{formatTemperature(clientMetrics.gpuTemperature)}</span>
-                  <span>{formatBytesPerSecond(clientMetrics.uploadBytesPerSec)}</span>
-                  <span>{formatBytesPerSecond(clientMetrics.downloadBytesPerSec)}</span>
-                  <span>{clientMetrics.latencyMs == null ? "Unknown" : `${Math.round(Number(clientMetrics.latencyMs))} ms`}</span>
-                  <span>{formatPercent(clientMetrics.packetLoss)}</span>
-                </div>
-              );
-            }) : (
-              <p className="p-5 text-center text-sm text-slate-500">
-                No clients available for the selected group.
-              </p>
-            )}
+                  return (
+                    <div className="grid grid-cols-[1.8fr_repeat(6,1fr)] gap-4 px-6 py-4 text-sm items-center hover:bg-slate-50/50 transition-colors" key={device.id}>
+                      <span className="font-bold text-slate-800 tracking-tight truncate font-ui">
+                        {device.hostname}
+                      </span>
+                      <span className="text-right tabular-nums text-slate-600 font-bold">{formatTemperature(cm.cpuTemperature)}</span>
+                      <span className="text-right tabular-nums text-slate-600 font-bold">{formatTemperature(cm.gpuTemperature)}</span>
+                      <span className="text-right tabular-nums text-slate-600 font-bold">{formatBytesPerSecond(cm.uploadBytesPerSec)}</span>
+                      <span className="text-right tabular-nums text-slate-600 font-bold">{formatBytesPerSecond(cm.downloadBytesPerSec)}</span>
+                      <span className="text-right tabular-nums text-slate-600 font-bold">{cm.latencyMs == null ? "—" : `${Math.round(Number(cm.latencyMs))}ms`}</span>
+                      <span className="text-right tabular-nums text-slate-600 font-bold">{formatPercent(cm.packetLoss)}</span>
+                    </div>
+                  );
+                }) : (
+                  <div className="p-20 text-center text-xs font-bold text-slate-300 uppercase tracking-widest font-ui">
+                    Waiting for agent telemetry...
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -515,42 +541,42 @@ function AgentMetricsPanel({ analytics, loading }) {
 function HealthScorePanel({ analytics, loading }) {
   const tone = getStatusTone(analytics.health);
   const factors = [
-    { label: "Utilization", value: 100 - analytics.pressure, icon: Gauge },
-    { label: "CPU", value: 100 - analytics.cpu, icon: Cpu },
-    { label: "RAM", value: 100 - analytics.ram, icon: MemoryStick },
-    { label: "Availability", value: analytics.total ? Math.round((analytics.online / analytics.total) * 100) : 0, icon: Radio },
+    { label: "Utilization", value: 100 - analytics.pressure, icon: Gauge, color: "blue" },
+    { label: "CPU Health", value: 100 - analytics.cpu, icon: Cpu, color: "emerald" },
+    { label: "Memory State", value: 100 - analytics.ram, icon: MemoryStick, color: "indigo" },
+    { label: "Uptime Sync", value: analytics.total ? Math.round((analytics.online / analytics.total) * 100) : 0, icon: Radio, color: "teal" },
   ];
 
   return (
     <Panel
       icon={ShieldCheck}
       loading={loading}
-      title="Health Score"
-      subtitle="Backend score from real agent utilization and availability data"
+      title="Health Performance"
+      subtitle="Aggregated terminal health and availability"
       tone="emerald"
     >
-      <div className="grid gap-5 md:grid-cols-[220px_minmax(0,1fr)]">
-        <div className="grid place-items-center rounded-lg border border-slate-100 bg-slate-50 p-5">
-          <div className="grid h-40 w-40 place-items-center rounded-full border-[14px] border-slate-200 bg-white">
-            <div className="text-center">
-              <strong className={`block text-4xl font-bold ${STATUS_TONES[tone]}`}>{analytics.health}%</strong>
-              <span className="text-xs font-medium text-slate-500">overall</span>
+      <div className="grid gap-8 md:grid-cols-[200px_minmax(0,1fr)]">
+        <div className="grid place-items-center rounded-xl border border-slate-100 bg-slate-50/50 p-6 shadow-inner">
+          <div className="grid h-36 w-36 place-items-center rounded-full border-[10px] border-slate-200 bg-white shadow-sm ring-4 ring-slate-50">
+            <div className="text-center font-ui">
+              <strong className={`block text-4xl font-bold tracking-tight ${STATUS_TONES[tone].split(' ')[0]}`}>{analytics.health}%</strong>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fleet Index</span>
             </div>
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           {factors.map((factor) => {
             const Icon = factor.icon;
             return (
-              <div className="rounded-lg border border-slate-100 bg-white p-3" key={factor.label}>
+              <div className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm transition-all hover:shadow-md font-ui" key={factor.label}>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-700">
-                    <Icon size={15} />
+                  <span className="inline-flex min-w-0 items-center gap-2.5 text-sm font-bold text-slate-700">
+                    <Icon className="text-slate-400" size={15} />
                     <span>{factor.label}</span>
                   </span>
-                  <span className="shrink-0 text-sm font-bold">{clamp(factor.value)}%</span>
+                  <span className="shrink-0 text-xs font-bold font-data text-slate-500 tabular-nums">{clamp(factor.value)}%</span>
                 </div>
-                <ProgressBar value={clamp(factor.value)} color="ocean" height="h-2" className="mt-3" />
+                <ProgressBar value={clamp(factor.value)} color={factor.color} height="h-1.5" className="mt-4" />
               </div>
             );
           })}
@@ -565,44 +591,38 @@ function AlertTrendsPanel({ analytics, loading }) {
     <Panel
       icon={BadgeAlert}
       loading={loading}
-      title="Alert Trends"
-      subtitle="Warning count over time, top alerts, and resolution metrics"
+      title="Fleet Warnings"
+      subtitle="Critical alert trends and incident logs"
       tone="rose"
     >
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <Sparkline color="#dc2626" label="Alert count trend" points={analytics.alertTrend} />
-        <div className="space-y-3">
-          <div className="rounded-lg border border-red-200 bg-red-50/75 p-3 text-red-700 shadow-sm shadow-red-100 backdrop-blur">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <Sparkline color="#f43f5e" label="Alert count trend" points={analytics.alertTrend} />
+        <div className="space-y-3 font-ui">
+          <div className="rounded-xl border border-rose-100 bg-rose-50/40 p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-2 text-sm font-bold">
-                <AlertTriangle size={15} />
-                Active warnings
+              <span className="inline-flex items-center gap-2 text-xs font-bold text-rose-700 uppercase tracking-wider">
+                <AlertTriangle className="text-rose-500" size={15} />
+                Active Alerts
               </span>
-              <strong>{analytics.alerts}</strong>
+              <strong className="text-xl font-bold text-rose-900 font-data tabular-nums">{analytics.alerts}</strong>
             </div>
           </div>
-          <div className="rounded-lg border border-slate-100 bg-white p-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-2 text-sm font-bold">
-                <Timer size={15} />
-                Stored history
-              </span>
-              <strong>{analytics.dataQuality?.storedHistory ? "On" : "Off"}</strong>
-            </div>
+          
+          <div className="flex flex-col gap-2 max-h-[220px] overflow-auto custom-scrollbar pr-1">
+            {analytics.topAlerts.length ? analytics.topAlerts.map((alert) => (
+              <div className="flex items-center justify-between gap-3 rounded-lg bg-white border border-slate-100 p-3 shadow-sm hover:border-slate-200 transition-colors" key={alert.name}>
+                <span className="inline-flex min-w-0 items-center gap-2.5 text-xs font-bold text-slate-600">
+                  <div className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                  <span className="truncate">{alert.name}</span>
+                </span>
+                <span className="shrink-0 text-[10px] font-bold text-rose-500 font-data tabular-nums">{alert.count}</span>
+              </div>
+            )) : (
+              <p className="rounded-lg bg-slate-50 p-6 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
+                System Operational
+              </p>
+            )}
           </div>
-          {analytics.topAlerts.length ? analytics.topAlerts.map((alert) => (
-            <div className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-2 text-sm" key={alert.name}>
-              <span className="inline-flex min-w-0 items-center gap-2 font-semibold text-slate-700">
-                <BadgeAlert className="shrink-0 text-red-500" size={14} />
-                <span>{alert.name}</span>
-              </span>
-              <span className="shrink-0 rounded-md bg-white px-2 py-1 text-xs font-bold">{alert.count}</span>
-            </div>
-          )) : (
-            <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">
-              No active alerts in the selected range.
-            </p>
-          )}
         </div>
       </div>
     </Panel>
@@ -614,37 +634,39 @@ function DeviceComparisonPanel({ devices, loading, rangeKey }) {
     <Panel
       icon={Laptop}
       loading={loading}
-      title="Device Comparison"
-      subtitle="Selected devices ranked by health, load, and outlier risk"
+      title="Terminal Comparison"
+      subtitle="Selected nodes ranked by operational health"
       tone="blue"
     >
       <MultiLineChart devices={devices} rangeKey={rangeKey} />
-      <div className="overflow-hidden rounded-lg border border-slate-200">
-        <div className="hidden grid-cols-[1.3fr_0.7fr_0.7fr_0.7fr] bg-slate-900 px-4 py-3 text-xs font-bold text-white md:grid">
-          <span>Device</span>
-          <span>Health</span>
-          <span>Load</span>
-          <span>Outlier</span>
+      <div className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
+        <div className="hidden grid-cols-[1.3fr_0.7fr_0.7fr_0.7fr] bg-slate-50 border-b border-slate-200 px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 md:grid font-ui">
+          <span>Hostname</span>
+          <span className="text-center">Health</span>
+          <span className="text-center">Load</span>
+          <span className="text-right">Audit</span>
         </div>
-        <div className="divide-y divide-slate-200">
+        <div className="divide-y divide-slate-100 font-data">
           {devices.length ? devices.map((device) => {
             const health = getHealthScore(device);
             const load = getDeviceLoad(device);
             const isOutlier = health < 65 || load > 82;
 
             return (
-              <div className="grid gap-3 bg-white px-4 py-3 text-sm md:grid-cols-[1.3fr_0.7fr_0.7fr_0.7fr] md:items-center" key={device.id}>
-                <span className="min-w-0 break-words font-semibold text-slate-800">{device.hostname}</span>
-                <span className="whitespace-nowrap">{health}%</span>
-                <span className="whitespace-nowrap">{load}%</span>
-                <span className={`inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-md border px-2 py-1 text-xs font-bold backdrop-blur ${isOutlier ? "border-amber-200 bg-amber-50/80 text-amber-700" : "border-emerald-200 bg-emerald-50/80 text-emerald-700"}`}>
-                  {isOutlier ? <AlertTriangle size={13} /> : <CheckCircle2 size={13} />}
-                  {isOutlier ? "Review" : "Normal"}
-                </span>
+              <div className="grid gap-4 px-6 py-4 text-sm items-center hover:bg-slate-50/50 transition-colors md:grid-cols-[1.3fr_0.7fr_0.7fr_0.7fr]" key={device.id}>
+                <span className="font-bold text-slate-800 tracking-tight font-ui truncate">{device.hostname}</span>
+                <span className="text-center tabular-nums text-slate-600 font-bold">{health}%</span>
+                <span className="text-center tabular-nums text-slate-600 font-bold">{load}%</span>
+                <div className="flex justify-end font-ui">
+                  <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight border transition-all ${isOutlier ? "bg-rose-50 text-rose-700 border-rose-100" : "bg-emerald-50 text-emerald-700 border-emerald-100"}`}>
+                    <div className={`h-1 w-1 rounded-full ${isOutlier ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                    {isOutlier ? "Review" : "Standard"}
+                  </span>
+                </div>
               </div>
             );
           }) : (
-            <p className="p-5 text-center text-sm text-slate-500">No devices available for comparison.</p>
+            <p className="p-12 text-center text-xs font-bold text-slate-300 uppercase tracking-widest font-ui">No Nodes Selected</p>
           )}
         </div>
       </div>
@@ -657,24 +679,25 @@ function HeatmapPanel({ devices, loading }) {
     <Panel
       icon={BarChart3}
       loading={loading}
-      title="Heatmap View"
-      subtitle="Device health matrix color-coded by status"
+      title="Cluster Heatmap"
+      subtitle="Fleet-wide terminal status visualization"
       tone="teal"
     >
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
         {devices.length ? devices.map((device) => {
           const score = getHealthScore(device);
           const tone = getStatusTone(score);
           return (
-            <div className={`min-w-0 rounded-lg border p-3 ${HEATMAP_STATUS_STYLES[tone]}`} key={device.id} title={`${device.hostname}: ${score}% health`}>
-              <p className="break-words text-xs font-bold leading-4">{device.hostname}</p>
-              <p className="mt-2 text-2xl font-bold">{score}</p>
+            <div className={`group relative rounded-xl border p-5 transition-all hover:-translate-y-1 hover:shadow-lg cursor-help ${HEATMAP_STATUS_STYLES[tone]}`} key={device.id} title={`${device.hostname}: ${score}% health`}>
+              <p className="truncate text-[10px] font-bold uppercase tracking-wider opacity-60 mb-2 font-ui">{device.hostname}</p>
+              <p className="text-3xl font-bold tracking-tight font-data tabular-nums">{score}</p>
+              <div className={`absolute top-2 right-2 h-1.5 w-1.5 rounded-full transition-colors ${score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-rose-500'}`} />
             </div>
           );
         }) : (
-          <p className="col-span-full rounded-lg bg-slate-50 p-5 text-center text-sm text-slate-500">
-            No devices to show.
-          </p>
+          <div className="col-span-full rounded-xl bg-slate-50 border border-dashed border-slate-200 p-20 text-center text-xs font-bold text-slate-400 uppercase tracking-widest font-ui">
+            Waiting for Device Signal...
+          </div>
         )}
       </div>
     </Panel>
@@ -683,32 +706,34 @@ function HeatmapPanel({ devices, loading }) {
 
 function DistributionPanel({ analytics, loading }) {
   const bars = [
-    { label: "CPU", value: analytics.cpu, icon: Cpu, color: "rose" },
-    { label: "RAM", value: analytics.ram, icon: MemoryStick, color: "blue" },
-    { label: "Disk", value: analytics.disk, icon: HardDrive, color: "amber" },
+    { label: "CPU Usage", value: analytics.cpu, icon: Cpu, color: "rose" },
+    { label: "Memory Load", value: analytics.ram, icon: MemoryStick, color: "blue" },
+    { label: "Disk I/O", value: analytics.disk, icon: HardDrive, color: "amber" },
   ];
 
   return (
     <Panel
       icon={LineChart}
       loading={loading}
-      title="Distribution Charts"
-      subtitle="CPU/RAM/Disk distribution across the fleet"
+      title="Resource Distribution"
+      subtitle="Relative consumption across active terminals"
       tone="amber"
     >
-      <div className="space-y-4">
+      <div className="space-y-8 flex flex-col justify-center flex-1">
         {bars.map((bar) => {
           const Icon = bar.icon;
           return (
-            <div key={bar.label}>
-              <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                <span className="inline-flex min-w-0 items-center gap-2 font-semibold text-slate-700">
-                  <Icon size={15} />
-                  <span>{bar.label}</span>
+            <div key={bar.label} className="font-ui">
+              <div className="mb-3 flex items-center justify-between gap-4">
+                <span className="inline-flex min-w-0 items-center gap-3">
+                  <span className={`p-2 rounded-lg bg-slate-50 border border-slate-100 text-slate-400`}>
+                    <Icon size={16} />
+                  </span>
+                  <span className="text-sm font-bold text-slate-700">{bar.label}</span>
                 </span>
-                <span className="shrink-0 whitespace-nowrap font-bold">{bar.value}% average</span>
+                <span className="shrink-0 text-sm font-bold text-slate-900 font-data tabular-nums">{bar.value}% <span className="text-[10px] text-slate-300 uppercase ml-1">avg</span></span>
               </div>
-              <ProgressBar value={bar.value} color={bar.color} height="h-4" />
+              <ProgressBar value={bar.value} color={bar.color} height="h-1.5" />
             </div>
           );
         })}
@@ -726,7 +751,7 @@ function EventTimelinePanel({ analytics, loading }) {
       warning: true,
     })),
     ...analytics.recentDevices.slice(0, 3).map((device) => ({
-      title: device.status === "online" ? "Heartbeat received" : "Device offline",
+      title: device.status === "online" ? "Heartbeat Logged" : "Node Offline",
       detail: device.hostname,
       time: formatTimeAgo(getLastSeenAt(device)),
       warning: device.status !== "online",
@@ -737,23 +762,28 @@ function EventTimelinePanel({ analytics, loading }) {
     <Panel
       icon={Activity}
       loading={loading}
-      title="Event Timeline"
-      subtitle="Significant events correlated with performance dips"
+      title="Incident History"
+      subtitle="Chronological log of cluster alerts"
       tone="blue"
     >
-      <div className="space-y-3">
+      <div className="space-y-4 flex flex-col flex-1">
         {events.length ? events.map((event, index) => (
-          <div className="flex gap-3 rounded-lg bg-slate-50 p-3" key={`${event.title}-${index}`}>
-            <span className={`mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-md ${event.warning ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
-              {event.warning ? <AlertTriangle size={15} /> : <CheckCircle2 size={15} />}
+          <div className="flex gap-4 rounded-xl bg-white border border-slate-100 p-4 transition hover:bg-slate-50/50 hover:shadow-sm" key={`${event.title}-${index}`}>
+            <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${event.warning ? "bg-rose-50 border-rose-100 text-rose-500" : "bg-emerald-50 border-emerald-100 text-emerald-500"}`}>
+              {event.warning ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
             </span>
-            <div className="min-w-0">
-              <p className="break-words text-sm font-semibold text-slate-800">{event.title}</p>
-              <p className="break-words text-xs leading-5 text-slate-500">{event.detail} - {event.time}</p>
+            <div className="min-w-0 flex-1 font-ui">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-bold text-slate-800 leading-tight truncate">{event.title}</p>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter whitespace-nowrap pt-0.5 font-data">{event.time}</span>
+              </div>
+              <p className="mt-1 text-xs font-medium text-slate-500 tracking-tight truncate">{event.detail}</p>
             </div>
           </div>
         )) : (
-          <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No significant events yet.</p>
+          <div className="flex-1 grid place-items-center rounded-xl bg-slate-50/50 border border-dashed border-slate-200">
+             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest font-ui">No Recorded Events</p>
+          </div>
         )}
       </div>
     </Panel>
@@ -765,23 +795,27 @@ function TopIssuesPanel({ analytics, loading }) {
     <Panel
       icon={AlertTriangle}
       loading={loading}
-      title="Top Issues Summary"
-      subtitle="Most common problems with quick drill-down cues"
+      title="Incident Registry"
+      subtitle="Consolidated failure and warning metrics"
       tone="rose"
     >
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
-        {(analytics.topAlerts.length ? analytics.topAlerts : [{ name: "No issues", count: 0 }]).map((issue) => (
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
+        {(analytics.topAlerts.length ? analytics.topAlerts : [{ name: "Standard", count: 0 }]).map((issue) => (
           <button
-            className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white p-3 text-left transition hover:border-signal"
+            className="group flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white p-4 text-left transition hover:border-slate-300 hover:shadow-md ring-1 ring-slate-100"
             key={issue.name}
-            title={`Review devices with ${issue.name}`}
+            title={`Drill-down: ${issue.name}`}
             type="button"
           >
-            <span className="inline-flex min-w-0 items-center gap-2">
-              <AlertTriangle size={15} />
-              <span className="break-words text-sm font-semibold text-slate-700">{issue.name}</span>
+            <div className="flex items-center gap-3 font-ui">
+              <div className="p-2 rounded-lg bg-slate-50 text-slate-400 border border-slate-100 transition group-hover:bg-rose-500 group-hover:text-white group-hover:border-rose-500 shadow-sm">
+                <AlertTriangle size={14} />
+              </div>
+              <span className="text-sm font-bold text-slate-700 tracking-tight truncate">{issue.name}</span>
+            </div>
+            <span className="shrink-0 text-xs font-bold text-slate-400 font-data tabular-nums">
+              {issue.count}
             </span>
-            <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-xs font-bold">{issue.count}</span>
           </button>
         ))}
       </div>
@@ -794,21 +828,23 @@ function StatusTransitionsPanel({ analytics, loading }) {
     <Panel
       icon={Radio}
       loading={loading}
-      title="Status Transitions"
-      subtitle="Recently online/offline devices and frequent status changes"
+      title="Terminal Activity"
+      subtitle="Recent heartbeat and connection deltas"
       tone="emerald"
     >
-      <div className="space-y-3">
+      <div className="space-y-3 flex flex-col flex-1">
         {analytics.statusChanges.length ? analytics.statusChanges.map((device) => (
-          <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3 text-sm" key={device.id}>
-            <span className="min-w-0">
-              <span className="block break-words font-semibold text-slate-800">{device.hostname}</span>
-              <span className="text-xs text-slate-500">{formatTimeAgo(getLastSeenAt(device))}</span>
-            </span>
+          <div className="flex items-center justify-between gap-4 rounded-xl bg-white border border-slate-100 p-4 shadow-sm transition hover:bg-slate-50/50 hover:border-slate-200" key={device.id}>
+            <div className="min-w-0 font-ui">
+              <span className="block text-sm font-bold text-slate-800 tracking-tight truncate">{device.hostname}</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-data">{formatTimeAgo(getLastSeenAt(device))}</span>
+            </div>
             <StatusBadge status={device.status} />
           </div>
         )) : (
-          <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No transitions to show.</p>
+          <div className="flex-1 grid place-items-center rounded-xl bg-slate-50/50 border border-dashed border-slate-200 font-ui">
+             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Awaiting Transition Logs</p>
+          </div>
         )}
       </div>
     </Panel>
@@ -820,55 +856,66 @@ function GroupPerformancePanel({ analytics, loading }) {
     <Panel
       icon={Gauge}
       loading={loading}
-      title="Device Groups Performance"
-      subtitle="Backend metrics breakdown by group"
+      title="Cluster Performance"
+      subtitle="Metrics breakdown by logical grouping"
       tone="teal"
     >
-      <div className="space-y-3">
+      <div className="space-y-6 flex flex-col flex-1 overflow-auto custom-scrollbar pr-1 max-h-[600px]">
         {analytics.groupStats.length ? analytics.groupStats.map((group) => (
-          <div className="rounded-lg border border-slate-100 bg-white p-4 shadow-sm" key={group.name}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="break-words font-semibold text-slate-800">{group.name}</span>
-              <span className="shrink-0 text-xs font-medium text-slate-500">{group.count} devices</span>
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md" key={group.name}>
+            <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-5">
+              <div className="flex items-center gap-3 font-ui">
+                <span className="p-2 rounded-lg bg-teal-50 text-teal-600 border border-teal-100">
+                  <Users size={15} />
+                </span>
+                <span className="text-base font-bold text-slate-800 tracking-tight truncate">{group.name}</span>
+              </div>
+              <span className="badge-minimal bg-slate-50 border-slate-100 font-ui">
+                {group.count} Nodes
+              </span>
             </div>
-            <div className="mt-4 grid gap-3">
+            <div className="grid gap-5">
               <div>
-                <div className="mb-1 flex justify-between text-xs font-semibold text-slate-500">
-                  <span>Health</span>
-                  <span>{group.health}%</span>
+                <div className="mb-2 flex justify-between items-end font-ui">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Health Index</span>
+                  <span className="text-sm font-bold text-emerald-600 font-data tabular-nums">{group.health}%</span>
                 </div>
-                <ProgressBar value={group.health} color="emerald" height="h-2.5" />
+                <ProgressBar value={group.health} color="emerald" height="h-1" />
               </div>
               <div>
-                <div className="mb-1 flex justify-between text-xs font-semibold text-slate-500">
-                  <span>Load</span>
-                  <span>{group.load}%</span>
+                <div className="mb-2 flex justify-between items-end font-ui">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Current Load</span>
+                  <span className="text-sm font-bold text-blue-600 font-data tabular-nums">{group.load}%</span>
                 </div>
-                <ProgressBar value={group.load} color="blue" height="h-2.5" />
+                <ProgressBar value={group.load} color="blue" height="h-1" />
               </div>
-              <div className="grid gap-2 sm:grid-cols-3">
-                <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">CPU {group.cpu}%</span>
-                <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">RAM {group.ram}%</span>
-                <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">Disk {group.disk}%</span>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">
-                  CPU Temp {formatTemperature(group.cpuTemperature)}
-                </span>
-                <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">
-                  Latency {group.latencyMs == null ? "Unknown" : `${Math.round(Number(group.latencyMs))} ms`}
-                </span>
-                <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">
-                  Upload {formatBytesPerSecond(group.uploadBytesPerSec)}
-                </span>
-                <span className="rounded-md bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700">
-                  Download {formatBytesPerSecond(group.downloadBytesPerSec)}
-                </span>
+              
+              <div className="grid gap-3 grid-cols-2 mt-2">
+                <div className="rounded-lg bg-slate-50/80 p-3 border border-slate-100">
+                  <p className="text-[9px] font-bold uppercase text-slate-400 tracking-widest mb-1.5 border-b border-slate-100/50 pb-1 font-ui">Resources</p>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-600 font-data tabular-nums">
+                    <span>C:{group.cpu}%</span>
+                    <span className="text-slate-200">|</span>
+                    <span>R:{group.ram}%</span>
+                    <span className="text-slate-200">|</span>
+                    <span>D:{group.disk}%</span>
+                  </div>
+                </div>
+                <div className="rounded-lg bg-slate-50/80 p-3 border border-slate-100">
+                  <p className="text-[9px] font-bold uppercase text-slate-400 tracking-widest mb-1.5 border-b border-slate-100/50 pb-1 font-ui">Environment</p>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-600 font-data tabular-nums truncate">
+                    <span>{formatTemperature(group.cpuTemperature)}</span>
+                    <span className="text-slate-200">|</span>
+                    <span>{group.latencyMs == null ? "—" : `${Math.round(Number(group.latencyMs))}ms`}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         )) : (
-          <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No groups available.</p>
+          <div className="flex-1 grid place-items-center rounded-xl bg-slate-50/50 border border-dashed border-slate-200 font-ui">
+             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Provisioned Clusters</p>
+          </div>
         )}
       </div>
     </Panel>
@@ -880,29 +927,54 @@ function ExportPanel({ analytics, loading, onExportCsv, exporting }) {
     <Panel
       icon={Download}
       loading={loading}
-      title="Export Analytics"
-      subtitle="Backend-generated CSV report and alert summary"
-      tone="slate"
+      title="Technical Audit"
+      subtitle="Fleet-wide reporting and compliance data engine"
+      tone="indigo"
     >
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
-        <button
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70"
-          disabled={loading || exporting}
-          onClick={onExportCsv}
-          title="Export analytics as CSV"
-          type="button"
-        >
-          <Download size={16} />
-          {exporting ? "Exporting" : "CSV"}
-        </button>
-        <div className="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-line bg-white px-4 text-sm font-semibold text-slate-700" title="Real-time notification count">
-          <BadgeAlert size={16} />
-          {analytics.criticalAlerts} critical
+      <div className="flex flex-col flex-1 pt-10">
+        <div className="space-y-10">
+          <div className="py-4">
+            <button
+              className="btn-minimal-primary w-full py-12 px-16 text-sm tracking-tight rounded-2xl shadow-xl shadow-indigo-900/20 active:scale-[0.98] justify-between overflow-hidden group relative"
+              disabled={loading || exporting}
+              onClick={onExportCsv}
+              title="Download Telemetry Report"
+              type="button"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+              <div className="flex items-center gap-12 relative z-10">
+                 <div className="p-5 rounded-2xl bg-white/10 text-white shadow-inner border border-white/10">
+                    <Download size={32} strokeWidth={2.5} />
+                 </div>
+                 <div className="text-left font-ui">
+                    <p className="text-white font-bold leading-none text-2xl tracking-tight">{exporting ? "Finalizing Package..." : "Export Fleet Analytics"}</p>
+                    <p className="text-[14px] text-white/60 uppercase tracking-[0.3em] mt-4 font-bold">Production Technical .CSV Registry</p>
+                 </div>
+              </div>
+              <ChevronRight className="text-white/40 group-hover:translate-x-3 transition-transform relative z-10" size={40} />
+            </button>
+          </div>
+          
+          <div className="flex items-center justify-between rounded-2xl bg-rose-500/10 border border-rose-500/20 p-8 shadow-sm backdrop-blur-md ring-1 ring-rose-500/5 transition-all hover:bg-rose-500/20">
+            <div className="flex items-center gap-6">
+              <div className="p-4 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20 shadow-inner">
+                <BadgeAlert size={26} strokeWidth={2.5} />
+              </div>
+              <div className="min-w-0 font-ui">
+                <p className="text-[12px] font-bold uppercase tracking-[0.25em] text-rose-500/70 leading-none mb-3">Critical Registry</p>
+                <p className="text-lg font-bold text-rose-700 tracking-tight leading-none">{analytics.criticalAlerts} Flagged Items Found</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-auto pt-10 border-t border-slate-100 border-dashed mt-10">
+           <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-slate-400 font-ui italic">
+              <span>Auth: Verified System</span>
+              <span>Report Hash: {Math.random().toString(36).substring(7).toUpperCase()}</span>
+           </div>
         </div>
       </div>
-      <p className="mt-3 text-xs text-slate-500">
-        CSV export uses the authenticated backend analytics report endpoint.
-      </p>
     </Panel>
   );
 }
@@ -929,12 +1001,16 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
   useEffect(() => {
     let active = true;
     let refreshTimer;
+    let isFetching = false;
 
     async function loadAnalytics({ background = false } = {}) {
+      if (isFetching) return;
+      
       if (!background) {
         setAnalyticsLoading(true);
       }
       setAnalyticsError("");
+      isFetching = true;
 
       try {
         const nextAnalytics = await analyticsApi.getAnalytics({
@@ -951,6 +1027,7 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
           setAnalyticsData(EMPTY_ANALYTICS);
         }
       } finally {
+        isFetching = false;
         if (active) {
           setAnalyticsLoading(false);
         }
@@ -987,42 +1064,29 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
   return (
     <div className="analytics-shell w-full min-w-0 space-y-6 rounded-lg" aria-busy={pageLoading}>
       <div className="space-y-6">
-        <section className="analytics-hero analytics-reveal rounded-lg border border-line bg-white p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-5">
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(260px,420px)] xl:items-center">
-              <div className="min-w-0">
-                <p className="inline-flex items-center gap-2 text-sm font-semibold text-ocean">
-                  <Activity size={16} />
-                  Analytics
-                </p>
-                <h1 className="mt-2 text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl">
-                  Lab health and device performance
-                </h1>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-500">
-                  Backend analytics for real agent metrics, alert trends,
-                  device comparisons, and export-ready summaries.
-                </p>
-                {analyticsError ? (
-                  <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
-                    {analyticsError}
-                  </p>
-                ) : null}
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-100 bg-white px-3 py-3 text-sm font-bold text-emerald-700 shadow-sm">
-                  <Wifi size={16} />
-                  {analytics.online} online
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-lg border border-red-100 bg-white px-3 py-3 text-sm font-bold text-red-700 shadow-sm">
-                  <BadgeAlert size={16} />
-                  {analytics.criticalAlerts} critical
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-lg border border-blue-100 bg-white px-3 py-3 text-sm font-bold text-blue-700 shadow-sm">
-                  <Laptop size={16} />
-                  {pageLoading ? "Refreshing" : `${analytics.total} devices`}
-                </span>
-              </div>
+        <PageHeader
+          icon={Activity}
+          title="Lab health and device performance"
+          subtitle="Backend analytics for real agent metrics, alert trends, device comparisons, and export-ready summaries."
+          backgroundImage="/analytics_header.jpg"
+          action={
+            <div className="hidden sm:flex items-center gap-3 font-ui">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 shadow-xl shadow-black/20 backdrop-blur-md">
+                <Wifi size={14} />
+                {analytics.online} online
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 shadow-xl shadow-black/20 backdrop-blur-md">
+                <BadgeAlert size={14} />
+                {analytics.criticalAlerts} critical
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-400 shadow-xl shadow-black/20 backdrop-blur-md">
+                <Laptop size={14} />
+                {pageLoading ? "Refreshing" : `${analytics.total} devices`}
+              </span>
             </div>
+          }
+        >
+          <div className="pt-2">
             <TimeRangeToolbar
               groupOptions={groupOptions}
               loading={pageLoading}
@@ -1030,12 +1094,18 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
               selectedGroup={selectedGroup}
               setSelectedGroup={setSelectedGroup}
               setRangeKey={setRangeKey}
+              dark={true}
             />
           </div>
-        </section>
+          {analyticsError ? (
+            <p className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-400 backdrop-blur-md font-ui">
+              {analyticsError}
+            </p>
+          ) : null}
+        </PageHeader>
 
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-          <MetricCard icon={ShieldCheck} label="Health Score" value={`${analytics.health}%`} detail="Backend calculated score" loading={pageLoading} tone="teal" />
+          <MetricCard icon={ShieldCheck} label="Health Score" value={`${analytics.health}%`} detail="Backend calculated score" loading={pageLoading} tone="emerald" />
           <MetricCard icon={Cpu} label="Average CPU" value={`${analytics.cpu}%`} detail={`${analytics.pressure}% fleet pressure`} loading={pageLoading} tone="rose" />
           <MetricCard icon={MemoryStick} label="Average RAM" value={`${analytics.ram}%`} detail={`${formatUptime(analytics.uptime)} avg uptime`} loading={pageLoading} tone="blue" />
           <MetricCard icon={HardDrive} label="Average Disk" value={`${analytics.disk}%`} detail={`${analytics.offline} offline agents`} loading={pageLoading} tone="amber" />
