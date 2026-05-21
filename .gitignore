@@ -147,5 +147,5 @@ vite.config.ts.timestamp-*
 # Vite dependency cache
 sentrix-dashboard/.vite/
 
-# Gemini
+#GEMINI
 GEMINI.md

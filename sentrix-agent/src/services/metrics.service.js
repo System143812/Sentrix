@@ -6,6 +6,8 @@ import { collectDiskMetrics } from "./metrics/disk.service.js";
 import { collectMemoryMetrics } from "./metrics/memory.service.js";
 import { collectNetworkMetrics } from "./metrics/network.service.js";
 import { collectTemperatureMetrics } from "./metrics/temperature.service.js";
+import { collectProcessMetrics } from "./metrics/processes.service.js";
+import { collectNetworkActivity } from "./metrics/network-activity.service.js";
 import { safeString, toNumber } from "./metrics/helpers.js";
 
 const DEFAULT_METRIC_INTERVALS_MS = {
@@ -14,6 +16,8 @@ const DEFAULT_METRIC_INTERVALS_MS = {
   network: Number(process.env.METRICS_NETWORK_INTERVAL_MS || 1000),
   temperature: Number(process.env.METRICS_TEMPERATURE_INTERVAL_MS || 10000),
   disk: Number(process.env.METRICS_DISK_INTERVAL_MS || 30000),
+  processes: Number(process.env.METRICS_PROCESSES_INTERVAL_MS || 5000),
+  activity: Number(process.env.METRICS_ACTIVITY_INTERVAL_MS || 5000),
 };
 
 const cachedMetricSections = {
@@ -47,6 +51,11 @@ const cachedMetricSections = {
       model: "Unknown",
       temperatureCelsius: null,
     },
+  }),
+  processes: createCachedSection([]),
+  activity: createCachedSection({
+    activeConnections: [],
+    dnsCache: [],
   }),
 };
 
@@ -99,6 +108,8 @@ async function refreshMetricsCache() {
     refreshMetricSection("disk", collectDiskMetrics, DEFAULT_METRIC_INTERVALS_MS.disk),
     refreshMetricSection("network", collectNetworkMetrics, DEFAULT_METRIC_INTERVALS_MS.network),
     refreshMetricSection("temperature", collectTemperatureMetrics, DEFAULT_METRIC_INTERVALS_MS.temperature),
+    refreshMetricSection("processes", collectProcessMetrics, DEFAULT_METRIC_INTERVALS_MS.processes),
+    refreshMetricSection("activity", collectNetworkActivity, DEFAULT_METRIC_INTERVALS_MS.activity),
   ]);
 }
 
@@ -110,6 +121,8 @@ function buildMetricsPayload(agentId, hostname) {
   const disk = cachedMetricSections.disk.data;
   const network = cachedMetricSections.network.data;
   const temperature = cachedMetricSections.temperature.data;
+  const processes = cachedMetricSections.processes.data;
+  const activity = cachedMetricSections.activity.data;
 
   return {
     schemaVersion: 2,
@@ -130,6 +143,8 @@ function buildMetricsPayload(agentId, hostname) {
     },
     network,
     temperature,
+    processes,
+    networkActivity: activity,
   };
 }
 
