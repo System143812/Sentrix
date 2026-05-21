@@ -1,4 +1,5 @@
 import { io } from "socket.io-client";
+import { killProcess } from "./metrics/processes.service.js";
 
 export function connectToCore({ serverUrl, profile, onStatus }) {
   let lastMetricsPacket = null;
@@ -46,6 +47,19 @@ export function connectToCore({ serverUrl, profile, onStatus }) {
       profile,
       serverUrl,
     });
+  });
+
+  // Handle remote commands from the core
+  socket.on("agent:command", async (payload = {}, callback) => {
+    const { command, args } = payload;
+
+    if (command === "kill-process") {
+      const result = await killProcess(args.pid);
+      callback?.(result);
+      return;
+    }
+
+    callback?.({ success: false, message: `Unknown command: ${command}` });
   });
 
   return {
