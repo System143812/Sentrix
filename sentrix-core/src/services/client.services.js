@@ -5,44 +5,33 @@ import {
   getClientMetricHistory,
   normalizeMetrics,
   saveHardwareDetails,
-  saveMetricSample,
-} from "./clientMetrics.services.js";
+  processIncomingMetrics,
+  getLatestClientProcesses,
+  getLatestClientNetworkActivity,
+  getClientActivityHistory as getClientActivityHistoryFromRepo,
+} from "./metrics/index.js";
 
 const HEARTBEAT_TIMEOUT_MS = Number(process.env.HEARTBEAT_TIMEOUT_MS || 60000);
 
 function normalizeClient(client) {
   if (!client) return client;
 
-  if (typeof client.metrics === "string") {
-    try {
-      client.metrics = JSON.parse(client.metrics);
-    } catch {
-      // keep original if parse fails
+  ["metrics", "details"].forEach((key) => {
+    if (typeof client[key] === "string") {
+      try {
+        client[key] = JSON.parse(client[key]);
+      } catch {
+        client[key] = {};
+      }
     }
-  }
-
-  if (typeof client.details === "string") {
-    try {
-      client.details = JSON.parse(client.details);
-    } catch {
-      // keep original if parse fails
-    }
-  }
-
-  if (typeof client.history === "string") {
-    try {
-      client.history = JSON.parse(client.history);
-    } catch {
-      // keep original if parse fails
-    }
-  }
+  });
 
   return client;
 }
 
 export async function getAllClients() {
   const [rows] = await pool.query(
-    `SELECT id, agent_id, hostname, ip, mac, os, device_type, client_group AS \`group\`, status, metrics, details, history, archived, last_seen_at, created_at, updated_at FROM clients WHERE archived = 0 ORDER BY hostname ASC`,
+    `SELECT id, agent_id, hostname, ip, mac, os, device_type, client_group AS \`group\`, status, metrics, details, archived, last_seen_at, created_at, updated_at FROM clients WHERE archived = 0 ORDER BY hostname ASC`,
   );
 
   return rows.map(normalizeClient);
@@ -50,7 +39,7 @@ export async function getAllClients() {
 
 export async function getClientById(id) {
   const [rows] = await pool.query(
-    `SELECT id, agent_id, hostname, ip, mac, os, device_type, client_group AS \`group\`, status, metrics, details, history, archived, last_seen_at, created_at, updated_at FROM clients WHERE id = ? LIMIT 1`,
+    `SELECT id, agent_id, hostname, ip, mac, os, device_type, client_group AS \`group\`, status, metrics, details, archived, last_seen_at, created_at, updated_at FROM clients WHERE id = ? LIMIT 1`,
     [id],
   );
 
@@ -66,32 +55,24 @@ export async function registerClient(clientData) {
 
   const now = Date.now();
   const clientGroup = clientData.group ?? "Unassigned";
-  const metrics = clientData.metrics ?? {
-    cpu: 0,
-    ram: 0,
-    disk: 0,
-    uptime: 0,
-  };
+  const metrics = clientData.metrics ?? {};
   const normalizedMetrics = normalizeMetrics(metrics);
   const details = clientData.details ?? {};
-  const history = clientData.history ?? [];
 
   await pool.query(
     `
     INSERT INTO clients
-      (id, agent_id, hostname, ip, mac, os, device_type, client_group, status, metrics, details, history, last_seen_at, updated_at, created_at, archived)
+      (id, agent_id, hostname, ip, mac, os, device_type, client_group, status, metrics, details, last_seen_at, updated_at, created_at, archived)
     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, 'online', ?, ?, ?, ?, ?, ?, 0)
+      (?, ?, ?, ?, ?, ?, ?, ?, 'online', ?, ?, ?, ?, ?, 0)
     ON DUPLICATE KEY UPDATE
       hostname = VALUES(hostname),
       ip = VALUES(ip),
       mac = VALUES(mac),
       os = VALUES(os),
       device_type = VALUES(device_type),
-      client_group = COALESCE(VALUES(client_group), client_group),
       metrics = COALESCE(VALUES(metrics), metrics),
       details = COALESCE(VALUES(details), details),
-      history = COALESCE(VALUES(history), history),
       status = 'online',
       last_seen_at = VALUES(last_seen_at),
       updated_at = VALUES(updated_at),
@@ -108,13 +89,13 @@ export async function registerClient(clientData) {
       clientGroup,
       JSON.stringify(normalizedMetrics),
       JSON.stringify(details),
-      JSON.stringify(history),
       now,
       now,
       now,
     ],
   );
 
+  await processIncomingMetrics(id, metrics, now);
   await saveHardwareDetails(id, details);
 
   return getClientById(id);
@@ -126,11 +107,9 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
 
   if (!currentClient || currentClient.archived) return null;
 
-  const normalizedMetrics = normalizeMetrics(metrics);
-  const history = appendMetricsHistory(currentClient.history, normalizedMetrics, now);
+  const normalizedMetrics = await processIncomingMetrics(id, metrics, now);
   const params = [
     JSON.stringify(normalizedMetrics),
-    JSON.stringify(history),
     now,
     now,
   ];
@@ -139,6 +118,7 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
   if (details) {
     detailsSql = ", details = ?";
     params.push(JSON.stringify(details));
+    await saveHardwareDetails(id, details);
   }
 
   params.push(id);
@@ -147,7 +127,6 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
     `
     UPDATE clients
     SET metrics = ?,
-        history = ?,
         status = 'online',
         updated_at = ?,
         last_seen_at = ?
@@ -159,9 +138,6 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
 
   if (rows.affectedRows === 0) return null;
 
-  await saveMetricSample(id, normalizedMetrics, now);
-  await saveHardwareDetails(id, details);
-
   return getClientById(id);
 }
 
@@ -172,15 +148,11 @@ export async function touchClientHeartbeat(id, metrics = null) {
 
   if (metrics) {
     const currentClient = await getClientById(id);
-
     if (!currentClient || currentClient.archived) return null;
 
-    const normalizedMetrics = normalizeMetrics(metrics);
-    const history = appendMetricsHistory(currentClient.history, normalizedMetrics, now);
-    metricsSql = ", metrics = ?, history = ?";
+    const normalizedMetrics = await processIncomingMetrics(id, metrics, now);
+    metricsSql = ", metrics = ?";
     params.push(JSON.stringify(normalizedMetrics));
-    params.push(JSON.stringify(history));
-    await saveMetricSample(id, normalizedMetrics, now);
   }
 
   params.push(id);
@@ -200,6 +172,18 @@ export async function touchClientHeartbeat(id, metrics = null) {
   if (rows.affectedRows === 0) return null;
 
   return getClientById(id);
+}
+
+export async function getClientProcesses(id) {
+  return await getLatestClientProcesses(id);
+}
+
+export async function getClientNetworkActivity(id) {
+  return await getLatestClientNetworkActivity(id);
+}
+
+export async function getClientActivityHistory(id) {
+  return await getClientActivityHistoryFromRepo(id);
 }
 
 export async function updateClientGroup(id, group) {
@@ -299,26 +283,4 @@ export async function getClientHardwareDetails(id) {
   }
 
   return hardware;
-}
-
-export function startOfflineWatcher(io) {
-  setInterval(async () => {
-    let changed = false;
-    const now = Date.now();
-
-    const clients = await getAllClients();
-
-    for (const client of clients) {
-      const timedOut = now - client.last_seen_at > HEARTBEAT_TIMEOUT_MS;
-
-      if (timedOut && client.status !== "offline") {
-        await markClientOffline(client.id);
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      io.to("dashboards").emit("devices:update", await getClientSummary());
-    }
-  }, 5000);
 }

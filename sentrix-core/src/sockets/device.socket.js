@@ -7,7 +7,7 @@ import {
 import {
   getDiscoverySnapshot,
   runDiscoveryScan,
-} from "../services/discovery.service.js";
+} from "../services/discovery/index.js";
 
 async function broadcastUpdate(io) {
   io.to("dashboards").emit("devices:update", await getClientSummary());

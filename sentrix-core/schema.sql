@@ -30,11 +30,85 @@ CREATE TABLE IF NOT EXISTS clients (
   status ENUM('online', 'offline', 'idle') NOT NULL DEFAULT 'offline',
   metrics JSON NOT NULL,
   details JSON NOT NULL,
-  history JSON NOT NULL,
   archived TINYINT(1) NOT NULL DEFAULT 0,
   last_seen_at BIGINT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS client_processes (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  client_id CHAR(36) NOT NULL,
+  pid INT,
+  name VARCHAR(255),
+  user VARCHAR(255),
+  cpu_percent DECIMAL(6,2),
+  memory_mb DECIMAL(10,2),
+  command TEXT,
+  recorded_at BIGINT NOT NULL,
+  INDEX idx_processes_client_time (client_id, recorded_at),
+  CONSTRAINT fk_processes_client
+    FOREIGN KEY (client_id) REFERENCES clients(id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS client_dns_logs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  client_id CHAR(36) NOT NULL,
+  domain VARCHAR(255),
+  resolved_address VARCHAR(255),
+  recorded_at BIGINT NOT NULL,
+  INDEX idx_dns_logs_client_time (client_id, recorded_at),
+  CONSTRAINT fk_dns_logs_client
+    FOREIGN KEY (client_id) REFERENCES clients(id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS client_network_connections (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  client_id CHAR(36) NOT NULL,
+  protocol VARCHAR(10),
+  local_address VARCHAR(45),
+  local_port INT,
+  remote_address VARCHAR(45),
+  remote_port INT,
+  state VARCHAR(50),
+  process_name VARCHAR(255),
+  domain VARCHAR(255),
+  connection_count INT DEFAULT 1,
+  recorded_at BIGINT NOT NULL,
+  INDEX idx_connections_client_time (client_id, recorded_at),
+  CONSTRAINT fk_connections_client
+    FOREIGN KEY (client_id) REFERENCES clients(id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS client_activity_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  client_id VARCHAR(255) NOT NULL,
+  domain VARCHAR(255) NOT NULL,
+  process_name VARCHAR(255),
+  full_domain TEXT,
+  first_seen_at BIGINT NOT NULL,
+  last_seen_at BIGINT NOT NULL,
+  hit_count INT DEFAULT 1,
+  INDEX idx_activity_client (client_id),
+  INDEX idx_activity_time (last_seen_at),
+  UNIQUE INDEX idx_activity_unique (client_id, domain),
+  CONSTRAINT fk_activity_client FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS discovery_scan_results (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  ip VARCHAR(45) NOT NULL,
+  mac VARCHAR(17),
+  hostname VARCHAR(255),
+  vendor VARCHAR(255),
+  device_type VARCHAR(100),
+  device_kind VARCHAR(100),
+  open_ports JSON,
+  last_scanned_at BIGINT NOT NULL,
+  UNIQUE INDEX idx_discovery_ip (ip)
 );
 
 CREATE TABLE IF NOT EXISTS client_metric_samples (
