@@ -8,6 +8,7 @@ import {
   saveProcesses,
   saveNetworkActivity,
 } from "./repository.js";
+import { getSnapshotPersistencePlan } from "./snapshot-buffer.js";
 
 const HISTORY_SAMPLE_INTERVAL_MS = Number(
   process.env.METRICS_HISTORY_SAMPLE_INTERVAL_MS || 60000,
@@ -50,12 +51,25 @@ async function shouldStoreSample(clientId, timestamp) {
 
 export async function processIncomingMetrics(clientId, metrics = {}, timestamp = Date.now()) {
   const normalized = normalizeMetrics(metrics);
-  
-  // Save current snapshots (these are always updated)
-  await Promise.all([
-    saveProcesses(clientId, normalized.processes, timestamp),
-    saveNetworkActivity(clientId, normalized.networkActivity, timestamp),
-  ]);
+
+  const persistence = getSnapshotPersistencePlan(clientId, normalized, timestamp);
+  const networkActivity = normalized.networkActivity || {};
+  const networkPayload = {
+    activeConnections: persistence.networkActivity
+      ? networkActivity.activeConnections || []
+      : [],
+    dnsCache: persistence.dnsCache ? networkActivity.dnsCache || [] : [],
+  };
+
+  const snapshotWrites = [];
+  if (persistence.processes) {
+    snapshotWrites.push(saveProcesses(clientId, normalized.processes, timestamp));
+  }
+  if (persistence.networkActivity || persistence.dnsCache) {
+    snapshotWrites.push(saveNetworkActivity(clientId, networkPayload, timestamp));
+  }
+
+  await Promise.all(snapshotWrites);
 
   // Save time-series sample if interval reached
   if (await shouldStoreSample(clientId, timestamp)) {

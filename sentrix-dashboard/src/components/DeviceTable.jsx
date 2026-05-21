@@ -242,7 +242,7 @@ function ActivityMonitor({ connections, history, error }) {
   };
 
   return (
-    <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+    <section className="h-full overflow-hidden rounded-lg border border-line bg-slate-100/80 p-4">
       <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
         <Globe2 size={15} />
         Activity Monitor
@@ -359,12 +359,12 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <h5 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase text-slate-500">
         <Icon size={12} />
         {title} ({list.length})
       </h5>
-      <div className="overflow-hidden rounded-md border border-line bg-white shadow-sm">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-line bg-white shadow-sm">
         <div className="hidden grid-cols-[44px_1fr_60px_80px_90px] gap-3 bg-slate-50 px-3 py-1.5 text-[10px] font-bold uppercase text-slate-400 lg:grid">
           <div />
           <div>Process</div>
@@ -374,7 +374,7 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
         </div>
 
         <div 
-          className="max-h-80 divide-y divide-line overflow-auto"
+          className="max-h-80 divide-y divide-line overflow-auto xl:min-h-0 xl:flex-1 xl:max-h-none"
           onScroll={handleScroll}
           ref={listRef}
         >
@@ -432,7 +432,7 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
 
 function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProcesses, onToggle, onEnd }) {
   return (
-    <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-line bg-slate-100/80 p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
         <h4 className="flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
           <CircleStop size={15} />
@@ -463,7 +463,7 @@ function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProce
         </div>
       )}
 
-      <div className="grid gap-6">
+      <div className="grid min-h-0 flex-1 gap-6">
         <ProcessList 
           icon={Cpu} 
           list={processes} 
@@ -597,7 +597,7 @@ function NetworkActivityDetails({ device }) {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
+    <div className="grid items-stretch gap-4 xl:h-[48rem] xl:grid-cols-[1fr_1.2fr]">
       <ActivityMonitor 
         connections={connections}
         error={error}

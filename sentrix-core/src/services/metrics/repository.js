@@ -1,8 +1,10 @@
 import pool from "../../lib/database.js";
 import { DnsService } from "./dns.service.js";
-import { withDeadlockRetry, toNumber, toJson, parseJson } from "../../utils/db.utils.js";
+import { withDeadlockRetry, toNumber, toJson } from "../../utils/db.utils.js";
 
-const MAX_HISTORY_POINTS = Number(process.env.METRICS_HISTORY_LIMIT || 1440);
+const ACTIVE_CONNECTION_GRACE_WINDOW_MS = Number(
+  process.env.ACTIVE_CONNECTION_GRACE_WINDOW_MS || 30000,
+);
 
 export async function saveProcesses(clientId, processes = [], recordedAt) {
   if (!Array.isArray(processes) || processes.length === 0) return;
@@ -133,9 +135,10 @@ export async function saveNetworkActivity(clientId, activity = {}, recordedAt) {
       connection.release();
     }
 
-    // Store DNS Logs in bulk
-    if (dnsCache.length > 0) {
-      const dnsValues = dnsCache.map(dns => [clientId, dns.domain, dns.resolvedAddress, recordedAt]);
+    const validDnsCache = dnsCache.filter((dns) => dns.domain && dns.resolvedAddress);
+
+    if (validDnsCache.length > 0) {
+      const dnsValues = validDnsCache.map(dns => [clientId, dns.domain, dns.resolvedAddress, recordedAt]);
       await pool.query(
         `
         INSERT INTO client_dns_logs
@@ -147,10 +150,15 @@ export async function saveNetworkActivity(clientId, activity = {}, recordedAt) {
         [dnsValues],
       );
 
-      for (const dns of dnsCache) {
-        if (dns.domain && dns.resolvedAddress) {
-          DnsService.storeResolution(dns.resolvedAddress, dns.domain, "local_cache").catch(() => {});
-        }
+      for (const dns of validDnsCache) {
+        DnsService.storeResolution(dns.resolvedAddress, {
+          hostname: dns.domain,
+          asn: null,
+          organization: null,
+          serviceLabel: dns.domain,
+          forwardVerified: false,
+          isCloud: false,
+        }, "local_cache").catch(() => {});
       }
     }
   });
@@ -268,14 +276,25 @@ export async function getLatestClientNetworkActivity(clientId) {
     FROM client_network_connections c
     LEFT JOIN dns_intelligence intel ON c.remote_address = intel.ip
     WHERE c.client_id = ? 
-      AND c.recorded_at = (SELECT MAX(recorded_at) FROM client_network_connections WHERE client_id = ?)
+      AND c.recorded_at >= (
+        SELECT COALESCE(MAX(recorded_at), 0) - ?
+        FROM client_network_connections
+        WHERE client_id = ?
+      )
     ORDER BY c.recorded_at DESC
     `,
-    [clientId, clientId]
+    [clientId, ACTIVE_CONNECTION_GRACE_WINDOW_MS, clientId]
   );
   const [dnsLogs] = await pool.query(
-    "SELECT * FROM client_dns_logs WHERE client_id = ? ORDER BY recorded_at DESC LIMIT 100",
-    [clientId]
+    `
+    SELECT *
+    FROM client_dns_logs
+    WHERE client_id = ?
+      AND recorded_at = (SELECT MAX(recorded_at) FROM client_dns_logs WHERE client_id = ?)
+    ORDER BY domain ASC
+    LIMIT 100
+    `,
+    [clientId, clientId]
   );
 
   return {
