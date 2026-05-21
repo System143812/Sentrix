@@ -13,9 +13,16 @@ import {
   Timer,
   Usb,
   X,
+  Power,
+  RotateCw,
+  Moon,
+  Lock,
+  ArrowUpCircle,
+  Terminal,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MetricPill } from "./MetricPill.jsx";
+import { SentrixLogoLoader } from "./SentrixLogo.jsx";
 import * as clientApi from "../services/clientApi.js";
 import {
   formatBool,
@@ -289,6 +296,7 @@ function DetailViewSwitch({ activeView, onChange }) {
   const buttons = [
     { id: "specification", label: "Specification", icon: Monitor },
     { id: "networkActivity", label: "Network Activity", icon: RadioTower },
+    { id: "remoteControl", label: "Remote Control", icon: Terminal },
   ];
 
   return (
@@ -317,9 +325,98 @@ function DetailViewSwitch({ activeView, onChange }) {
   );
 }
 
+function RemoteControlPanel({ device }) {
+  const [commandStatus, setCommandStatus] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const powerActions = [
+    { id: "shutdown", label: "Shutdown", icon: Power, tone: "rose", description: "Power off the remote PC immediately" },
+    { id: "restart", label: "Restart", icon: RotateCw, tone: "amber", description: "Reboot the remote PC" },
+    { id: "sleep", label: "Sleep", icon: Moon, tone: "blue", description: "Put the remote PC into sleep mode" },
+    { id: "lock", label: "Lock", icon: Lock, tone: "slate", description: "Lock the current user session" },
+    { id: "update", label: "Update", icon: ArrowUpCircle, tone: "emerald", description: "Check and install system updates" },
+  ];
+
+  async function handleCommand(command) {
+    setLoading(true);
+    setCommandStatus(`Sending ${command} command...`);
+    try {
+      await clientApi.sendDeviceCommand(device.id, command);
+      setCommandStatus(`${command.charAt(0).toUpperCase() + command.slice(1)} command sent successfully.`);
+    } catch (err) {
+      setCommandStatus(`Failed to send ${command} command: ${err.message}`);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setCommandStatus(""), 5000);
+    }
+  }
+
+  return (
+    <div className="grid gap-4">
+      <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <h4 className="mb-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          <Power size={14} className="text-slate-400" />
+          Remote Power Management
+        </h4>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+          {powerActions.map((action) => {
+            const Icon = action.icon;
+            const toneStyles = {
+              rose: "border-red-100 bg-white text-red-600 hover:bg-red-50 hover:border-red-200",
+              amber: "border-amber-100 bg-white text-amber-600 hover:bg-amber-50 hover:border-amber-200",
+              blue: "border-blue-100 bg-white text-blue-600 hover:bg-blue-50 hover:border-blue-200",
+              slate: "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300",
+              emerald: "border-emerald-100 bg-white text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200",
+            };
+
+            return (
+              <div className="group relative" key={action.id}>
+                <button
+                  className={`flex h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:translate-y-0 ${toneStyles[action.tone]}`}
+                  disabled={loading}
+                  onClick={() => handleCommand(action.id)}
+                  type="button"
+                >
+                  <Icon size={20} strokeWidth={2.5} />
+                  <span className="text-[10px] font-bold uppercase tracking-tight">{action.label}</span>
+                </button>
+                <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium text-white shadow-xl group-hover:block z-20">
+                  {action.description}
+                  <div className="absolute top-full left-1/2 -ml-1 border-4 border-transparent border-t-slate-900" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {commandStatus && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2 text-[11px] font-semibold text-blue-700 animate-in fade-in slide-in-from-top-1">
+            <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+            {commandStatus}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+          <Terminal size={15} />
+          Remote Management Notes
+        </h4>
+        <div className="rounded-md bg-white p-4 text-sm leading-6 text-slate-600 shadow-sm ring-1 ring-slate-200/70">
+          <p>
+            Power commands are sent via the Sentrix Agent service. Ensure the agent is running with administrative privileges for all actions to succeed. 
+            The <strong>Update</strong> command will trigger the OS-native update mechanism.
+          </p>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function NetworkActivityDetails({ device }) {
   const [selectedProcesses, setSelectedProcesses] = useState([]);
   const [endedProcesses, setEndedProcesses] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const activity = buildSampleNetworkActivity(device);
   const processes = activity.processes.map((process) => ({
     ...process,
@@ -334,11 +431,25 @@ function NetworkActivityDetails({ device }) {
     );
   }
 
-  function endSelectedProcesses() {
-    setEndedProcesses((current) => [
-      ...new Set([...current, ...selectedProcesses]),
-    ]);
-    setSelectedProcesses([]);
+  async function endSelectedProcesses() {
+    setLoading(true);
+    setError("");
+    try {
+      const pids = activity.processes
+        .filter((p) => selectedProcesses.includes(p.id))
+        .map((p) => p.pid);
+      
+      await Promise.all(pids.map(pid => clientApi.sendDeviceCommand(device.id, "kill_process", { pid })));
+
+      setEndedProcesses((current) => [
+        ...new Set([...current, ...selectedProcesses]),
+      ]);
+      setSelectedProcesses([]);
+    } catch (err) {
+      setError(`Failed to end processes: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -402,15 +513,18 @@ function NetworkActivityDetails({ device }) {
             <CircleStop size={15} />
             Process Monitoring
           </h4>
-          <button
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={selectedProcesses.length === 0}
-            onClick={endSelectedProcesses}
-            type="button"
-          >
-            <CircleStop size={15} />
-            End selected
-          </button>
+          <div className="flex items-center gap-2">
+            {error && <span className="text-xs font-medium text-red-600">{error}</span>}
+            <button
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={selectedProcesses.length === 0 || loading}
+              onClick={endSelectedProcesses}
+              type="button"
+            >
+              <CircleStop size={15} />
+              {loading ? "Ending..." : "End selected"}
+            </button>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-md border border-line bg-white">
@@ -709,9 +823,13 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
         </section>
       </div>
         </div>
-      ) : (
+      ) : activeView === "networkActivity" ? (
         <div className="device-detail-view">
           <NetworkActivityDetails device={device} />
+        </div>
+      ) : (
+        <div className="device-detail-view">
+          <RemoteControlPanel device={device} />
         </div>
       )}
     </div>
@@ -782,16 +900,24 @@ export function DeviceTable({
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-line bg-white p-8 text-center text-sm text-slate-500">
-        Loading devices...
+      <div className="rounded-xl border border-line bg-white p-12 text-center shadow-sm">
+        <div className="flex flex-col items-center gap-3">
+          <div className="text-signal">
+            <SentrixLogoLoader />
+          </div>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Synchronizing Fleet Data...</p>
+        </div>
       </div>
     );
   }
 
   if (devices.length === 0) {
     return (
-      <div className="rounded-lg border border-line bg-white p-8 text-center text-sm text-slate-500">
-        No devices match the current view.
+      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center">
+        <div className="flex flex-col items-center gap-2">
+          <Monitor className="text-slate-300" size={32} />
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No devices registered in this view</p>
+        </div>
       </div>
     );
   }
@@ -813,57 +939,71 @@ export function DeviceTable({
         onConfirm={confirmArchive}
       />
 
-      <div className="overflow-hidden rounded-lg border border-line bg-white shadow-sm">
-        <div className="hidden bg-slate-100 px-5 py-3 text-xs font-semibold uppercase text-slate-500 lg:grid lg:grid-cols-[48px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(260px,1.4fr)_minmax(150px,0.7fr)_auto_auto] lg:items-center lg:gap-4">
-          <div />
-          <div>Device</div>
-          <div>Network</div>
-          <div>Metrics</div>
-          <div>Group</div>
-          <div>Status</div>
-          <div className="text-right">Actions</div>
+      <div className="overflow-hidden rounded-xl border border-line bg-white shadow-sm ring-1 ring-slate-200/50 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="hidden bg-slate-50/80 px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 lg:grid lg:grid-cols-[60px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(280px,1.4fr)_minmax(150px,0.7fr)_100px_80px] lg:items-center lg:gap-6 border-b border-line/60">
+          <div className="text-center">Expand</div>
+          <div>Device Terminal</div>
+          <div>Network Info</div>
+          <div>Live Metrics</div>
+          <div>Group Policy</div>
+          <div className="text-center">Status</div>
+          <div className="text-right">Manage</div>
         </div>
 
-        <div className="divide-y divide-line">
+        <div className="divide-y divide-line/60">
           {devices.map((device) => {
             const metrics = device.metrics || {};
             const groupValue = device.group || "Unassigned";
             const expanded = expandedId === device.id;
 
             return (
-              <article className="bg-white" key={device.id}>
-                <div className="grid gap-4 px-4 py-5 text-sm text-slate-700 transition hover:bg-slate-50 sm:px-5 lg:grid-cols-[48px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(260px,1.4fr)_minmax(150px,0.7fr)_auto_auto] lg:items-start lg:gap-4">
-                  <button
-                    className="grid h-10 w-10 place-items-center rounded-md border border-line bg-white text-slate-600 shadow-sm transition hover:border-signal hover:text-signal"
-                    onClick={() =>
-                      setExpandedId(expanded ? null : device.id)
-                    }
-                    title={expanded ? "Collapse details" : "Expand details"}
-                    type="button"
-                  >
-                    <ChevronDown
-                      className={`transition ${expanded ? "rotate-180" : ""}`}
-                      size={17}
-                    />
-                  </button>
-
-                  <div className="min-w-0">
-                    <strong className="block break-words text-base font-bold text-slate-900 lg:text-sm">
-                      {device.hostname}
-                    </strong>
-                    <span className="mt-1 block break-words text-xs leading-5 text-slate-500">
-                      {device.os}
-                    </span>
+              <article className={`bg-white transition-colors duration-200 ${expanded ? 'bg-slate-50/30' : 'hover:bg-slate-50/50'}`} key={device.id}>
+                <div className="grid gap-4 px-4 py-6 text-sm text-slate-700 lg:grid-cols-[60px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(280px,1.4fr)_minmax(150px,0.7fr)_100px_80px] lg:items-center lg:gap-6">
+                  <div className="flex justify-center">
+                    <button
+                      className={`grid h-10 w-10 place-items-center rounded-xl border transition-all duration-300 ${expanded ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'bg-white border-line text-slate-500 hover:border-signal hover:text-signal shadow-sm'}`}
+                      onClick={() =>
+                        setExpandedId(expanded ? null : device.id)
+                      }
+                      title={expanded ? "Collapse details" : "Expand details"}
+                      type="button"
+                    >
+                      <ChevronDown
+                        className={`transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
+                        size={18}
+                        strokeWidth={2.5}
+                      />
+                    </button>
                   </div>
 
-                  <div className="min-w-0 rounded-md bg-slate-50 p-3 lg:bg-transparent lg:p-0">
-                    <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
+                  <div className="min-w-0">
+                    <strong className="block break-words text-base font-bold text-slate-950 lg:text-[15px] tracking-tight">
+                      {device.hostname}
+                    </strong>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-slate-100 text-[9px] font-bold text-slate-500 uppercase">OS</span>
+                      <span className="block break-words text-xs font-medium text-slate-500">
+                        {device.os}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="min-w-0">
+                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400 lg:hidden">
                       Network
                     </span>
-                    <span className="block break-words font-medium">{device.ip}</span>
-                    <span className="mt-1 block break-words text-xs text-slate-500">
-                      {device.mac}
-                    </span>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1 w-1 rounded-full bg-slate-300" />
+                        <span className="block break-words font-bold text-slate-700 tabular-nums">{device.ip}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1 w-1 rounded-full bg-slate-200" />
+                        <span className="block break-words text-[11px] font-medium text-slate-400 tabular-nums font-mono">
+                          {device.mac}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
@@ -890,11 +1030,11 @@ export function DeviceTable({
                   </div>
 
                   <div className="min-w-0">
-                    <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
-                      Group
+                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400 lg:hidden">
+                      Group Policy
                     </span>
                     <select
-                      className="h-10 w-full min-w-0 rounded-md border border-line bg-white px-2 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-blue-100 lg:w-40"
+                      className="h-10 w-full min-w-0 rounded-xl border border-line bg-white px-3 text-xs font-bold text-slate-600 outline-none transition-all focus:border-signal focus:ring-4 focus:ring-blue-50 lg:w-40 shadow-sm"
                       onChange={(event) =>
                         onUpdateGroup(device.id, event.target.value)
                       }
@@ -914,39 +1054,45 @@ export function DeviceTable({
                     </select>
                   </div>
 
-                  <span
-                    className={`inline-flex w-fit items-center rounded-md px-2.5 py-1 text-xs font-bold capitalize ${
-                      device.status === "online"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-red-50 text-red-700"
-                    }`}
-                  >
-                    {device.status}
-                  </span>
+                  <div className="flex justify-center">
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest border transition-all ${
+                        device.status === "online"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-100 shadow-sm shadow-emerald-50"
+                          : "bg-red-50 text-red-700 border-red-100 shadow-sm shadow-red-50"
+                      }`}
+                    >
+                      <div className={`h-1.5 w-1.5 rounded-full ${device.status === 'online' ? 'bg-emerald-500' : 'bg-red-500'} ${device.status === 'online' ? 'animate-pulse' : ''}`} />
+                      {device.status}
+                    </span>
+                  </div>
 
                   <div className="group relative flex justify-start lg:justify-end">
                     <button
-                      className="grid h-9 w-9 place-items-center rounded-md border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100"
+                      className="grid h-9 w-9 place-items-center rounded-xl border border-red-100 bg-white text-red-600 shadow-sm transition-all hover:bg-red-600 hover:text-white hover:shadow-lg active:scale-95"
                       onClick={() => setPendingArchive(device)}
                       title="Archive device"
                       type="button"
                     >
-                      <Archive size={16} />
+                      <Archive size={16} strokeWidth={2.5} />
                     </button>
-                    <span className="pointer-events-none absolute right-0 top-11 z-10 hidden w-44 rounded-md border border-line bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-lg group-hover:block">
-                      Archive this device from the registered list
-                    </span>
+                    <div className="pointer-events-none absolute right-0 top-full mt-2 z-30 hidden w-44 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium text-white shadow-xl group-hover:block">
+                      Remove from active fleet
+                      <div className="absolute bottom-full right-4 border-4 border-transparent border-b-slate-900" />
+                    </div>
                   </div>
                 </div>
 
                 {expanded ? (
-                  <DeviceDetails
-                    device={device}
-                    error={detailCache[device.id]?.error}
-                    hardware={detailCache[device.id]?.hardware}
-                    loading={detailCache[device.id]?.loading}
-                    metricHistory={detailCache[device.id]?.metricHistory}
-                  />
+                  <div className="animate-in slide-in-from-top-2 duration-300">
+                    <DeviceDetails
+                      device={device}
+                      error={detailCache[device.id]?.error}
+                      hardware={detailCache[device.id]?.hardware}
+                      loading={detailCache[device.id]?.loading}
+                      metricHistory={detailCache[device.id]?.metricHistory}
+                    />
+                  </div>
                 ) : null}
               </article>
             );

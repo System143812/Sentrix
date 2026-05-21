@@ -1,5 +1,6 @@
 import { DeviceTable } from "../components/DeviceTable.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
+import { Laptop } from "lucide-react";
 
 export function DevicesPage({
   dashboardData,
@@ -9,19 +10,22 @@ export function DevicesPage({
   onArchive,
 }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <PageHeader
-        title="Devices"
-        subtitle="Manage device groups, expand device details, and review agent status at a glance."
+        icon={Laptop}
+        title="Fleet Management"
+        subtitle="Manage device groups, expand terminal details, and review real-time agent status at a glance."
       />
 
-      <DeviceTable
-        devices={dashboardData.clients || []}
-        loading={loading}
-        onUpdateGroup={onUpdateGroup}
-        groups={groups}
-        onArchive={onArchive}
-      />
+      <div className="min-w-0 w-full">
+        <DeviceTable
+          devices={dashboardData.clients || []}
+          loading={loading}
+          onUpdateGroup={onUpdateGroup}
+          groups={groups}
+          onArchive={onArchive}
+        />
+      </div>
     </div>
   );
 }

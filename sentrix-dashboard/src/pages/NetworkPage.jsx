@@ -12,6 +12,7 @@ import {
   ServerCog,
   Smartphone,
   X,
+  Clock,
 } from "lucide-react";
 import { useState } from "react";
 import { Card } from "../components/Card.jsx";
@@ -85,7 +86,7 @@ export function NetworkPage({
                   deployMessage?.toLowerCase().includes("wrong");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       {selectedIp ? (
         <DeployDialog
           ip={selectedIp}
@@ -98,155 +99,151 @@ export function NetworkPage({
 
       <PageHeader
         icon={Radar}
-        title="Automatic Network Discovery"
-        subtitle="Sentrix scans in the background and streams discovery updates here. Use Rescan when you want to refresh the network now."
+        title="Network Intelligence"
+        subtitle="Automatic laboratory discovery and agent provisioning. Sentrix scans your subnet to identify unmanaged terminals."
         action={
           <button
             type="button"
             onClick={onScan}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-signal px-5 text-sm font-semibold text-white transition hover:bg-signal-dark disabled:cursor-wait disabled:bg-slate-300"
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold text-white transition-all shadow-md active:scale-95 disabled:opacity-50 ${scanLoading ? 'bg-slate-700 cursor-wait' : 'bg-signal hover:bg-signal-dark shadow-blue-100'}`}
             disabled={scanLoading}
           >
             {scanLoading ? (
-              <LoaderCircle className="animate-spin" size={16} />
+              <LoaderCircle className="animate-spin" size={18} />
             ) : (
-              <RefreshCcw size={16} />
+              <RefreshCcw size={18} strokeWidth={2.5} />
             )}
-            <span>{scanLoading ? "Scanning" : "Rescan"}</span>
+            <span>{scanLoading ? "Scanning Network..." : "Force Rescan"}</span>
           </button>
         }
       >
-        <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
-          <span className="rounded-full bg-slate-100 px-3 py-1">
-            Subnet: {snapshot?.subnet || "Unknown"}
-          </span>
-          <span className="rounded-full bg-slate-100 px-3 py-1">
-            Last scan: {formatTime(snapshot?.lastScanAt)}
-          </span>
-          <span className="rounded-full bg-slate-100 px-3 py-1">
-            Next auto scan: {formatTime(snapshot?.nextScanAt)}
-          </span>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+            <Server size={12} />
+            Subnet: {snapshot?.subnet || "0.0.0.0"}
+          </div>
+          <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+            <Clock size={12} />
+            Last Seen: {formatTime(snapshot?.lastScanAt)}
+          </div>
         </div>
 
-        <div className="mt-5">
-          <ProgressBar value={snapshot?.progress || 0} color="ocean" height="h-2" />
-          <p className="mt-2 text-sm text-slate-500">
-            {snapshot?.message || "Waiting for discovery updates."}
-          </p>
+        <div className="mt-6 space-y-3">
+          <div className="flex justify-between items-end">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+              {snapshot?.message || "Idle — Listening for discovery packets."}
+            </p>
+            <span className="text-sm font-bold text-signal">{snapshot?.progress || 0}%</span>
+          </div>
+          <ProgressBar value={snapshot?.progress || 0} color="blue" height="h-2" />
         </div>
       </PageHeader>
 
       {deployMessage && !selectedIp ? (
-        <div className={`rounded-lg border p-4 text-sm shadow-sm ${
+        <div className={`rounded-xl border p-4 text-sm font-bold shadow-sm flex items-center gap-3 animate-in slide-in-from-top-2 ${
           isError 
-            ? "border-red-200 bg-red-50 text-red-800" 
-            : "border-emerald-200 bg-emerald-50 text-emerald-800"
+            ? "border-red-200 bg-red-50 text-red-700" 
+            : "border-emerald-200 bg-emerald-50 text-emerald-700"
         }`}>
+          <div className={`h-2 w-2 rounded-full ${isError ? 'bg-red-500' : 'bg-emerald-500'}`} />
           {deployMessage}
         </div>
       ) : null}
 
-      <Card padding="6">
-        <div className="flex items-center justify-between gap-3">
+      <Card padding="0" className="overflow-hidden border-none ring-1 ring-slate-200/60 shadow-sm">
+        <div className="p-5 sm:p-6 border-b border-slate-100 bg-white flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-semibold">Discovered hosts</h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Hostnames are best-effort. Registered Sentrix agents are the
-              trusted identity source.
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">Discovered Laboratory Hosts</h3>
+            <p className="mt-1 text-sm font-medium text-slate-500">
+              Identified terminals pending agent deployment and registration.
             </p>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+          <div className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-slate-200 ring-4 ring-white">
             <ServerCog size={16} />
-            {scanResults.length} found
-          </span>
+            {scanResults.length} Units Found
+          </div>
         </div>
 
         {scanResults.length === 0 ? (
-          <div className="mt-6 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
-            No hosts discovered yet. Sentrix will scan automatically, or you can
-            run a rescan now.
+          <div className="p-12 text-center bg-slate-50/50">
+            <div className="flex flex-col items-center gap-3">
+              <Radar className="text-slate-300 animate-pulse" size={40} />
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No hosts discovered in this subnet</p>
+            </div>
           </div>
         ) : (
-          <div className="mt-6 overflow-hidden rounded-lg border border-slate-200">
-            <div className="hidden gap-4 bg-slate-100 px-4 py-3 text-xs font-semibold uppercase text-slate-500 lg:grid lg:grid-cols-[minmax(170px,1.2fr)_minmax(120px,0.7fr)_minmax(150px,1fr)_minmax(140px,0.9fr)_72px_150px]">
-              <div>Host</div>
-              <div>IP</div>
-              <div>MAC</div>
-              <div>Vendor</div>
-              <div>Type</div>
-              <div className="text-right">DEPLOYMENT</div>
-            </div>
-            {scanResults.map((host) => (
-              <div
-                key={host.ip}
-                className="grid gap-4 border-t border-slate-200 bg-white px-4 py-4 text-sm text-slate-700 first:border-t-0 lg:grid-cols-[minmax(170px,1.2fr)_minmax(120px,0.7fr)_minmax(150px,1fr)_minmax(140px,0.9fr)_72px_150px] lg:items-center"
-              >
-                <div className="min-w-0">
-                  <p className="break-words font-semibold text-slate-900">
-                    {host.hostname || `Host ${host.ip?.split(".").at(-1)}`}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    via {host.hostname_source || "scan"}
-                  </p>
-                </div>
-                <div className="min-w-0">
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
-                    IP
-                  </span>
-                  <span className="break-words">{host.ip}</span>
-                </div>
-                <div className="min-w-0">
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
-                    MAC
-                  </span>
-                  <span className="break-words">{host.mac}</span>
-                </div>
-                <div className="min-w-0">
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
-                    Vendor
-                  </span>
-                  <span className="break-words">
-                    {host.vendor || "Unknown"}
-                  </span>
-                </div>
-                <div>
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
-                    Type
-                  </span>
-                  <DeviceTypeIcon
-                    type={host.device_type}
-                    kind={host.device_kind}
-                    gateway={host.gateway}
-                  />
-                </div>
-                <div className="flex justify-start lg:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedIp(host.ip)}
-                    disabled={!host.deploy_eligible || deployingIp === host.ip}
-                    className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-                    title={
-                      host.deploy_eligible
-                        ? `Prepare installer for ${host.device_type}`
-                        : host.gateway
-                          ? "Deployment is not available for router/gateway devices"
-                          : `Deployment is not available for ${host.device_kind || host.device_type || "this device"}`
-                    }
-                  >
-                    {deployingIp === host.ip ? (
-                      <LoaderCircle className="animate-spin" size={15} />
-                    ) : (
-                      <PackageCheck size={15} />
-                    )}
-                    {host.deploy_eligible
-                      ? deployingIp === host.ip
-                        ? "Preparing"
-                        : "Deploy agent"
-                      : "Not eligible"}
-                  </button>
-                </div>
+          <div className="overflow-x-auto">
+            <div className="min-w-[800px]">
+              <div className="grid grid-cols-[1.5fr_1fr_1.2fr_1fr_80px_160px] gap-6 bg-slate-50/80 px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-line/60">
+                <div>Host Identity</div>
+                <div>IP Address</div>
+                <div>MAC Address</div>
+                <div>Vendor</div>
+                <div className="text-center">Type</div>
+                <div className="text-right">Provisioning</div>
               </div>
-            ))}
+              <div className="divide-y divide-line/60">
+                {scanResults.map((host) => (
+                  <div
+                    key={host.ip}
+                    className="grid grid-cols-[1.5fr_1fr_1.2fr_1fr_80px_160px] gap-6 bg-white px-6 py-5 text-sm transition-colors hover:bg-slate-50/50 items-center"
+                  >
+                    <div className="min-w-0">
+                      <p className="break-words font-bold text-slate-950">
+                        {host.hostname || `Host ${host.ip?.split(".").at(-1)}`}
+                      </p>
+                      <p className="mt-1 text-[10px] font-bold uppercase text-slate-400 tracking-tighter">
+                        Origin: {host.hostname_source || "Network Scan"}
+                      </p>
+                    </div>
+                    <div className="font-bold text-slate-700 tabular-nums">
+                      {host.ip}
+                    </div>
+                    <div className="text-xs font-medium text-slate-400 tabular-nums font-mono">
+                      {host.mac}
+                    </div>
+                    <div className="text-xs font-semibold text-slate-500">
+                      {host.vendor || "Standard OEM"}
+                    </div>
+                    <div className="flex justify-center">
+                      <DeviceTypeIcon
+                        type={host.device_type}
+                        kind={host.device_kind}
+                        gateway={host.gateway}
+                      />
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIp(host.ip)}
+                        disabled={!host.deploy_eligible || deployingIp === host.ip}
+                        className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl px-4 text-[11px] font-bold uppercase tracking-tight transition-all shadow-sm active:scale-95 disabled:opacity-40 disabled:bg-slate-100 disabled:text-slate-400 ${host.deploy_eligible ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
+                        title={
+                          host.deploy_eligible
+                            ? `Prepare installer for ${host.device_type}`
+                            : host.gateway
+                              ? "Deployment is not available for router/gateway devices"
+                              : `Deployment is not available for ${host.device_kind || host.device_type || "this device"}`
+                        }
+                      >
+                        {deployingIp === host.ip ? (
+                          <LoaderCircle className="animate-spin" size={15} />
+                        ) : (
+                          <PackageCheck size={16} strokeWidth={2.5} />
+                        )}
+                        <span>
+                          {host.deploy_eligible
+                            ? deployingIp === host.ip
+                              ? "Preparing..."
+                              : "Provision Agent"
+                            : "Ineligible"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </Card>
