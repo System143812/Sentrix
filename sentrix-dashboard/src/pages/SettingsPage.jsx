@@ -27,50 +27,51 @@ import { ICON_TONES } from "../styles/tones.js";
 
 function SettingsSection({ icon: Icon, title, subtitle, children, tone = "slate" }) {
   return (
-    <Card padding="5" className="min-w-0 flex flex-col h-full shadow-sm hover:shadow-md transition-shadow">
-      <div className="mb-5 flex items-start justify-between">
-        <div className="min-w-0">
-          <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-          <p className="mt-1 text-sm text-slate-500 leading-relaxed">
-            {subtitle}
-          </p>
+    <Card padding="0" className="min-w-0 flex flex-col h-full shadow-sm hover:shadow-md transition-all duration-300 border-slate-200/60 overflow-hidden bg-white">
+      <div className="p-6 sm:p-8 flex-1 flex flex-col">
+        <div className="mb-8 flex items-start justify-between gap-6">
+          <div className="min-w-0 flex-1 font-ui">
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">{title}</h3>
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed font-medium">
+              {subtitle}
+            </p>
+          </div>
+          <div className="group relative shrink-0">
+            <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform hover:scale-105 ${ICON_TONES[tone]}`}>
+              <Icon size={20} strokeWidth={2} />
+            </span>
+            <div className="pointer-events-none absolute right-0 top-full mt-2 hidden w-40 rounded-lg bg-slate-900 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-white shadow-xl group-hover:block z-30 font-ui">
+              Settings: {title}
+              <div className="absolute bottom-full right-4 border-4 border-transparent border-b-slate-900" />
+            </div>
+          </div>
         </div>
-        <span className={`p-2 rounded-lg border shadow-sm ${ICON_TONES[tone]}`}>
-          <Icon size={20} />
-        </span>
+        <div className="flex-1 flex flex-col">{children}</div>
       </div>
-      <div className="flex-1">{children}</div>
     </Card>
   );
 }
 
-function ActionButton({ label, icon: Icon, description, onClick, tone = "blue", disabled = false }) {
-  const tones = {
-    blue: "border-blue-100 bg-white text-blue-700 hover:bg-blue-50 hover:border-blue-200",
-    slate: "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300",
-    rose: "border-red-100 bg-white text-red-700 hover:bg-red-50 hover:border-red-200",
-    emerald: "border-emerald-100 bg-white text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200",
-  };
-
+function ActionButton({ label, icon: Icon, description, onClick, tone = "slate", disabled = false }) {
   return (
     <div className="group relative">
       <button
-        className={`flex w-full items-center justify-between rounded-xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-50 disabled:translate-y-0 ${tones[tone]}`}
+        className={`btn-minimal w-full justify-between p-4 h-14 active:scale-[0.98] ${disabled ? 'opacity-50 grayscale' : ''}`}
         disabled={disabled}
         onClick={onClick}
         type="button"
       >
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${tone === "blue" ? "bg-blue-50 text-blue-600" : tone === "rose" ? "bg-red-50 text-red-600" : tone === "emerald" ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-600"}`}>
+        <div className="flex items-center gap-4">
+          <div className={`p-2 rounded-lg border shadow-sm transition-all group-hover:scale-110 ${ICON_TONES[tone]}`}>
             <Icon size={18} strokeWidth={2.5} />
           </div>
-          <span className="text-sm font-bold tracking-tight">{label}</span>
+          <span className="text-sm font-bold tracking-tight text-slate-700 font-ui">{label}</span>
         </div>
-        <ChevronRight size={16} className="opacity-30 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+        <ChevronRight size={16} className="opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all text-slate-400" />
       </button>
-      <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden w-56 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium text-white shadow-xl group-hover:block z-20">
+      <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 hidden w-60 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2.5 text-center text-[11px] font-medium text-white shadow-2xl group-hover:block z-20 leading-relaxed font-ui">
         {description}
-        <div className="absolute top-full left-1/2 -ml-1 border-4 border-transparent border-t-slate-900" />
+        <div className="absolute top-full left-1/2 -ml-1.5 border-[6px] border-transparent border-t-slate-900" />
       </div>
     </div>
   );
@@ -86,87 +87,79 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
     setTimeout(() => {
       setMode(newMode);
       setLoading(false);
-    }, 1000);
+    }, 800);
   };
 
   return (
     <SettingsSection 
       icon={Globe} 
-      title="Fleet Configuration" 
-      subtitle="Define communication protocols and telemetry refresh rates for the network."
+      title="System Architecture" 
+      subtitle="Operational protocols and global telemetry frequency"
       tone="blue"
     >
-      <div className="space-y-6">
-        <div>
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Operation Mode</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="group relative">
-              <button
-                className={`flex h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border transition-all ${
-                  mode === "local"
-                    ? "border-teal-500 bg-teal-50 text-teal-700 shadow-sm"
-                    : "border-line bg-white text-slate-500 hover:border-teal-200 hover:bg-teal-50/30"
-                } ${!isNetworkAdmin || loading ? "opacity-50 cursor-not-allowed" : ""}`}
-                disabled={!isNetworkAdmin || loading}
-                onClick={() => handleModeChange("local")}
-                type="button"
-              >
-                <Server size={20} />
-                <span className="text-xs font-bold uppercase tracking-tight">Local Mode</span>
-              </button>
-              <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium text-white shadow-xl group-hover:block z-20">
-                LAN-only communication (Intranet)
-                <div className="absolute top-full left-1/2 -ml-1 border-4 border-transparent border-t-slate-900" />
-              </div>
+      <div className="space-y-8 flex-1 flex flex-col justify-between">
+        <div className="space-y-8">
+          <div>
+            <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 font-ui">Communication Vector</p>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { id: "local", label: "Intranet Mode", icon: Server, desc: "Restricted to local facility broadcast" },
+                { id: "online", label: "Gateway Mode", icon: Globe, desc: "Authorized remote cloud synchronization" }
+              ].map((m) => {
+                const active = mode === m.id;
+                return (
+                  <div className="group relative" key={m.id}>
+                    <button
+                      className={`flex h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border transition-all ${
+                        active
+                          ? "bg-slate-900 border-slate-900 text-white shadow-lg shadow-slate-900/20"
+                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"
+                      } ${!isNetworkAdmin || loading ? "opacity-30 cursor-not-allowed" : ""}`}
+                      disabled={!isNetworkAdmin || loading}
+                      onClick={() => handleModeChange(m.id)}
+                      type="button"
+                    >
+                      <m.icon size={22} strokeWidth={2} className={active ? "text-white" : ""} />
+                      <span className={`text-[10px] font-bold uppercase tracking-widest font-ui ${active ? "text-white" : ""}`}>{m.label}</span>
+                    </button>
+                    <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-white shadow-xl group-hover:block z-20 font-ui">
+                      {m.desc}
+                      <div className="absolute top-full left-1/2 -ml-1 border-4 border-transparent border-t-slate-900" />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+          </div>
 
-            <div className="group relative">
-              <button
-                className={`flex h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border transition-all ${
-                  mode === "online"
-                    ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
-                    : "border-line bg-white text-slate-500 hover:border-blue-200 hover:bg-blue-50/30"
-                } ${!isNetworkAdmin || loading ? "opacity-50 cursor-not-allowed" : ""}`}
-                disabled={!isNetworkAdmin || loading}
-                onClick={() => handleModeChange("online")}
-                type="button"
-              >
-                <Globe size={20} />
-                <span className="text-xs font-bold uppercase tracking-tight">Online Mode</span>
-              </button>
-              <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium text-white shadow-xl group-hover:block z-20">
-                Cloud gateway for remote management
-                <div className="absolute top-full left-1/2 -ml-1 border-4 border-transparent border-t-slate-900" />
-              </div>
+          <div>
+            <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 font-ui">Telemetry Sync Interval</p>
+            <div className="flex flex-wrap gap-2.5">
+              {["1s", "5s", "10s", "30s", "1m"].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setInterval(t)}
+                  className={`px-5 py-2.5 rounded-lg border text-xs font-bold transition-all font-data ${
+                    interval === t 
+                      ? "bg-slate-900 border-slate-900 text-white shadow-lg shadow-slate-900/10" 
+                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                  }`}
+                  title={`Set to ${t}`}
+                >
+                  {t}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
-        <div>
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Metric Update Interval</p>
-          <div className="flex flex-wrap gap-2">
-            {["1s", "5s", "10s", "30s", "1m"].map((t) => (
-              <button
-                key={t}
-                onClick={() => setInterval(t)}
-                className={`px-4 py-2 rounded-lg border text-xs font-bold transition-all ${
-                  interval === t 
-                    ? "bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-200" 
-                    : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                }`}
-                title={`Set telemetry refresh to ${t}`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-4">
-          <div className="flex gap-3">
-            <Info className="shrink-0 text-blue-500 mt-0.5" size={16} />
-            <div className="text-[11px] leading-relaxed text-slate-600 font-medium">
-              Updating these settings will broadcast a configuration packet to all active agents. High refresh rates may increase network load in large fleets.
+        <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-5 shadow-inner">
+          <div className="flex gap-4">
+            <div className={`p-1.5 rounded-lg bg-blue-50 border border-blue-100 text-blue-500 shrink-0`}>
+                <Info size={14} />
+            </div>
+            <div className="text-[11px] leading-relaxed text-slate-500 font-bold uppercase tracking-widest italic font-ui">
+              Changes will propagate to the active fleet registry immediately.
             </div>
           </div>
         </div>
@@ -205,7 +198,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
       await userApi.createAdmin(email, password);
       setEmail("");
       setPassword("");
-      setMessage("Admin account created.");
+      setMessage("Account Provisioned Successfully");
       await loadAdmins();
     });
   }
@@ -215,7 +208,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
 
     await setPending(`delete-admin-${id}`, async () => {
       await userApi.deleteAdmin(id);
-      setMessage("Admin account removed.");
+      setMessage("Credential Revoked");
       await loadAdmins();
     });
   }
@@ -227,10 +220,10 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
     await setPending("save-group", async () => {
       if (editingGroupId) {
         await groupApi.updateGroup(editingGroupId, groupName, groupDescription);
-        setMessage("Group renamed.");
+        setMessage("Cluster Metadata Updated");
       } else {
         await groupApi.createGroup(groupName, groupDescription);
-        setMessage("Group created.");
+        setMessage("Cluster Registry Initialized");
       }
 
       setEditingGroupId(null);
@@ -245,7 +238,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
 
     await setPending(`delete-group-${id}`, async () => {
       await groupApi.deleteGroup(id);
-      setMessage("Group deleted. Devices in that group were moved to Unassigned.");
+      setMessage("Cluster Purged from Registry");
       await onGroupsChanged?.();
     });
   }
@@ -257,31 +250,30 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
   }
 
   return (
-    <div className="space-y-6 flex flex-col min-h-screen">
+    <div className="space-y-6 flex flex-col min-h-screen pb-12 font-data">
       <PageHeader
         icon={ShieldCheck}
-        title="Settings"
-        subtitle="Role-based controls for account access and lab grouping."
+        title="Administrative Controls"
+        subtitle="Access management and logical terminal grouping protocols."
         backgroundImage="/settings_header.jpg"
         action={
-          <span className="inline-flex items-center gap-2 rounded-lg border border-teal-500/20 bg-teal-500/10 px-3 py-2 text-sm font-bold text-teal-400 shadow-xl shadow-black/20 backdrop-blur-md">
-            <ShieldCheck size={16} />
-            {isNetworkAdmin ? "Network admin" : "Admin"}
+          <span className="badge-minimal px-4 py-2 border-white/10 bg-white/5 text-white backdrop-blur-md shadow-xl shadow-black/10 font-ui">
+            <ShieldCheck size={14} className="text-blue-400" />
+            System {isNetworkAdmin ? "Root" : "Operator"}
           </span>
         }
       />
 
       {!isNetworkAdmin ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-5 text-sm text-amber-900 font-medium backdrop-blur-sm">
-          <div className="flex gap-3">
-            <Info className="shrink-0 text-amber-500" size={18} />
-            <p>This account can monitor devices and assign existing groups, but it cannot manage administrative access.</p>
-          </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500 shadow-sm backdrop-blur-sm flex items-center gap-4 font-ui">
+            <Info className="shrink-0 text-slate-300" size={20} />
+            <p>Access Level Restricted: Subordinate accounts are limited to observation and cluster assignment only.</p>
         </div>
       ) : null}
 
       {message ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 animate-in fade-in slide-in-from-top-2">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-800 shadow-lg animate-in fade-in slide-in-from-top-2 flex items-center gap-3 font-ui">
+          <div className="h-1.5 w-1.5 rounded-full bg-slate-900 animate-pulse" />
           {message}
         </div>
       ) : null}
@@ -294,70 +286,73 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
         <div className="lg:col-span-6 flex flex-col">
           <SettingsSection 
             icon={Users} 
-            title="Admin Accounts" 
-            subtitle="Grant lab monitoring access to other staff members."
+            title="Account Registry" 
+            subtitle="Delegate terminal monitoring privileges to verified personnel."
             tone="blue"
           >
-            <div className="flex flex-col flex-1">
+            <div className="flex flex-col flex-1 font-ui">
               {isNetworkAdmin ? (
                 <form className="grid gap-3" onSubmit={handleCreateAdmin}>
                   <FormInput
                     onChange={(event) => setEmail(event.target.value)}
-                    placeholder="admin@email.com"
+                    placeholder="Operator Email"
                     type="email"
                     value={email}
                     required
                   />
                   <FormInput
                     onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Password"
+                    placeholder="Access Credential"
                     type="password"
                     value={password}
                     required
                   />
                   <button
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-70 shadow-md shadow-blue-100"
+                    className="btn-minimal-primary h-11 rounded-xl shadow-lg active:scale-[0.97]"
                     disabled={pendingAction === "create-admin"}
                   >
                     {pendingAction === "create-admin" ? (
                       <LoaderCircle className="animate-spin" size={17} />
                     ) : (
-                      "Create admin"
+                      "Provision Operator"
                     )}
                   </button>
                 </form>
               ) : null}
 
-              <div className="mt-6 space-y-2 flex-1 overflow-auto max-h-[320px] pr-1 custom-scrollbar">
+              <div className="mt-8 space-y-3 flex-1 overflow-auto max-h-[400px] pr-1 custom-scrollbar">
                 {admins
                   .filter((admin) => admin.role === "admin")
                   .map((admin) => (
                     <div
-                      className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3.5 py-3 transition hover:bg-white hover:border-blue-100 hover:shadow-sm"
+                      className="flex min-w-0 items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50/50 px-5 py-4 transition-all hover:bg-white hover:border-blue-300 hover:shadow-sm"
                       key={admin.id}
                     >
-                      <div className="min-w-0">
-                        <p className="break-words text-sm font-bold text-slate-800">{admin.email}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{admin.role}</p>
+                      <div className="min-w-0 font-ui">
+                        <p className="font-bold text-slate-800 tracking-tight truncate">{admin.email}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-0.5">{admin.role}</p>
                       </div>
                       {isNetworkAdmin ? (
                         <button
-                          className="grid h-8 w-8 place-items-center rounded-lg border border-red-200 bg-white text-red-600 transition hover:bg-red-50 disabled:cursor-wait disabled:opacity-70 shadow-sm"
+                          className="btn-minimal h-9 w-9 p-0 rounded-lg shadow-sm border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50"
                           disabled={pendingAction === `delete-admin-${admin.id}`}
                           onClick={() => handleDeleteAdmin(admin.id)}
                           type="button"
+                          title="Revoke Access"
                         >
                           {pendingAction === `delete-admin-${admin.id}` ? (
                             <LoaderCircle className="animate-spin" size={14} />
                           ) : (
-                            <Trash2 size={14} />
+                            <Trash2 size={15} strokeWidth={2} />
                           )}
                         </button>
                       ) : null}
                     </div>
                   ))}
                 {!admins.some(a => a.role === "admin") && (
-                  <p className="py-10 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">No subordinate admins</p>
+                  <div className="py-20 text-center rounded-xl border border-dashed border-slate-100 bg-slate-50/30 font-ui">
+                     <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.25em]">No Operators Provisioned</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -367,72 +362,72 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
         <div className="lg:col-span-6 flex flex-col">
           <SettingsSection 
             icon={Layers} 
-            title="Lab Groups" 
-            subtitle="Organize your devices by physical location or department."
+            title="Cluster Registry" 
+            subtitle="Define logical partitions for terminal deployment and grouping."
             tone="teal"
           >
-            <div className="flex flex-col flex-1">
+            <div className="flex flex-col flex-1 font-ui">
               {isNetworkAdmin ? (
                 <form className="grid gap-3" onSubmit={handleSaveGroup}>
                   <FormInput
                     onChange={(event) => setGroupName(event.target.value)}
-                    placeholder="Group Name (e.g. Lab A)"
+                    placeholder="Cluster Identity"
                     value={groupName}
                     required
                   />
                   <FormInput
                     onChange={(event) => setGroupDescription(event.target.value)}
-                    placeholder="Short description"
+                    placeholder="Metadata Description"
                     value={groupDescription}
                   />
                   <button
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70 shadow-md shadow-slate-200"
+                    className="btn-minimal-primary h-11 rounded-xl shadow-lg active:scale-[0.97]"
                     disabled={pendingAction === "save-group"}
                   >
                     {pendingAction === "save-group" ? (
                       <LoaderCircle className="animate-spin" size={17} />
                     ) : editingGroupId ? (
-                      "Save changes"
+                      "Apply Changes"
                     ) : (
-                      "Create group"
+                      "Initialize Cluster"
                     )}
                   </button>
                 </form>
               ) : null}
 
-              <div className="mt-6 space-y-2 flex-1 overflow-auto max-h-[320px] pr-1 custom-scrollbar">
+              <div className="mt-8 space-y-3 flex-1 overflow-auto max-h-[400px] pr-1 custom-scrollbar">
                 {groups.map((group) => (
                   <div
-                    className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3.5 py-3 transition hover:bg-white hover:border-teal-100 hover:shadow-sm"
+                    className="flex min-w-0 items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50/50 px-5 py-4 transition-all hover:bg-white hover:border-teal-300 hover:shadow-sm"
                     key={group.id}
                   >
-                    <div className="min-w-0">
-                      <p className="break-words text-sm font-bold text-slate-800">{group.name}</p>
-                      <p className="break-words text-[11px] font-medium text-slate-500 line-clamp-1">
-                        {group.description || "No description provided"}
+                    <div className="min-w-0 flex-1 font-ui">
+                      <p className="font-bold text-slate-800 tracking-tight truncate">{group.name}</p>
+                      <p className="text-[11px] font-medium text-slate-400 line-clamp-1 italic pt-0.5">
+                        {group.description || "No metadata available"}
                       </p>
                     </div>
                     {isNetworkAdmin ? (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         <button
-                          className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-teal-400 hover:text-teal-600 shadow-sm"
+                          className="btn-minimal h-9 w-9 p-0 rounded-lg shadow-sm"
                           onClick={() => startEditingGroup(group)}
                           type="button"
-                          title="Edit group"
+                          title="Edit Group"
                         >
-                          <Pencil size={14} />
+                          <Pencil size={15} strokeWidth={2} />
                         </button>
                         <button
-                          className="grid h-8 w-8 place-items-center rounded-lg border border-red-100 bg-white text-red-600 transition hover:bg-red-50 disabled:cursor-wait disabled:opacity-70 shadow-sm"
+                          className="btn-minimal h-9 w-9 p-0 rounded-lg shadow-sm border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50"
                           disabled={pendingAction === `delete-group-${group.id}`}
                           onClick={() => handleDeleteGroup(group.id)}
                           type="button"
-                          title="Delete group"
+                          title="Delete Group"
                         >
                           {pendingAction === `delete-group-${group.id}` ? (
                             <LoaderCircle className="animate-spin" size={14} />
                           ) : (
-                            <Trash2 size={14} />
+                            <Trash2 size={15} strokeWidth={2} />
                           )}
                         </button>
                       </div>
@@ -448,72 +443,72 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
       <div className="grid min-w-0 gap-6 lg:grid-cols-3 flex-1">
         <SettingsSection 
           icon={Lock} 
-          title="Account Security" 
-          subtitle="Manage your authentication methods and session tokens."
+          title="Terminal Security" 
+          subtitle="Encryption protocols and session validation settings."
           tone="amber"
         >
-          <div className="space-y-3 flex-1 flex flex-col justify-end pb-2">
+          <div className="space-y-4 flex-1 flex flex-col justify-end font-ui">
             <ActionButton 
-              label="Change Password" 
+              label="Update Credential" 
               icon={Lock} 
-              description="Update your dashboard access credentials" 
+              description="Securely reset administrative dashboard access keys" 
               onClick={() => {}} 
               tone="amber"
             />
             <ActionButton 
-              label="Two-Factor Auth" 
+              label="Active MFA" 
               icon={Fingerprint} 
-              description="Add an extra layer of security to your account" 
+              description="Deploy multi-factor challenge protocols" 
               onClick={() => {}} 
-              tone="slate"
+              tone="blue"
             />
           </div>
         </SettingsSection>
 
         <SettingsSection 
           icon={Shield} 
-          title="Privacy & Data" 
-          subtitle="Configure how telemetry data is stored and logged."
+          title="Telemetry Privacy" 
+          subtitle="Data retention policies and signal masking controls."
           tone="emerald"
         >
-          <div className="space-y-3 flex-1 flex flex-col justify-end pb-2">
+          <div className="space-y-4 flex-1 flex flex-col justify-end font-ui">
             <ActionButton 
-              label="Privacy Settings" 
+              label="Privacy Shield" 
               icon={EyeOff} 
-              description="Control visibility of sensitive agent information" 
+              description="Restrict visibility of sensitive kernel-level telemetry" 
               onClick={() => {}} 
               tone="emerald"
             />
             <ActionButton 
-              label="Data Retention" 
+              label="History Purge" 
               icon={Clock} 
-              description="Configure how long analytics are kept in history" 
+              description="Configure automated database retention logic" 
               onClick={() => {}} 
-              tone="slate"
+              tone="rose"
             />
           </div>
         </SettingsSection>
 
         <SettingsSection 
           icon={ShieldCheck} 
-          title="Legal & Access" 
-          subtitle="Review terms of service and admin permissions."
-          tone="slate"
+          title="Protocol & Audit" 
+          subtitle="Platform usage terms and transaction logging."
+          tone="indigo"
         >
-          <div className="space-y-3 flex-1 flex flex-col justify-end pb-2">
+          <div className="space-y-4 flex-1 flex flex-col justify-end font-ui">
             <ActionButton 
-              label="Terms of Service" 
+              label="ToS Agreement" 
               icon={Info} 
-              description="Read the Sentrix platform usage agreement" 
+              description="Verify adherence to the platform service contract" 
               onClick={() => {}} 
-              tone="slate"
+              tone="indigo"
             />
             <ActionButton 
-              label="System Audit" 
+              label="Cluster Audit" 
               icon={Layers} 
-              description="View logs of all administrative actions performed" 
+              description="Trace administrative transaction history" 
               onClick={() => {}} 
-              tone="slate"
+              tone="teal"
             />
           </div>
         </SettingsSection>

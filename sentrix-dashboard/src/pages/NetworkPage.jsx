@@ -107,17 +107,18 @@ export function NetworkPage({
           <button
             type="button"
             onClick={onScan}
-            className={`inline-flex h-12 items-center justify-center gap-3 rounded-xl px-6 text-sm font-bold text-white transition-all shadow-2xl active:scale-95 disabled:opacity-50 border border-white/10 backdrop-blur-xl group overflow-hidden relative ${scanLoading ? 'bg-slate-800/40 cursor-wait' : 'bg-white/5 hover:bg-white/10 hover:border-white/20'}`}
+            className={`inline-flex h-12 items-center justify-center gap-3 rounded-xl px-6 text-sm font-bold text-white transition-all shadow-2xl active:scale-95 disabled:opacity-50 border border-white/20 backdrop-blur-xl group overflow-hidden relative ${scanLoading ? 'bg-slate-800/40 cursor-wait' : 'bg-white/10 hover:bg-white/20 hover:border-white/40'}`}
             disabled={scanLoading}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-white/5 to-blue-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-white/10 to-blue-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
             {scanLoading ? (
-              <LoaderCircle className="animate-spin text-slate-400" size={20} />
+              <LoaderCircle className="animate-spin text-white" size={20} />
             ) : (
-              <RefreshCcw size={20} strokeWidth={2.5} className="text-slate-400 group-hover:rotate-180 transition-transform duration-700" />
+              <RefreshCcw size={20} strokeWidth={2.5} className="text-white group-hover:rotate-180 transition-transform duration-700" />
             )}
-            <span className="relative z-10 font-ui">{scanLoading ? "Scanning Network..." : "Force Subnet Rescan"}</span>
+            <span className="relative z-10 font-ui text-white">{scanLoading ? "Scanning Network..." : "Force Subnet Rescan"}</span>
           </button>
+
         }
       >
         <div className="mt-4 flex flex-wrap gap-3">

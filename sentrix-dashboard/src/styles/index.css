@@ -27,7 +27,7 @@
 @layer components {
   /* Minimal Professional Button - Standard */
   .btn-minimal {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] active:bg-slate-900 active:text-white active:border-slate-900 disabled:opacity-50 disabled:cursor-not-allowed;
     font-family: var(--font-ui);
   }
 
@@ -39,7 +39,7 @@
 
   /* Minimal Professional Button - Ghost/Action */
   .btn-minimal-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98] active:bg-slate-900 active:text-white;
     font-family: var(--font-ui);
   }
 
@@ -57,6 +57,11 @@
   .badge-minimal {
     @apply inline-flex items-center gap-1.5 rounded-md border border-slate-200/60 bg-slate-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 shadow-sm;
     font-family: var(--font-ui);
+  }
+
+  /* Smooth Icon Color Transition */
+  .icon-gradual {
+    @apply transition-colors duration-300;
   }
 }
 

@@ -329,11 +329,11 @@ function RemoteControlPanel({ device }) {
   const [loading, setLoading] = useState(false);
 
   const powerActions = [
-    { id: "shutdown", label: "Shutdown", icon: Power, hoverTone: "hover:text-red-500", description: "Terminate session and power off" },
-    { id: "restart", label: "Restart", icon: RotateCw, hoverTone: "hover:text-amber-500", description: "Warm reboot of the remote system" },
-    { id: "sleep", label: "Sleep", icon: Moon, hoverTone: "hover:text-blue-500", description: "Low power suspension mode" },
-    { id: "lock", label: "Lock", icon: Lock, hoverTone: "hover:text-slate-600", description: "Secure current user environment" },
-    { id: "update", label: "Update", icon: ArrowUpCircle, hoverTone: "hover:text-emerald-500", description: "Deploy system-level patches" },
+    { id: "shutdown", label: "Shutdown", icon: Power, hoverTone: "group-hover:text-red-500", description: "Terminate session and power off" },
+    { id: "restart", label: "Restart", icon: RotateCw, hoverTone: "group-hover:text-amber-500", description: "Warm reboot of the remote system" },
+    { id: "sleep", label: "Sleep", icon: Moon, hoverTone: "group-hover:text-blue-500", description: "Low power suspension mode" },
+    { id: "lock", label: "Lock", icon: Lock, hoverTone: "group-hover:text-slate-900", description: "Secure current user environment" },
+    { id: "update", label: "Update", icon: ArrowUpCircle, hoverTone: "group-hover:text-emerald-500", description: "Deploy system-level patches" },
   ];
 
   async function handleCommand(command) {
@@ -352,8 +352,8 @@ function RemoteControlPanel({ device }) {
 
   return (
     <div className="grid gap-6">
-      <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
-        <h4 className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+      <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner font-ui">
+        <h4 className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
           <Power size={14} strokeWidth={3} />
           Terminal Execution Control
         </h4>
@@ -363,13 +363,13 @@ function RemoteControlPanel({ device }) {
             return (
               <div className="group relative" key={action.id}>
                 <button
-                  className="flex h-20 w-full flex-col items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md hover:border-slate-300 disabled:opacity-50 disabled:translate-y-0"
+                  className="flex h-20 w-full flex-col items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md hover:border-slate-300 active:bg-slate-900 active:text-white active:border-slate-900 disabled:opacity-50 disabled:translate-y-0"
                   disabled={loading}
                   onClick={() => handleCommand(action.id)}
                   type="button"
                 >
-                  <Icon size={20} strokeWidth={2.5} className={`text-slate-400 transition-colors duration-300 ${action.hoverTone}`} />
-                  <span className="text-[10px] font-bold uppercase tracking-widest font-ui">{action.label}</span>
+                  <Icon size={20} strokeWidth={2.5} className={`text-slate-400 transition-colors duration-300 icon-gradual ${action.hoverTone} group-active:text-white`} />
+                  <span className="text-[10px] font-bold uppercase tracking-widest">{action.label}</span>
                 </button>
                 <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3.5 py-2.5 text-center text-[11px] font-medium text-white shadow-2xl group-hover:block z-20 leading-relaxed font-data">
                   {action.description}
