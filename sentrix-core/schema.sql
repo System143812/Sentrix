@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS client_dns_logs (
   resolved_address VARCHAR(255),
   recorded_at BIGINT NOT NULL,
   INDEX idx_dns_logs_client_time (client_id, recorded_at),
+  UNIQUE INDEX idx_dns_log_identity (client_id, domain, resolved_address),
   CONSTRAINT fk_dns_logs_client
     FOREIGN KEY (client_id) REFERENCES clients(id)
     ON DELETE CASCADE
@@ -73,11 +74,12 @@ CREATE TABLE IF NOT EXISTS client_network_connections (
   remote_address VARCHAR(45),
   remote_port INT,
   state VARCHAR(50),
-  process_name VARCHAR(255),
-  domain VARCHAR(255),
+  process_name VARCHAR(255) NOT NULL DEFAULT '',
+  domain VARCHAR(255) NOT NULL DEFAULT '',
   connection_count INT DEFAULT 1,
   recorded_at BIGINT NOT NULL,
   INDEX idx_connections_client_time (client_id, recorded_at),
+  UNIQUE INDEX idx_sync_truth (client_id, domain, process_name),
   CONSTRAINT fk_connections_client
     FOREIGN KEY (client_id) REFERENCES clients(id)
     ON DELETE CASCADE
