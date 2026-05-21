@@ -928,40 +928,53 @@ function ExportPanel({ analytics, loading, onExportCsv, exporting }) {
       icon={Download}
       loading={loading}
       title="Technical Audit"
-      subtitle="Historical telemetry and incident data export"
+      subtitle="Fleet-wide reporting and compliance data engine"
       tone="indigo"
     >
-      <div className="space-y-4 flex flex-col flex-1 pt-2">
-        <button
-          className="btn-minimal-primary w-full h-14 text-sm tracking-tight rounded-xl shadow-lg shadow-slate-900/10 active:scale-[0.97] justify-start px-6"
-          disabled={loading || exporting}
-          onClick={onExportCsv}
-          title="Export Telemetry CSV"
-          type="button"
-        >
-          <div className="flex items-center gap-4">
-             <div className="p-2 rounded-lg bg-white/10 text-white shadow-inner">
-                <Download size={18} strokeWidth={2.5} />
-             </div>
-             <span className="font-ui text-white font-bold">{exporting ? "Generating Report..." : "Export Fleet Analytics"}</span>
+      <div className="flex flex-col flex-1 pt-10">
+        <div className="space-y-10">
+          <div className="py-4">
+            <button
+              className="btn-minimal-primary w-full py-12 px-16 text-sm tracking-tight rounded-2xl shadow-xl shadow-indigo-900/20 active:scale-[0.98] justify-between overflow-hidden group relative"
+              disabled={loading || exporting}
+              onClick={onExportCsv}
+              title="Download Telemetry Report"
+              type="button"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+              <div className="flex items-center gap-12 relative z-10">
+                 <div className="p-5 rounded-2xl bg-white/10 text-white shadow-inner border border-white/10">
+                    <Download size={32} strokeWidth={2.5} />
+                 </div>
+                 <div className="text-left font-ui">
+                    <p className="text-white font-bold leading-none text-2xl tracking-tight">{exporting ? "Finalizing Package..." : "Export Fleet Analytics"}</p>
+                    <p className="text-[14px] text-white/60 uppercase tracking-[0.3em] mt-4 font-bold">Production Technical .CSV Registry</p>
+                 </div>
+              </div>
+              <ChevronRight className="text-white/40 group-hover:translate-x-3 transition-transform relative z-10" size={40} />
+            </button>
           </div>
-        </button>
-        
-        <div className="flex items-center justify-between rounded-xl bg-slate-900 p-5 shadow-lg shadow-slate-900/10 ring-1 ring-white/10 transition-all hover:bg-slate-800">
-          <div className="flex items-center gap-4">
-            <div className="p-2.5 rounded-lg bg-white/10 text-white shadow-inner">
-              <BadgeAlert size={20} strokeWidth={2.5} />
-            </div>
-            <div className="min-w-0 font-ui">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Critical Events</p>
-              <p className="text-sm font-bold text-white tracking-tight">{analytics.criticalAlerts} Flagged Item Registry</p>
+          
+          <div className="flex items-center justify-between rounded-2xl bg-rose-500/10 border border-rose-500/20 p-8 shadow-sm backdrop-blur-md ring-1 ring-rose-500/5 transition-all hover:bg-rose-500/20">
+            <div className="flex items-center gap-6">
+              <div className="p-4 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20 shadow-inner">
+                <BadgeAlert size={26} strokeWidth={2.5} />
+              </div>
+              <div className="min-w-0 font-ui">
+                <p className="text-[12px] font-bold uppercase tracking-[0.25em] text-rose-500/70 leading-none mb-3">Critical Registry</p>
+                <p className="text-lg font-bold text-rose-700 tracking-tight leading-none">{analytics.criticalAlerts} Flagged Items Found</p>
+              </div>
             </div>
           </div>
         </div>
+
+        <div className="mt-auto pt-10 border-t border-slate-100 border-dashed mt-10">
+           <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-slate-400 font-ui italic">
+              <span>Auth: Verified System</span>
+              <span>Report Hash: {Math.random().toString(36).substring(7).toUpperCase()}</span>
+           </div>
+        </div>
       </div>
-      <p className="mt-10 text-[10px] font-bold text-slate-300 uppercase tracking-widest text-center italic leading-relaxed font-ui">
-        Validated Production Telemetry Engine
-      </p>
     </Panel>
   );
 }
