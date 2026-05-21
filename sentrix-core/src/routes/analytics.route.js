@@ -1,9 +1,12 @@
 import express from "express";
 import * as analyticsController from "../controllers/analytics.controller.js";
+import { authenticate } from "../middlewares/auth.middleware.js";
 
-const analyticsRouter = express.Router();
+const router = express.Router();
 
-analyticsRouter.get("/", analyticsController.getAnalytics);
-analyticsRouter.get("/export.csv", analyticsController.exportAnalyticsCsv);
+router.use(authenticate);
 
-export default analyticsRouter;
+router.get("/", analyticsController.getSummary);
+router.get("/export.csv", analyticsController.exportCsv);
+
+export default router;

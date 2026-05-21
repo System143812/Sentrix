@@ -2,7 +2,7 @@ import {
   getDiscoverySnapshot,
   runDiscoveryScan,
   deployAgentToHost,
-} from "../services/discovery.service.js";
+} from "../services/discovery/index.js";
 
 export async function scan(req, res, next) {
   try {

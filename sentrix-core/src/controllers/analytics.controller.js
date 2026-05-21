@@ -1,31 +1,23 @@
 import * as analyticsService from "../services/analytics.service.js";
 
-export async function getAnalytics(req, res, next) {
+export async function getSummary(req, res, next) {
   try {
-    const data = await analyticsService.getAnalyticsSummary({
-      range: req.query.range,
-      group: req.query.group,
-    });
-
-    res.json({ success: true, data });
+    const { range, group } = req.query;
+    const summary = await analyticsService.getAnalyticsSummary({ range, group });
+    res.json({ success: true, data: summary });
   } catch (error) {
     next(error);
   }
 }
 
-export async function exportAnalyticsCsv(req, res, next) {
+export async function exportCsv(req, res, next) {
   try {
-    const csv = await analyticsService.getAnalyticsCsv({
-      range: req.query.range,
-      group: req.query.group,
-    });
-
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      "attachment; filename=\"sentrix-analytics.csv\"",
-    );
-    res.send(csv);
+    const { range, group } = req.query;
+    const csv = await analyticsService.getAnalyticsCsv({ range, group });
+    
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", 'attachment; filename="sentrix-analytics.csv"');
+    res.status(200).send(csv);
   } catch (error) {
     next(error);
   }
