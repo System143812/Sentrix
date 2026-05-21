@@ -1,5 +1,42 @@
 import { io } from "socket.io-client";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { killProcess } from "./metrics/processes.service.js";
+
+const execFileAsync = promisify(execFile);
+
+async function runRemotePowerCommand(command) {
+  if (process.platform !== "win32") {
+    return { success: false, message: `${command} is only supported on Windows agents.` };
+  }
+
+  const commands = {
+    shutdown: ["shutdown.exe", ["/s", "/t", "0"]],
+    restart: ["shutdown.exe", ["/r", "/t", "0"]],
+    sleep: ["rundll32.exe", ["powrprof.dll,SetSuspendState", "0,1,0"]],
+    lock: ["rundll32.exe", ["user32.dll,LockWorkStation"]],
+    update: ["UsoClient.exe", ["StartScan"]],
+  };
+  const [binary, args] = commands[command] || [];
+
+  if (!binary) {
+    return { success: false, message: `Unknown command: ${command}` };
+  }
+
+  try {
+    await execFileAsync(binary, args, {
+      timeout: 10000,
+      windowsHide: true,
+    });
+
+    return { success: true, message: `${command} command accepted.` };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || `Failed to run ${command}.`,
+    };
+  }
+}
 
 export function connectToCore({ serverUrl, profile, onStatus }) {
   let lastMetricsPacket = null;
@@ -55,6 +92,12 @@ export function connectToCore({ serverUrl, profile, onStatus }) {
 
     if (command === "kill-process") {
       const result = await killProcess(args.pid);
+      callback?.(result);
+      return;
+    }
+
+    if (["shutdown", "restart", "sleep", "lock", "update"].includes(command)) {
+      const result = await runRemotePowerCommand(command);
       callback?.(result);
       return;
     }

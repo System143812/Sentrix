@@ -100,11 +100,12 @@ export function NetworkPage({
         icon={Radar}
         title="Automatic Network Discovery"
         subtitle="Sentrix scans in the background and streams discovery updates here. Use Rescan when you want to refresh the network now."
+        backgroundImage="/network_header.jpg"
         action={
           <button
             type="button"
             onClick={onScan}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-signal px-5 text-sm font-semibold text-white transition hover:bg-signal-dark disabled:cursor-wait disabled:bg-slate-300"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-bold text-white shadow-xl backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
             disabled={scanLoading}
           >
             {scanLoading ? (

@@ -13,6 +13,12 @@ import {
   Timer,
   Usb,
   X,
+  Power,
+  RotateCw,
+  Moon,
+  Lock,
+  ArrowUpCircle,
+  Terminal,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useEffect, useState } from "react";
 import { MetricPill } from "./MetricPill.jsx";
@@ -105,9 +111,9 @@ function inferPeripherals(peripherals = {}, usbDevices = []) {
 
 function DetailItem({ label, value }) {
   return (
-    <div className="min-w-0 rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70">
-      <dt className="text-xs font-semibold uppercase text-slate-500">{label}</dt>
-      <dd className="mt-1 break-words text-sm font-medium leading-5 text-slate-800">
+    <div className="min-w-0 rounded-lg border border-slate-100 bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-100/60 transition hover:border-slate-200">
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-bold leading-5 text-slate-800">
         {value || "Unknown"}
       </dd>
     </div>
@@ -116,11 +122,11 @@ function DetailItem({ label, value }) {
 
 function ListItem({ title, detail }) {
   return (
-    <div className="min-w-0 rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70">
-      <p className="break-words text-sm font-semibold text-slate-800">
+    <div className="min-w-0 rounded-lg border border-slate-100 bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-100/60 transition hover:bg-slate-50/60">
+      <p className="break-words text-sm font-bold text-slate-800">
         {title || "Unknown"}
       </p>
-      {detail ? <p className="text-xs leading-5 text-slate-500">{detail}</p> : null}
+      {detail ? <p className="mt-1 truncate text-xs leading-5 text-slate-500">{detail}</p> : null}
     </div>
   );
 }
@@ -152,35 +158,35 @@ function ConfirmDialog({ device, onCancel, onConfirm }) {
   if (!device) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4">
-      <div className="w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-xl">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4 backdrop-blur-[2px]">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold">Archive device?</h3>
-            <p className="mt-2 text-sm text-slate-500">
+          <div className="min-w-0">
+            <h3 className="text-lg font-bold text-slate-900">Archive device?</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
               This removes {device.hostname} from the registered device list.
               The device can appear again when its agent reconnects.
             </p>
           </div>
           <button
-            className="rounded-md p-1 text-slate-500 transition hover:bg-slate-100 hover:text-ink"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
             onClick={onCancel}
             type="button"
           >
-            <X size={18} />
+            <X size={20} strokeWidth={2.5} />
           </button>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="mt-8 flex justify-end gap-3">
           <button
-            className="h-10 rounded-md border border-line bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="btn-minimal h-10 px-4"
             onClick={onCancel}
             type="button"
           >
             Cancel
           </button>
           <button
-            className="h-10 rounded-md bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700"
+            className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 active:scale-[0.98]"
             onClick={onConfirm}
             type="button"
           >
@@ -196,6 +202,7 @@ function DetailViewSwitch({ activeView, onChange }) {
   const buttons = [
     { id: "specification", label: "Specification", icon: Monitor },
     { id: "networkActivity", label: "Network Activity", icon: RadioTower },
+    { id: "remoteControl", label: "Remote Controls", icon: Terminal },
   ];
 
   return (
@@ -206,20 +213,97 @@ function DetailViewSwitch({ activeView, onChange }) {
 
         return (
           <button
-            className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition ${
+            className={`btn-minimal h-10 px-4 transition-all ${
               selected
-                ? "border-signal bg-blue-50 text-signal shadow-sm"
-                : "border-line bg-white text-slate-600 hover:border-signal hover:text-signal"
+                ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/15 hover:bg-slate-800 hover:text-white"
+                : "bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
             }`}
             key={button.id}
             onClick={() => onChange(button.id)}
             type="button"
           >
-            <Icon size={16} />
-            {button.label}
+            <Icon size={16} strokeWidth={2.5} />
+            <span className="text-xs font-bold uppercase tracking-wide">{button.label}</span>
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function RemoteControlPanel({ device }) {
+  const [commandStatus, setCommandStatus] = useState("");
+  const [loadingCommand, setLoadingCommand] = useState("");
+
+  const powerActions = [
+    { id: "shutdown", label: "Turn off", icon: Power, hoverTone: "group-hover:text-rose-500", description: "Power off this device" },
+    { id: "restart", label: "Restart", icon: RotateCw, hoverTone: "group-hover:text-amber-500", description: "Restart this device" },
+    { id: "sleep", label: "Sleep", icon: Moon, hoverTone: "group-hover:text-blue-500", description: "Put this device to sleep" },
+    { id: "lock", label: "Lock", icon: Lock, hoverTone: "group-hover:text-slate-900", description: "Lock the active session" },
+    { id: "update", label: "Update", icon: ArrowUpCircle, hoverTone: "group-hover:text-emerald-500", description: "Start Windows Update scan" },
+  ];
+
+  async function handleCommand(command) {
+    setLoadingCommand(command);
+    setCommandStatus(`Sending ${command}...`);
+
+    try {
+      await clientApi.sendDeviceCommand(device.id, command);
+      setCommandStatus(`${command.charAt(0).toUpperCase() + command.slice(1)} command sent.`);
+    } catch (error) {
+      setCommandStatus(error.message || `Unable to send ${command}.`);
+    } finally {
+      setLoadingCommand("");
+      setTimeout(() => setCommandStatus(""), 5000);
+    }
+  }
+
+  return (
+    <div className="grid gap-4">
+      <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+        <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+          <Power size={15} strokeWidth={2.5} />
+          Remote Controls
+        </h4>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {powerActions.map((action) => {
+            const Icon = action.icon;
+            const pending = loadingCommand === action.id;
+
+            return (
+              <div className="group relative" key={action.id}>
+                <button
+                  className="flex h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md active:scale-[0.98] active:border-slate-900 active:bg-slate-900 active:text-white disabled:cursor-wait disabled:opacity-50"
+                  disabled={Boolean(loadingCommand)}
+                  onClick={() => handleCommand(action.id)}
+                  type="button"
+                >
+                  <Icon
+                    className={`text-slate-400 transition-colors duration-200 ${action.hoverTone} group-active:text-white ${
+                      pending ? "animate-pulse" : ""
+                    }`}
+                    size={20}
+                    strokeWidth={2.5}
+                  />
+                  <span className="text-[10px] font-bold uppercase tracking-wide">
+                    {pending ? "Sending" : action.label}
+                  </span>
+                </button>
+                <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-44 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
+                  {action.description}
+                  <div className="absolute left-1/2 top-full -ml-1.5 border-[6px] border-transparent border-t-slate-900" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {commandStatus ? (
+          <div className="mt-4 flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-700 shadow-sm">
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-pulse" />
+            {commandStatus}
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }
@@ -653,9 +737,9 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
       {activeView === "specification" ? (
         <div className="device-detail-view">
           <div className="grid gap-4 xl:grid-cols-3">
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <Monitor size={15} />
+            <Monitor size={15} strokeWidth={2.5} />
             Device Info
           </h4>
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
@@ -669,9 +753,9 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           </dl>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <Cpu size={15} />
+            <Cpu size={15} strokeWidth={2.5} />
             Important Specs
           </h4>
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
@@ -690,9 +774,9 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           </dl>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <Usb size={15} />
+            <Usb size={15} strokeWidth={2.5} />
             Peripherals
           </h4>
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
@@ -719,9 +803,9 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <Thermometer size={15} />
+            <Thermometer size={15} strokeWidth={2.5} />
             Temperature
           </h4>
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
@@ -737,9 +821,9 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           </dl>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <Network size={15} />
+            <Network size={15} strokeWidth={2.5} />
             Network Metrics
           </h4>
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
@@ -757,7 +841,7 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-3">
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
             Graphics
           </h4>
@@ -776,7 +860,7 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           </div>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
             Disks
           </h4>
@@ -795,11 +879,11 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           </div>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
             USB Devices
           </h4>
-          <div className="grid max-h-56 gap-2 overflow-auto pr-1">
+          <div className="custom-scrollbar grid max-h-56 gap-2 overflow-auto pr-1">
             {usbDevices.length ? (
               usbDevices.map((device, index) => (
                 <ListItem
@@ -816,11 +900,11 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
             Network Adapters
           </h4>
-          <div className="grid max-h-56 gap-2 overflow-auto pr-1">
+          <div className="custom-scrollbar grid max-h-56 gap-2 overflow-auto pr-1">
             {networkAdapters.length ? (
               networkAdapters.map((adapter, index) => (
                 <ListItem
@@ -835,11 +919,11 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           </div>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
             Displays
           </h4>
-          <div className="grid max-h-56 gap-2 overflow-auto pr-1">
+          <div className="custom-scrollbar grid max-h-56 gap-2 overflow-auto pr-1">
             {displays.length ? (
               displays.map((display, index) => (
                 <ListItem
@@ -855,9 +939,13 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
         </section>
       </div>
         </div>
-      ) : (
+      ) : activeView === "networkActivity" ? (
         <div className="device-detail-view">
           <NetworkActivityDetails device={device} />
+        </div>
+      ) : (
+        <div className="device-detail-view">
+          <RemoteControlPanel device={device} />
         </div>
       )}
     </div>
@@ -959,8 +1047,8 @@ export function DeviceTable({
         onConfirm={confirmArchive}
       />
 
-      <div className="overflow-hidden rounded-lg border border-line bg-white shadow-sm">
-        <div className="hidden bg-slate-100 px-5 py-3 text-xs font-semibold uppercase text-slate-500 lg:grid lg:grid-cols-[48px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(260px,1.4fr)_minmax(150px,0.7fr)_auto_auto] lg:items-center lg:gap-4">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-200/30 ring-1 ring-slate-100">
+        <div className="hidden bg-slate-50/90 px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 lg:grid lg:grid-cols-[48px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(260px,1.4fr)_minmax(150px,0.7fr)_auto_auto] lg:items-center lg:gap-4">
           <div />
           <div>Device</div>
           <div>Network</div>
@@ -970,27 +1058,28 @@ export function DeviceTable({
           <div className="text-right">Actions</div>
         </div>
 
-        <div className="divide-y divide-line">
+        <div className="divide-y divide-slate-100">
           {devices.map((device) => {
             const metrics = device.metrics || {};
             const groupValue = device.group || "Unassigned";
             const expanded = expandedId === device.id;
 
             return (
-              <article className="bg-white" key={device.id}>
-                <div className="grid gap-4 px-4 py-5 text-sm text-slate-700 transition hover:bg-slate-50 sm:px-5 lg:grid-cols-[48px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(260px,1.4fr)_minmax(150px,0.7fr)_auto_auto] lg:items-start lg:gap-4">
+              <article className={`bg-white transition ${expanded ? "bg-slate-50/30" : "hover:bg-slate-50/50"}`} key={device.id}>
+                <div className="grid gap-4 px-4 py-5 text-sm text-slate-700 transition sm:px-5 lg:grid-cols-[48px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(260px,1.4fr)_minmax(150px,0.7fr)_auto_auto] lg:items-start lg:gap-4">
                   <button
-                    className="grid h-10 w-10 place-items-center rounded-md border border-line bg-white text-slate-600 shadow-sm transition hover:border-signal hover:text-signal"
+                    className={`grid h-10 w-10 place-items-center rounded-xl border shadow-sm transition-all duration-300 active:scale-95 ${
+                      expanded
+                        ? "rotate-180 border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/20"
+                        : "border-slate-200 bg-white text-slate-400 hover:border-slate-400 hover:text-slate-900"
+                    }`}
                     onClick={() =>
                       setExpandedId(expanded ? null : device.id)
                     }
                     title={expanded ? "Collapse details" : "Expand details"}
                     type="button"
                   >
-                    <ChevronDown
-                      className={`transition ${expanded ? "rotate-180" : ""}`}
-                      size={17}
-                    />
+                    <ChevronDown size={17} strokeWidth={2.5} />
                   </button>
 
                   <div className="min-w-0">
@@ -1040,7 +1129,7 @@ export function DeviceTable({
                       Group
                     </span>
                     <select
-                      className="h-10 w-full min-w-0 rounded-md border border-line bg-white px-2 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-blue-100 lg:w-40"
+                      className="h-10 w-full min-w-0 cursor-pointer rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none shadow-sm transition hover:border-slate-300 focus:border-slate-900 focus:ring-4 focus:ring-slate-100 lg:w-40"
                       onChange={(event) =>
                         onUpdateGroup(device.id, event.target.value)
                       }
@@ -1061,18 +1150,19 @@ export function DeviceTable({
                   </div>
 
                   <span
-                    className={`inline-flex w-fit items-center rounded-md px-2.5 py-1 text-xs font-bold capitalize ${
+                    className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wide ${
                       device.status === "online"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-red-50 text-red-700"
+                        ? "border-emerald-100 bg-white text-emerald-600 shadow-sm"
+                        : "border-rose-100 bg-white text-rose-600 shadow-sm"
                     }`}
                   >
+                    <span className={`h-1.5 w-1.5 rounded-full ${device.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
                     {device.status}
                   </span>
 
                   <div className="group relative flex justify-start lg:justify-end">
                     <button
-                      className="grid h-9 w-9 place-items-center rounded-md border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100"
+                      className="grid h-9 w-9 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition hover:border-rose-200 hover:bg-rose-100 active:scale-95"
                       onClick={() => setPendingArchive(device)}
                       title="Archive device"
                       type="button"

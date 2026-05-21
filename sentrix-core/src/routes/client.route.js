@@ -12,6 +12,7 @@ clientRouter.get("/:id/activity-history", clientControllers.getClientActivityHis
 clientRouter.get("/:id", clientControllers.getClient);
 clientRouter.patch("/:id/group", clientControllers.updateClientGroup);
 clientRouter.delete("/:id", clientControllers.archiveClient);
+clientRouter.post("/:id/command", clientControllers.sendClientCommand);
 clientRouter.post("/:id/processes/:pid/kill", clientControllers.killClientProcess);
 
 export default clientRouter;
