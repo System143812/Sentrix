@@ -364,9 +364,9 @@ function RemoteControlPanel({ device }) {
             const toneStyles = {
               rose: "border-red-100 bg-white text-red-600 hover:bg-red-50 hover:border-red-200",
               amber: "border-amber-100 bg-white text-amber-600 hover:bg-amber-50 hover:border-amber-200",
-              blue: "border-blue-100 bg-white text-blue-600 hover:bg-blue-50 hover:border-blue-200",
+              blue: "border-blue-100 bg-white text-blue-700 hover:bg-blue-50 hover:border-blue-200",
               slate: "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300",
-              emerald: "border-emerald-100 bg-white text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200",
+              emerald: "border-emerald-100 bg-white text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200",
             };
 
             return (

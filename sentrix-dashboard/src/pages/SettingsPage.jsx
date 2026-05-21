@@ -27,37 +27,29 @@ import { ICON_TONES } from "../styles/tones.js";
 
 function SettingsSection({ icon: Icon, title, subtitle, children, tone = "slate" }) {
   return (
-    <Card padding="0" className="min-w-0 flex flex-col h-full shadow-sm hover:shadow-md transition-all duration-300 border-none ring-1 ring-slate-200/60 overflow-hidden">
-      <div className="p-5 sm:p-6 flex-1 flex flex-col">
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-bold text-slate-900 tracking-tight">{title}</h3>
-            <p className="mt-1 text-sm text-slate-500 leading-relaxed font-medium">
-              {subtitle}
-            </p>
-          </div>
-          <div className="group relative shrink-0">
-            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform hover:scale-110 ${ICON_TONES[tone]}`}>
-              <Icon size={20} strokeWidth={2.5} />
-            </span>
-            <div className="pointer-events-none absolute right-0 top-full mt-2 hidden w-40 rounded-lg bg-slate-900 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-white shadow-xl group-hover:block z-30">
-              Module: {title}
-              <div className="absolute bottom-full right-4 border-4 border-transparent border-b-slate-900" />
-            </div>
-          </div>
+    <Card padding="5" className="min-w-0 flex flex-col h-full shadow-sm hover:shadow-md transition-shadow">
+      <div className="mb-5 flex items-start justify-between">
+        <div className="min-w-0">
+          <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+          <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+            {subtitle}
+          </p>
         </div>
-        <div className="flex-1 flex flex-col">{children}</div>
+        <span className={`p-2 rounded-lg border shadow-sm ${ICON_TONES[tone]}`}>
+          <Icon size={20} />
+        </span>
       </div>
+      <div className="flex-1">{children}</div>
     </Card>
   );
 }
 
 function ActionButton({ label, icon: Icon, description, onClick, tone = "blue", disabled = false }) {
   const tones = {
-    blue: "border-blue-100 bg-white text-blue-700 hover:bg-blue-50/50 hover:border-blue-200",
-    slate: "border-slate-200 bg-white text-slate-700 hover:bg-slate-50/50 hover:border-slate-300",
-    rose: "border-red-100 bg-white text-red-700 hover:bg-red-50/50 hover:border-red-200",
-    emerald: "border-emerald-100 bg-white text-emerald-700 hover:bg-emerald-50/50 hover:border-emerald-200",
+    blue: "border-blue-100 bg-white text-blue-700 hover:bg-blue-50 hover:border-blue-200",
+    slate: "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300",
+    rose: "border-red-100 bg-white text-red-700 hover:bg-red-50 hover:border-red-200",
+    emerald: "border-emerald-100 bg-white text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200",
   };
 
   return (
@@ -69,7 +61,7 @@ function ActionButton({ label, icon: Icon, description, onClick, tone = "blue", 
         type="button"
       >
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg shadow-sm border shrink-0 ${ICON_TONES[tone === "emerald" ? "emerald" : tone === "rose" ? "rose" : tone === "blue" ? "blue" : "slate"]}`}>
+          <div className={`p-2 rounded-lg ${tone === "blue" ? "bg-blue-50 text-blue-600" : tone === "rose" ? "bg-red-50 text-red-600" : tone === "emerald" ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-600"}`}>
             <Icon size={18} strokeWidth={2.5} />
           </div>
           <span className="text-sm font-bold tracking-tight">{label}</span>
@@ -104,79 +96,77 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
       subtitle="Define communication protocols and telemetry refresh rates for the network."
       tone="blue"
     >
-      <div className="space-y-6 flex-1 flex flex-col justify-between">
-        <div className="space-y-6">
-          <div>
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Operation Mode</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="group relative">
-                <button
-                  className={`flex h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border transition-all ${
-                    mode === "local"
-                      ? "border-teal-500 bg-teal-50 text-teal-700 shadow-sm"
-                      : "border-line bg-white text-slate-500 hover:border-teal-200 hover:bg-teal-50/30"
-                  } ${!isNetworkAdmin || loading ? "opacity-50 cursor-not-allowed" : ""}`}
-                  disabled={!isNetworkAdmin || loading}
-                  onClick={() => handleModeChange("local")}
-                  type="button"
-                >
-                  <Server size={20} />
-                  <span className="text-xs font-bold uppercase tracking-tight">Local Mode</span>
-                </button>
-                <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium text-white shadow-xl group-hover:block z-20">
-                  LAN-only communication (Intranet)
-                  <div className="absolute top-full left-1/2 -ml-1 border-4 border-transparent border-t-slate-900" />
-                </div>
-              </div>
-
-              <div className="group relative">
-                <button
-                  className={`flex h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border transition-all ${
-                    mode === "online"
-                      ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
-                      : "border-line bg-white text-slate-500 hover:border-blue-200 hover:bg-blue-50/30"
-                  } ${!isNetworkAdmin || loading ? "opacity-50 cursor-not-allowed" : ""}`}
-                  disabled={!isNetworkAdmin || loading}
-                  onClick={() => handleModeChange("online")}
-                  type="button"
-                >
-                  <Globe size={20} />
-                  <span className="text-xs font-bold uppercase tracking-tight">Online Mode</span>
-                </button>
-                <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium text-white shadow-xl group-hover:block z-20">
-                  Cloud gateway for remote management
-                  <div className="absolute top-full left-1/2 -ml-1 border-4 border-transparent border-t-slate-900" />
-                </div>
+      <div className="space-y-6">
+        <div>
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Operation Mode</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="group relative">
+              <button
+                className={`flex h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border transition-all ${
+                  mode === "local"
+                    ? "border-teal-500 bg-teal-50 text-teal-700 shadow-sm"
+                    : "border-line bg-white text-slate-500 hover:border-teal-200 hover:bg-teal-50/30"
+                } ${!isNetworkAdmin || loading ? "opacity-50 cursor-not-allowed" : ""}`}
+                disabled={!isNetworkAdmin || loading}
+                onClick={() => handleModeChange("local")}
+                type="button"
+              >
+                <Server size={20} />
+                <span className="text-xs font-bold uppercase tracking-tight">Local Mode</span>
+              </button>
+              <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium text-white shadow-xl group-hover:block z-20">
+                LAN-only communication (Intranet)
+                <div className="absolute top-full left-1/2 -ml-1 border-4 border-transparent border-t-slate-900" />
               </div>
             </div>
-          </div>
 
-          <div>
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Metric Update Interval</p>
-            <div className="flex flex-wrap gap-2">
-              {["1s", "5s", "10s", "30s", "1m"].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setInterval(t)}
-                  className={`px-4 py-2 rounded-lg border text-xs font-bold transition-all ${
-                    interval === t 
-                      ? "bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-200" 
-                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                  }`}
-                  title={`Set telemetry refresh to ${t}`}
-                >
-                  {t}
-                </button>
-              ))}
+            <div className="group relative">
+              <button
+                className={`flex h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border transition-all ${
+                  mode === "online"
+                    ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
+                    : "border-line bg-white text-slate-500 hover:border-blue-200 hover:bg-blue-50/30"
+                } ${!isNetworkAdmin || loading ? "opacity-50 cursor-not-allowed" : ""}`}
+                disabled={!isNetworkAdmin || loading}
+                onClick={() => handleModeChange("online")}
+                type="button"
+              >
+                <Globe size={20} />
+                <span className="text-xs font-bold uppercase tracking-tight">Online Mode</span>
+              </button>
+              <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium text-white shadow-xl group-hover:block z-20">
+                Cloud gateway for remote management
+                <div className="absolute top-full left-1/2 -ml-1 border-4 border-transparent border-t-slate-900" />
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+        <div>
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Metric Update Interval</p>
+          <div className="flex flex-wrap gap-2">
+            {["1s", "5s", "10s", "30s", "1m"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setInterval(t)}
+                className={`px-4 py-2 rounded-lg border text-xs font-bold transition-all ${
+                  interval === t 
+                    ? "bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-200" 
+                    : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                }`}
+                title={`Set telemetry refresh to ${t}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-4">
           <div className="flex gap-3">
             <Info className="shrink-0 text-blue-500 mt-0.5" size={16} />
-            <div className="text-[11px] leading-relaxed text-slate-600 font-semibold italic">
-              Changes will broadcast to all active agents immediately.
+            <div className="text-[11px] leading-relaxed text-slate-600 font-medium">
+              Updating these settings will broadcast a configuration packet to all active agents. High refresh rates may increase network load in large fleets.
             </div>
           </div>
         </div>
@@ -272,8 +262,9 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
         icon={ShieldCheck}
         title="Settings"
         subtitle="Role-based controls for account access and lab grouping."
+        backgroundImage="/settings_header.jpg"
         action={
-          <span className="inline-flex items-center gap-2 rounded-lg border border-teal-100 bg-teal-50 px-3 py-2 text-sm font-bold text-teal-700 shadow-sm">
+          <span className="inline-flex items-center gap-2 rounded-lg border border-teal-500/20 bg-teal-500/10 px-3 py-2 text-sm font-bold text-teal-400 shadow-xl shadow-black/20 backdrop-blur-md">
             <ShieldCheck size={16} />
             {isNetworkAdmin ? "Network admin" : "Admin"}
           </span>

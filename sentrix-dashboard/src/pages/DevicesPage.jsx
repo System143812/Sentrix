@@ -15,6 +15,7 @@ export function DevicesPage({
         icon={Laptop}
         title="Fleet Management"
         subtitle="Manage device groups, expand terminal details, and review real-time agent status at a glance."
+        backgroundImage="/love_computer.jpg"
       />
 
       <div className="min-w-0 w-full">

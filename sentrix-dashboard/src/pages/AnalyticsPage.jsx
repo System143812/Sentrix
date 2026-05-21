@@ -360,17 +360,19 @@ function MultiLineChart({ devices = [] }) {
   );
 }
 
-function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, selectedGroup, setSelectedGroup }) {
+function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, selectedGroup, setSelectedGroup, dark = false }) {
   return (
     <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
       <div className="flex flex-wrap items-center gap-2">
-        <TooltipIcon icon={CalendarDays} label="Select analytics time range" />
+        <TooltipIcon icon={CalendarDays} label="Select analytics time range" tone={dark ? "blue" : "teal"} />
         {timeRanges.map((range) => (
           <button
             className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition ${
               rangeKey === range.key
-                ? "border-signal bg-signal text-white"
-                : "border-line bg-white text-slate-700 shadow-sm hover:border-signal hover:text-signal"
+                ? "border-signal bg-signal text-white shadow-lg shadow-blue-900/20"
+                : dark 
+                  ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white hover:border-white/30"
+                  : "border-line bg-white text-slate-700 shadow-sm hover:border-signal hover:text-signal"
             }`}
             key={range.key}
             onClick={() => setRangeKey(range.key)}
@@ -384,21 +386,21 @@ function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, select
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-600 shadow-sm">
+        <span className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold shadow-sm ${dark ? 'border-white/10 bg-white/5 text-slate-300' : 'border-line bg-white text-slate-600'}`}>
           <RefreshCcw className={loading ? "animate-spin" : ""} size={15} />
-          {loading ? "Refreshing in background" : "Live data cached"}
+          {loading ? "Refreshing" : "Live cached"}
         </span>
-        <label className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-600 shadow-sm">
+        <label className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold shadow-sm ${dark ? 'border-white/10 bg-white/5 text-slate-300' : 'border-line bg-white text-slate-600'}`}>
           <Filter size={15} />
           <select
-            className="bg-transparent text-sm font-semibold outline-none"
+            className="bg-transparent text-sm font-semibold outline-none cursor-pointer"
             onChange={(event) => setSelectedGroup(event.target.value)}
             title="Filter analytics by group"
             value={selectedGroup}
           >
-            <option value="all">All groups</option>
+            <option className="text-slate-900" value="all">All groups</option>
             {groupOptions.map((group) => (
-              <option key={group} value={group}>
+              <option className="text-slate-900" key={group} value={group}>
                 {group}
               </option>
             ))}
@@ -542,7 +544,6 @@ function AgentMetricsPanel({ analytics, loading }) {
 }
 
 function HealthScorePanel({ analytics, loading }) {
-  const tone = getStatusTone(analytics.health);
   const factors = [
     { label: "Utilization", value: 100 - analytics.pressure, icon: Gauge },
     { label: "CPU", value: 100 - analytics.cpu, icon: Cpu },
@@ -562,7 +563,7 @@ function HealthScorePanel({ analytics, loading }) {
         <div className="grid place-items-center rounded-lg border border-slate-100 bg-slate-50 p-5">
           <div className="grid h-40 w-40 place-items-center rounded-full border-[14px] border-slate-200 bg-white">
             <div className="text-center">
-              <strong className={`block text-4xl font-bold ${STATUS_TONES[tone]}`}>{analytics.health}%</strong>
+              <strong className={`block text-4xl font-bold text-slate-900`}>{analytics.health}%</strong>
               <span className="text-xs font-medium text-slate-500">overall</span>
             </div>
           </div>
@@ -648,7 +649,7 @@ function DeviceComparisonPanel({ devices, loading, rangeKey }) {
       tone="blue"
     >
       <MultiLineChart devices={devices} rangeKey={rangeKey} />
-      <div className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm ring-1 ring-slate-200/50">
         <div className="hidden grid-cols-[1.3fr_0.7fr_0.7fr_0.7fr] bg-slate-50 border-b border-slate-200 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 md:grid">
           <span>Device</span>
           <span className="text-center">Health</span>
@@ -1002,12 +1003,16 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
   useEffect(() => {
     let active = true;
     let refreshTimer;
+    let isFetching = false;
 
     async function loadAnalytics({ background = false } = {}) {
+      if (isFetching) return;
+      
       if (!background) {
         setAnalyticsLoading(true);
       }
       setAnalyticsError("");
+      isFetching = true;
 
       try {
         const nextAnalytics = await analyticsApi.getAnalytics({
@@ -1024,6 +1029,7 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
           setAnalyticsData(EMPTY_ANALYTICS);
         }
       } finally {
+        isFetching = false;
         if (active) {
           setAnalyticsLoading(false);
         }
@@ -1064,17 +1070,18 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
           icon={Activity}
           title="Lab health and device performance"
           subtitle="Backend analytics for real agent metrics, alert trends, device comparisons, and export-ready summaries."
+          backgroundImage="/analytics_header.jpg"
           action={
             <div className="hidden sm:flex items-center gap-3">
-              <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 shadow-sm">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 shadow-xl shadow-black/20 backdrop-blur-md">
                 <Wifi size={14} />
                 {analytics.online} online
               </span>
-              <span className="inline-flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 shadow-sm">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 shadow-xl shadow-black/20 backdrop-blur-md">
                 <BadgeAlert size={14} />
                 {analytics.criticalAlerts} critical
               </span>
-              <span className="inline-flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 shadow-sm">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-400 shadow-xl shadow-black/20 backdrop-blur-md">
                 <Laptop size={14} />
                 {pageLoading ? "Refreshing" : `${analytics.total} devices`}
               </span>
@@ -1089,10 +1096,11 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
               selectedGroup={selectedGroup}
               setSelectedGroup={setSelectedGroup}
               setRangeKey={setRangeKey}
+              dark={true}
             />
           </div>
           {analyticsError ? (
-            <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+            <p className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-400 backdrop-blur-md">
               {analyticsError}
             </p>
           ) : null}

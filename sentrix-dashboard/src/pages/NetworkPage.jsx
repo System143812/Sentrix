@@ -101,41 +101,48 @@ export function NetworkPage({
         icon={Radar}
         title="Network Intelligence"
         subtitle="Automatic laboratory discovery and agent provisioning. Sentrix scans your subnet to identify unmanaged terminals."
+        backgroundImage="/network_header.jpg"
         action={
           <button
             type="button"
             onClick={onScan}
-            className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold text-white transition-all shadow-md active:scale-95 disabled:opacity-50 ${scanLoading ? 'bg-slate-700 cursor-wait' : 'bg-signal hover:bg-signal-dark shadow-blue-100'}`}
+            className={`inline-flex h-12 items-center justify-center gap-3 rounded-xl px-6 text-sm font-bold text-white transition-all shadow-2xl active:scale-95 disabled:opacity-50 border border-white/20 backdrop-blur-xl group overflow-hidden relative ${scanLoading ? 'bg-slate-800/40 cursor-wait' : 'bg-white/10 hover:bg-white/20 hover:border-white/40'}`}
             disabled={scanLoading}
           >
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-white/5 to-blue-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
             {scanLoading ? (
-              <LoaderCircle className="animate-spin" size={18} />
+              <LoaderCircle className="animate-spin text-blue-400" size={20} />
             ) : (
-              <RefreshCcw size={18} strokeWidth={2.5} />
+              <RefreshCcw size={20} strokeWidth={2.5} className="text-blue-400 group-hover:rotate-180 transition-transform duration-700" />
             )}
-            <span>{scanLoading ? "Scanning Network..." : "Force Rescan"}</span>
+            <span className="relative z-10">{scanLoading ? "Scanning Network..." : "Force Subnet Rescan"}</span>
           </button>
         }
       >
         <div className="mt-4 flex flex-wrap gap-3">
-          <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
-            <Server size={12} />
+          <div className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-[10px] font-bold uppercase text-slate-300 tracking-wider backdrop-blur-md">
+            <Server size={12} className="text-blue-400" />
             Subnet: {snapshot?.subnet || "0.0.0.0"}
           </div>
-          <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
-            <Clock size={12} />
+          <div className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-[10px] font-bold uppercase text-slate-300 tracking-wider backdrop-blur-md">
+            <Clock size={12} className="text-blue-400" />
             Last Seen: {formatTime(snapshot?.lastScanAt)}
           </div>
         </div>
 
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 space-y-4">
           <div className="flex justify-between items-end">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-              {snapshot?.message || "Idle — Listening for discovery packets."}
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-300">
+              {snapshot?.message || "System standby — Monitoring subnet traffic."}
             </p>
-            <span className="text-sm font-bold text-signal">{snapshot?.progress || 0}%</span>
+            <span className="text-sm font-bold text-white tabular-nums">{snapshot?.progress || 0}%</span>
           </div>
-          <ProgressBar value={snapshot?.progress || 0} color="blue" height="h-2" />
+          <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm border border-white/5">
+            <div 
+              className="h-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)] transition-all duration-500 ease-out rounded-full" 
+              style={{ width: `${snapshot?.progress || 0}%` }}
+            />
+          </div>
         </div>
       </PageHeader>
 

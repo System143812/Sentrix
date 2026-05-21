@@ -7,41 +7,32 @@ export const ICON_TONES = {
   slate: "border-slate-200 bg-slate-50 text-slate-700",
 };
 
-export const STAT_CARD_TONES = {
-  default: "border-blue-100 bg-blue-50 text-blue-700",
-  green: "border-emerald-100 bg-emerald-50 text-emerald-700",
-  red: "border-red-100 bg-red-50 text-red-700",
-};
-
 export const STATUS_TONES = {
-  emerald: "text-emerald-600",
-  amber: "text-amber-600",
-  red: "text-red-600",
-};
-
-export const DEVICE_STATUS_COLORS = {
-  online: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  offline: "border-red-200 bg-red-50 text-red-700",
+  emerald: "text-emerald-700",
+  amber: "text-amber-700",
+  red: "text-red-700",
+  blue: "text-blue-700",
 };
 
 export const HEATMAP_STATUS_STYLES = {
-  emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  amber: "border-amber-200 bg-amber-50 text-amber-800",
-  red: "border-red-200 bg-red-50 text-red-800",
+  emerald: "border-emerald-100 bg-emerald-50 text-emerald-700",
+  amber: "border-amber-100 bg-amber-50 text-amber-700",
+  red: "border-red-100 bg-red-50 text-red-700",
 };
 
-export const ALERT_LEVEL_COLORS = {
-  critical: "border-red-200 bg-red-50 text-red-700",
-  warning: "border-amber-200 bg-amber-50 text-amber-700",
-  info: "border-blue-200 bg-blue-50 text-blue-700",
+export const DEVICE_STATUS_COLORS = {
+  online: "#10b981",
+  offline: "#ef4444",
 };
 
 export const PROGRESS_BAR_COLORS = {
   emerald: "bg-emerald-500",
-  blue: "bg-blue-500",
-  amber: "bg-amber-500",
+  blue: "bg-blue-600",
   rose: "bg-rose-500",
+  amber: "bg-amber-500",
   ocean: "bg-ocean",
+  teal: "bg-teal-500",
+  slate: "bg-slate-500",
 };
 
 export function getStatusTone(score) {

@@ -44,6 +44,7 @@ export function HomePage({
         icon={Activity}
         title="Fleet Overview"
         subtitle={`Welcome back, ${user?.email?.split('@')[0]}. You are currently monitoring ${dashboardData.total || 0} active laboratory terminals.`}
+        backgroundImage="/home_header.jpg"
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
