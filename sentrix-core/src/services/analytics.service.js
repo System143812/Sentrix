@@ -1,4 +1,5 @@
 import { getAllClients } from "./client.services.js";
+import { getGlobalTrendData } from "./metrics/index.js";
 
 const ranges = {
   "24h": {
@@ -176,20 +177,36 @@ function buildFallbackPoint(client) {
   };
 }
 
-function buildTrend(clients, rangeKey, metricKey) {
+function buildTrends(clients, samples, rangeKey) {
   const buckets = createBuckets(rangeKey);
+  const clientIds = new Set(clients.map(c => c.id));
+  
+  const relevantSamples = samples.filter(s => clientIds.has(s.client_id));
 
-  clients.forEach((client) => {
-    const history = Array.isArray(client.history) ? client.history : [];
-    const points = history.length ? history : [buildFallbackPoint(client)];
+  if (relevantSamples.length > 0) {
+    relevantSamples.forEach((point) => addPointToBucket(buckets, point));
+  } else {
+    clients.forEach((client) => {
+      addPointToBucket(buckets, buildFallbackPoint(client));
+    });
+  }
 
-    points.forEach((point) => addPointToBucket(buckets, point));
+  const result = {};
+  const metrics = [
+    "cpu", "ram", "disk", "health", "alerts", 
+    "cpuTemperature", "gpuTemperature", 
+    "uploadBytesPerSec", "downloadBytesPerSec", 
+    "latencyMs", "packetLoss"
+  ];
+
+  metrics.forEach(m => {
+    result[m] = buckets.map((bucket) => ({
+      label: bucket.label,
+      value: average(bucket.values[m]),
+    }));
   });
 
-  return buckets.map((bucket) => ({
-    label: bucket.label,
-    value: average(bucket.values[metricKey]),
-  }));
+  return result;
 }
 
 function countAlerts(clients) {
@@ -272,6 +289,12 @@ export async function getAnalyticsSummary(options = {}) {
   const clients = filterClients(allClients, options.group);
   const deviceRows = buildDeviceRows(clients);
   const alerts = countAlerts(clients);
+  
+  const range = getRange(rangeKey);
+  const rangeStartMs = Date.now() - range.durationMs;
+  const samples = await getGlobalTrendData(rangeStartMs);
+  const trends = buildTrends(clients, samples, rangeKey);
+
   const hasCpuTemperature = clients.some((client) => client.metrics?.temperature?.cpu?.temperatureCelsius != null || client.metrics?.cpuTemperature != null);
   const hasGpuTemperature = clients.some((client) => client.metrics?.temperature?.gpu?.temperatureCelsius != null || client.metrics?.gpuTemperature != null);
   const hasNetwork = clients.some((client) => {
@@ -291,7 +314,7 @@ export async function getAnalyticsSummary(options = {}) {
   return {
     range: {
       key: rangeKey,
-      label: getRange(rangeKey).label,
+      label: range.label,
     },
     generatedAt: Date.now(),
     filters: {
@@ -317,19 +340,7 @@ export async function getAnalyticsSummary(options = {}) {
       packetLoss: average(clients.map((client) => client.metrics?.network?.packetLoss ?? client.metrics?.packetLoss)),
     },
     alerts,
-    trends: {
-      cpu: buildTrend(clients, rangeKey, "cpu"),
-      ram: buildTrend(clients, rangeKey, "ram"),
-      disk: buildTrend(clients, rangeKey, "disk"),
-      health: buildTrend(clients, rangeKey, "health"),
-      alerts: buildTrend(clients, rangeKey, "alerts"),
-      cpuTemperature: buildTrend(clients, rangeKey, "cpuTemperature"),
-      gpuTemperature: buildTrend(clients, rangeKey, "gpuTemperature"),
-      uploadBytesPerSec: buildTrend(clients, rangeKey, "uploadBytesPerSec"),
-      downloadBytesPerSec: buildTrend(clients, rangeKey, "downloadBytesPerSec"),
-      latencyMs: buildTrend(clients, rangeKey, "latencyMs"),
-      packetLoss: buildTrend(clients, rangeKey, "packetLoss"),
-    },
+    trends,
     groups: buildGroupStats(clients),
     devices: {
       topLoad: [...deviceRows]

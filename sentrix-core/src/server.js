@@ -12,8 +12,9 @@ import { Server } from "socket.io";
 const { default: createApp } = await import("./app.js");
 const { ensureDatabaseSchema } = await import("./lib/schema.js");
 const { registerDeviceSocket } = await import("./sockets/device.socket.js");
-const { startOfflineWatcher } = await import("./services/client.services.js");
-const { startDiscoveryScheduler } = await import("./services/discovery.service.js");
+const { startOfflineWatcher } = await import("./services/heartbeat.service.js");
+const { startDiscoveryScheduler } = await import("./services/discovery/index.js");
+const { startPruningService } = await import("./services/pruning.service.js");
 
 await ensureDatabaseSchema();
 
@@ -57,6 +58,7 @@ app.set("io", io);
 registerDeviceSocket(io);
 startOfflineWatcher(io);
 startDiscoveryScheduler(io);
+startPruningService();
 
 server.listen(port, host, () => {
   console.log(`Sentrix core running on ${backendUrl}`);
