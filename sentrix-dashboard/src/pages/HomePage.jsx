@@ -6,23 +6,22 @@ import { Card } from "../components/Card.jsx";
 
 function SummaryCard({ label, value, icon: Icon, tone = "blue", description }) {
   const tones = {
-    blue: "from-blue-500/5 to-transparent text-blue-700 border-blue-100",
-    emerald: "from-emerald-500/5 to-transparent text-emerald-700 border-emerald-100",
-    rose: "from-rose-500/5 to-transparent text-rose-700 border-rose-100",
+    blue: "text-blue-600 bg-blue-50 border-blue-100",
+    emerald: "text-emerald-600 bg-emerald-50 border-emerald-100",
+    rose: "text-rose-600 bg-rose-50 border-rose-100",
   };
 
   return (
-    <Card padding="0" className="relative overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group">
-      <div className={`absolute inset-0 bg-gradient-to-br ${tones[tone].split(' ')[0]}`} />
-      <div className="relative p-5">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</p>
-          <span className={`p-2 rounded-lg border shadow-sm transition-transform group-hover:scale-110 ${tones[tone].split(' ').slice(1).join(' ')}`}>
+    <Card padding="0" className="relative overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group bg-white border-slate-200/60">
+      <div className="relative p-6">
+        <div className="flex items-center justify-between gap-3 mb-5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">{label}</p>
+          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform group-hover:scale-105 ${tones[tone]}`}>
             <Icon size={18} strokeWidth={2.5} />
           </span>
         </div>
-        <strong className="text-3xl font-bold tracking-tight text-slate-950">{value}</strong>
-        <p className="mt-1 text-[11px] font-medium text-slate-400 italic">
+        <strong className="text-3xl font-bold tracking-tight text-slate-900 font-data">{value}</strong>
+        <p className="mt-2 text-[11px] font-medium text-slate-400 italic leading-relaxed">
           {description}
         </p>
       </div>
@@ -43,43 +42,43 @@ export function HomePage({
       <PageHeader
         icon={Activity}
         title="Fleet Overview"
-        subtitle={`Welcome back, ${user?.email?.split('@')[0]}. You are currently monitoring ${dashboardData.total || 0} active laboratory terminals.`}
+        subtitle={`Welcome back, ${user?.email?.split('@')[0]}. Monitoring ${dashboardData.total || 0} active laboratory terminals.`}
         backgroundImage="/home_header.jpg"
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard 
-          label="Total Registered" 
+          label="Inventory" 
           value={dashboardData.total} 
           icon={Laptop} 
-          description="Unique agents in database"
+          description="Total provisioned terminal endpoints"
         />
         <SummaryCard 
-          label="Online Now" 
+          label="Connectivity" 
           value={dashboardData.online} 
           icon={Radio} 
           tone="emerald"
-          description="Currently streaming telemetry"
+          description="Nodes actively streaming telemetry"
         />
         <SummaryCard 
-          label="Disconnected" 
+          label="Incidents" 
           value={dashboardData.offline} 
           icon={AlertCircle} 
           tone="rose"
-          description="Require manual review"
+          description="Terminals awaiting re-synchronization"
         />
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-8">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 px-1">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                <ShieldCheck className="text-ocean" size={20} />
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-3 font-ui">
+                <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                 Registered Device Fleet
               </h2>
-              <p className="text-sm font-medium text-slate-500">
-                Detailed real-time metrics and system health indicators.
+              <p className="mt-1 text-[11px] font-bold text-slate-400 uppercase tracking-widest font-ui">
+                Real-time technical specifications and health metrics
               </p>
             </div>
           </div>
@@ -95,14 +94,14 @@ export function HomePage({
           </div>
         </div>
 
-        <div className="pt-2">
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <Layers className="text-teal-600" size={20} />
-              Laboratory Groupings
+        <div className="pt-4">
+          <div className="mb-6 px-1">
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-3 font-ui">
+              <div className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+              Administrative Clusters
             </h2>
-            <p className="text-sm font-medium text-slate-500">
-              Distribution of devices across physical locations.
+            <p className="mt-1 text-[11px] font-bold text-slate-400 uppercase tracking-widest font-ui">
+              Topological distribution by physical location
             </p>
           </div>
           <GroupPanel devices={dashboardData.clients || []} />

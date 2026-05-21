@@ -2,123 +2,85 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  color: #172033;
-  background: #f5f7fb;
+@layer base {
+  :root {
+    --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-data: 'Roboto', 'Inter', system-ui, sans-serif;
+  }
+
+  body {
+    @apply bg-[#f8fafc] text-slate-800;
+    font-family: var(--font-data);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-ui {
+    font-family: var(--font-ui);
+    @apply tracking-tight font-semibold text-slate-900;
+  }
+
+  strong {
+    @apply font-semibold text-slate-900;
+  }
 }
 
-body {
-  @apply bg-[#f5f7fb];
-}
+@layer components {
+  /* Minimal Professional Button - Standard */
+  .btn-minimal {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+    font-family: var(--font-ui);
+  }
 
-/* Custom shadow for cards */
-.shadow-card {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-}
+  /* Minimal Professional Button - Primary/Dark */
+  .btn-minimal-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50;
+    font-family: var(--font-ui);
+  }
 
-.text-ocean {
-  @apply text-blue-600;
-}
+  /* Minimal Professional Button - Ghost/Action */
+  .btn-minimal-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98];
+    font-family: var(--font-ui);
+  }
 
-.bg-ocean {
-  @apply bg-blue-600;
-}
+  /* Professional Data Table Styles */
+  .table-modern-header {
+    @apply bg-slate-50/80 px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-slate-500 border-b border-slate-200/60;
+    font-family: var(--font-ui);
+  }
 
-.border-signal {
-  @apply border-blue-600;
-}
+  .table-modern-row {
+    @apply bg-white transition-colors duration-200 hover:bg-slate-50/50;
+  }
 
-.bg-signal {
-  @apply bg-blue-600;
-}
-
-.bg-signal-dark {
-  @apply bg-blue-700;
-}
-
-.text-signal {
-  @apply text-blue-600;
-}
-
-.text-ink {
-  @apply text-slate-900;
-}
-
-.border-line {
-  @apply border-slate-200;
-}
-
-/* Custom Scrollbar for better UI */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  @apply bg-slate-50;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-slate-300 transition-colors hover:bg-slate-400;
+  /* Minimalist Badge */
+  .badge-minimal {
+    @apply inline-flex items-center gap-1.5 rounded-md border border-slate-200/60 bg-slate-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 shadow-sm;
+    font-family: var(--font-ui);
+  }
 }
 
 .analytics-reveal {
-  animation: reveal 0.4s ease-out forwards;
+  animation: analytics-reveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-@keyframes reveal {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes analytics-reveal {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Hover effects for analytics */
-.analytics-card:hover .analytics-icon {
-  transform: scale(1.1);
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
 }
-
-.analytics-icon {
-  transition: transform 0.2s ease-in-out;
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
 }
-
-.device-detail-view {
-  animation: slideDown 0.3s ease-out;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .analytics-reveal,
-  .device-detail-view {
+  .analytics-reveal {
     animation: none;
-  }
-
-  .analytics-panel,
-  .analytics-card,
-  .analytics-row {
-    transition: none;
-  }
-
-  .analytics-panel:hover,
-  .analytics-card:hover,
-  .analytics-row:hover {
-    transform: none;
   }
 }

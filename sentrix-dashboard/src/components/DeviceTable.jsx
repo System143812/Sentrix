@@ -112,10 +112,10 @@ function inferPeripherals(peripherals = {}, usbDevices = []) {
 
 function DetailItem({ label, value }) {
   return (
-    <div className="min-w-0 rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70">
-      <dt className="text-xs font-semibold uppercase text-slate-500">{label}</dt>
-      <dd className="mt-1 break-words text-sm font-medium leading-5 text-slate-800">
-        {value || "Unknown"}
+    <div className="min-w-0 rounded-xl border border-slate-100 bg-white p-4 shadow-sm ring-1 ring-slate-100/50 transition-all hover:border-slate-200">
+      <dt className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">{label}</dt>
+      <dd className="mt-1.5 break-words text-sm font-bold text-slate-800 tracking-tight font-data">
+        {value || "—"}
       </dd>
     </div>
   );
@@ -123,11 +123,11 @@ function DetailItem({ label, value }) {
 
 function ListItem({ title, detail }) {
   return (
-    <div className="min-w-0 rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70">
-      <p className="break-words text-sm font-semibold text-slate-800">
-        {title || "Unknown"}
+    <div className="min-w-0 rounded-xl border border-slate-100 bg-white px-4 py-3.5 shadow-sm ring-1 ring-slate-100/50 transition-colors hover:bg-slate-50/50">
+      <p className="break-words text-sm font-bold text-slate-800 tracking-tight font-ui">
+        {title || "—"}
       </p>
-      {detail ? <p className="text-xs leading-5 text-slate-500">{detail}</p> : null}
+      {detail ? <p className="mt-1 text-xs font-medium text-slate-500 font-data truncate">{detail}</p> : null}
     </div>
   );
 }
@@ -159,39 +159,38 @@ function ConfirmDialog({ device, onCancel, onConfirm }) {
   if (!device) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4">
-      <div className="w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-xl">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4 backdrop-blur-[2px]">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold">Archive device?</h3>
-            <p className="mt-2 text-sm text-slate-500">
-              This removes {device.hostname} from the registered device list.
-              The device can appear again when its agent reconnects.
+          <div className="min-w-0">
+            <h3 className="text-lg font-bold text-slate-900 font-ui">Archive Terminal?</h3>
+            <p className="mt-2 text-sm text-slate-500 leading-relaxed font-data">
+              Removing <strong className="text-slate-900">{device.hostname}</strong> from the active fleet will suspend telemetry processing. The node can be re-registered upon the next agent heartbeat.
             </p>
           </div>
           <button
-            className="rounded-md p-1 text-slate-500 transition hover:bg-slate-100 hover:text-ink"
+            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-900"
             onClick={onCancel}
             type="button"
           >
-            <X size={18} />
+            <X size={20} strokeWidth={2.5} />
           </button>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="mt-8 flex justify-end gap-3 font-ui">
           <button
-            className="h-10 rounded-md border border-line bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="btn-minimal h-11 px-6 active:scale-95"
             onClick={onCancel}
             type="button"
           >
             Cancel
           </button>
           <button
-            className="h-10 rounded-md bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700"
+            className="h-11 rounded-xl bg-slate-900 px-6 text-sm font-bold text-white transition-all hover:bg-slate-800 active:scale-95 shadow-lg shadow-slate-900/10"
             onClick={onConfirm}
             type="button"
           >
-            Archive
+            Confirm Archive
           </button>
         </div>
       </div>
@@ -294,30 +293,30 @@ function buildSampleNetworkActivity(device) {
 
 function DetailViewSwitch({ activeView, onChange }) {
   const buttons = [
-    { id: "specification", label: "Specification", icon: Monitor },
-    { id: "networkActivity", label: "Network Activity", icon: RadioTower },
-    { id: "remoteControl", label: "Remote Control", icon: Terminal },
+    { id: "specification", label: "Inventory", icon: Monitor },
+    { id: "networkActivity", label: "Network Log", icon: RadioTower },
+    { id: "remoteControl", label: "Remote Access", icon: Terminal },
   ];
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
+    <div className="mb-6 flex flex-wrap items-center gap-2">
       {buttons.map((button) => {
         const Icon = button.icon;
         const selected = activeView === button.id;
 
         return (
           <button
-            className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition ${
+            className={`btn-minimal h-10 px-5 transition-all ${
               selected
-                ? "border-signal bg-blue-50 text-signal shadow-sm"
-                : "border-line bg-white text-slate-600 hover:border-signal hover:text-signal"
+                ? "bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-900/10 hover:bg-slate-800"
+                : "bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900"
             }`}
             key={button.id}
             onClick={() => onChange(button.id)}
             type="button"
           >
-            <Icon size={16} />
-            {button.label}
+            <Icon size={15} strokeWidth={2.5} />
+            <span className="text-xs font-bold uppercase tracking-wider font-ui">{button.label}</span>
           </button>
         );
       })}
@@ -330,81 +329,72 @@ function RemoteControlPanel({ device }) {
   const [loading, setLoading] = useState(false);
 
   const powerActions = [
-    { id: "shutdown", label: "Shutdown", icon: Power, tone: "rose", description: "Power off the remote PC immediately" },
-    { id: "restart", label: "Restart", icon: RotateCw, tone: "amber", description: "Reboot the remote PC" },
-    { id: "sleep", label: "Sleep", icon: Moon, tone: "blue", description: "Put the remote PC into sleep mode" },
-    { id: "lock", label: "Lock", icon: Lock, tone: "slate", description: "Lock the current user session" },
-    { id: "update", label: "Update", icon: ArrowUpCircle, tone: "emerald", description: "Check and install system updates" },
+    { id: "shutdown", label: "Shutdown", icon: Power, hoverTone: "hover:text-red-500", description: "Terminate session and power off" },
+    { id: "restart", label: "Restart", icon: RotateCw, hoverTone: "hover:text-amber-500", description: "Warm reboot of the remote system" },
+    { id: "sleep", label: "Sleep", icon: Moon, hoverTone: "hover:text-blue-500", description: "Low power suspension mode" },
+    { id: "lock", label: "Lock", icon: Lock, hoverTone: "hover:text-slate-600", description: "Secure current user environment" },
+    { id: "update", label: "Update", icon: ArrowUpCircle, hoverTone: "hover:text-emerald-500", description: "Deploy system-level patches" },
   ];
 
   async function handleCommand(command) {
     setLoading(true);
-    setCommandStatus(`Sending ${command} command...`);
+    setCommandStatus(`Executing ${command}...`);
     try {
       await clientApi.sendDeviceCommand(device.id, command);
-      setCommandStatus(`${command.charAt(0).toUpperCase() + command.slice(1)} command sent successfully.`);
+      setCommandStatus(`${command.charAt(0).toUpperCase() + command.slice(1)} Success`);
     } catch (err) {
-      setCommandStatus(`Failed to send ${command} command: ${err.message}`);
+      setCommandStatus(`Error: ${err.message}`);
     } finally {
       setLoading(false);
-      setTimeout(() => setCommandStatus(""), 5000);
+      setTimeout(() => setCommandStatus(""), 4000);
     }
   }
 
   return (
-    <div className="grid gap-4">
-      <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-        <h4 className="mb-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-          <Power size={14} className="text-slate-400" />
-          Remote Power Management
+    <div className="grid gap-6">
+      <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+        <h4 className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+          <Power size={14} strokeWidth={3} />
+          Terminal Execution Control
         </h4>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
           {powerActions.map((action) => {
             const Icon = action.icon;
-            const toneStyles = {
-              rose: "border-red-100 bg-white text-red-600 hover:bg-red-50 hover:border-red-200",
-              amber: "border-amber-100 bg-white text-amber-600 hover:bg-amber-50 hover:border-amber-200",
-              blue: "border-blue-100 bg-white text-blue-700 hover:bg-blue-50 hover:border-blue-200",
-              slate: "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300",
-              emerald: "border-emerald-100 bg-white text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200",
-            };
-
             return (
               <div className="group relative" key={action.id}>
                 <button
-                  className={`flex h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:translate-y-0 ${toneStyles[action.tone]}`}
+                  className="flex h-20 w-full flex-col items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md hover:border-slate-300 disabled:opacity-50 disabled:translate-y-0"
                   disabled={loading}
                   onClick={() => handleCommand(action.id)}
                   type="button"
                 >
-                  <Icon size={20} strokeWidth={2.5} />
-                  <span className="text-[10px] font-bold uppercase tracking-tight">{action.label}</span>
+                  <Icon size={20} strokeWidth={2.5} className={`text-slate-400 transition-colors duration-300 ${action.hoverTone}`} />
+                  <span className="text-[10px] font-bold uppercase tracking-widest font-ui">{action.label}</span>
                 </button>
-                <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium text-white shadow-xl group-hover:block z-20">
+                <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 hidden w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3.5 py-2.5 text-center text-[11px] font-medium text-white shadow-2xl group-hover:block z-20 leading-relaxed font-data">
                   {action.description}
-                  <div className="absolute top-full left-1/2 -ml-1 border-4 border-transparent border-t-slate-900" />
+                  <div className="absolute top-full left-1/2 -ml-1.5 border-[6px] border-transparent border-t-slate-900" />
                 </div>
               </div>
             );
           })}
         </div>
         {commandStatus && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2 text-[11px] font-semibold text-blue-700 animate-in fade-in slide-in-from-top-1">
-            <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-            {commandStatus}
+          <div className="mt-6 flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-[11px] font-bold text-slate-700 shadow-sm animate-in fade-in slide-in-from-top-1 font-data">
+             <div className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-pulse" />
+             <span className="uppercase">{commandStatus}</span>
           </div>
         )}
       </section>
 
-      <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-        <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-          <Terminal size={15} />
-          Remote Management Notes
+      <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+        <h4 className="mb-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+          <Terminal size={14} strokeWidth={3} />
+          Operator Guidance
         </h4>
-        <div className="rounded-md bg-white p-4 text-sm leading-6 text-slate-600 shadow-sm ring-1 ring-slate-200/70">
-          <p>
-            Power commands are sent via the Sentrix Agent service. Ensure the agent is running with administrative privileges for all actions to succeed. 
-            The <strong>Update</strong> command will trigger the OS-native update mechanism.
+        <div className="rounded-xl bg-white p-5 text-sm leading-relaxed text-slate-600 shadow-sm border border-slate-100 font-data">
+          <p className="font-medium tracking-tight">
+            Remote power operations are executed through the validated Sentrix Agent kernel extension. Administrative elevation is maintained via active session tokens.
           </p>
         </div>
       </section>
@@ -453,37 +443,37 @@ function NetworkActivityDetails({ device }) {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
-      <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-        <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-          <Globe2 size={15} />
-          DNS Logging
+    <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr] font-data">
+      <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+        <h4 className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+          <Globe2 size={14} strokeWidth={3} />
+          Network Ingress Audit
         </h4>
 
-        <div className="grid gap-3">
+        <div className="grid gap-5">
           <div>
-            <p className="mb-2 text-xs font-bold uppercase text-slate-500">
-              Active URLs and DNS
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 font-ui">
+              Active TCP/UDP Streams
             </p>
-            <div className="grid gap-2">
+            <div className="grid gap-3">
               {activity.activeDns.map((item) => (
                 <div
-                  className="rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70"
+                  className="rounded-xl bg-white p-4 shadow-sm border border-slate-100 hover:border-slate-300 transition-all"
                   key={item.id}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="break-words text-sm font-semibold text-slate-800">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="break-words text-sm font-bold text-slate-900 tracking-tight">
                       {item.domain}
                     </p>
-                    <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                    <span className="badge-minimal bg-emerald-50 text-emerald-700 border-emerald-100">
                       {item.status}
                     </span>
                   </div>
-                  <p className="mt-1 break-words text-xs leading-5 text-slate-500">
+                  <p className="mt-2 break-words text-xs leading-5 text-slate-500 font-medium">
                     {item.url}
                   </p>
-                  <p className="text-xs leading-5 text-slate-500">
-                    {item.remoteAddress} - {item.processName} - {item.openedAt}
+                  <p className="mt-1 text-[11px] font-bold text-slate-400 uppercase tracking-tighter">
+                    {item.remoteAddress} • {item.processName} • {item.openedAt}
                   </p>
                 </div>
               ))}
@@ -491,13 +481,13 @@ function NetworkActivityDetails({ device }) {
           </div>
 
           <div>
-            <p className="mb-2 text-xs font-bold uppercase text-slate-500">
-              DNS History
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 font-ui">
+              Historic DNS Resolution
             </p>
-            <div className="grid max-h-64 gap-2 overflow-auto pr-1">
+            <div className="grid max-h-64 gap-2.5 overflow-auto custom-scrollbar pr-1">
               {activity.dnsHistory.map((item) => (
                 <ListItem
-                  detail={`${item.resolvedAddress} - ${item.processName} - ${item.checkedAt}`}
+                  detail={`${item.resolvedAddress} • ${item.processName} • ${item.checkedAt}`}
                   key={item.id}
                   title={item.domain}
                 />
@@ -507,72 +497,75 @@ function NetworkActivityDetails({ device }) {
         </div>
       </section>
 
-      <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h4 className="flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <CircleStop size={15} />
-            Process Monitoring
+      <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <h4 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+            <CircleStop size={14} strokeWidth={3} />
+            Live Process Audit
           </h4>
-          <div className="flex items-center gap-2">
-            {error && <span className="text-xs font-medium text-red-600">{error}</span>}
+          <div className="flex items-center gap-3">
+            {error && <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">{error}</span>}
             <button
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn-minimal-primary h-9 px-4 text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-rose-900/10 active:scale-95 disabled:opacity-30 disabled:bg-slate-200 disabled:text-slate-500"
               disabled={selectedProcesses.length === 0 || loading}
               onClick={endSelectedProcesses}
               type="button"
             >
-              <CircleStop size={15} />
-              {loading ? "Ending..." : "End selected"}
+              {loading ? "Syncing..." : "Terminate selected"}
             </button>
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-md border border-line bg-white">
-          <div className="hidden grid-cols-[44px_1fr_80px_80px_100px_90px] gap-3 bg-slate-100 px-3 py-2 text-xs font-bold uppercase text-slate-500 lg:grid">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
+          <div className="hidden grid-cols-[44px_1fr_80px_80px_100px_90px] gap-4 bg-slate-50 border-b border-slate-200 px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 lg:grid font-ui">
             <div />
-            <div>Process</div>
+            <div>Node Task</div>
             <div>CPU</div>
-            <div>Memory</div>
-            <div>Network</div>
-            <div>Status</div>
+            <div>MEM</div>
+            <div>Net</div>
+            <div className="text-right">Sync</div>
           </div>
 
-          <div className="divide-y divide-line">
+          <div className="divide-y divide-slate-100">
             {processes.map((process) => {
               const ended = process.status === "Ended";
 
               return (
                 <label
-                  className={`grid gap-2 px-3 py-3 text-sm transition lg:grid-cols-[44px_1fr_80px_80px_100px_90px] lg:items-center lg:gap-3 ${
-                    ended ? "bg-slate-50 text-slate-400" : "text-slate-700 hover:bg-slate-50"
+                  className={`grid gap-4 px-4 py-4 text-sm transition lg:grid-cols-[44px_1fr_80px_80px_100px_90px] lg:items-center ${
+                    ended ? "bg-slate-50/50 grayscale opacity-50" : "text-slate-700 hover:bg-slate-50/50 cursor-pointer"
                   }`}
                   key={process.id}
                 >
-                  <input
-                    checked={selectedProcesses.includes(process.id)}
-                    className="h-4 w-4 rounded border-line text-signal focus:ring-signal"
-                    disabled={ended}
-                    onChange={() => toggleProcess(process.id)}
-                    type="checkbox"
-                  />
+                  <div className="flex justify-center">
+                    <input
+                      checked={selectedProcesses.includes(process.id)}
+                      className="h-4 w-4 rounded-md border-slate-300 text-slate-900 focus:ring-slate-900 transition-all cursor-pointer"
+                      disabled={ended}
+                      onChange={() => toggleProcess(process.id)}
+                      type="checkbox"
+                    />
+                  </div>
                   <div className="min-w-0">
-                    <p className="break-words font-semibold">{process.name}</p>
-                    <p className="text-xs text-slate-500">
-                      PID {process.pid} - {process.user}
+                    <p className="font-bold text-slate-800 tracking-tight truncate">{process.name}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter pt-0.5">
+                      PID {process.pid} • {process.user}
                     </p>
                   </div>
-                  <span>{process.cpu}%</span>
-                  <span>{process.memoryMb} MB</span>
-                  <span>{process.network}</span>
-                  <span
-                    className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${
-                      ended
-                        ? "bg-slate-100 text-slate-500"
-                        : "bg-emerald-50 text-emerald-700"
-                    }`}
-                  >
-                    {process.status}
-                  </span>
+                  <span className="font-bold tabular-nums text-slate-600">{process.cpu}%</span>
+                  <span className="font-bold tabular-nums text-slate-600">{process.memoryMb}MB</span>
+                  <span className="font-bold tabular-nums text-slate-500">{process.network}</span>
+                  <div className="flex justify-end">
+                    <span
+                      className={`badge-minimal px-2 py-0.5 font-bold ${
+                        ended
+                          ? "bg-slate-100 text-slate-400 border-slate-200"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-100"
+                      }`}
+                    >
+                      {process.status}
+                    </span>
+                  </div>
                 </label>
               );
             })}
@@ -604,220 +597,220 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
   const sampleSystem = metrics.system || latestSample?.system || {};
 
   return (
-    <div className="border-t border-line bg-slate-50 px-4 py-5 sm:px-5">
+    <div className="border-t border-slate-200 bg-slate-50/30 px-6 py-8 sm:px-8">
       {loading ? (
-        <p className="mb-4 rounded-md border border-blue-100 bg-white px-3 py-2 text-sm font-semibold text-slate-600">
-          Loading normalized agent details...
-        </p>
+        <div className="mb-6 rounded-xl border border-blue-100 bg-white p-4 text-center shadow-sm">
+           <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-400 animate-pulse">Synchronizing Kernel Registry...</p>
+        </div>
       ) : null}
       {error ? (
-        <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
-          {error}
-        </p>
+        <div className="mb-6 rounded-xl border border-rose-100 bg-rose-50/50 p-4 text-center shadow-sm">
+           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-rose-700">{error}</p>
+        </div>
       ) : null}
 
       <DetailViewSwitch activeView={activeView} onChange={setActiveView} />
 
       {activeView === "specification" ? (
-        <div className="device-detail-view">
-          <div className="grid gap-4 xl:grid-cols-3">
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <Monitor size={15} />
-            Device Info
+        <div className="device-detail-view font-data">
+          <div className="grid gap-6 xl:grid-cols-3">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+          <h4 className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+            <Monitor size={14} strokeWidth={3} />
+            Terminal Identity
           </h4>
-          <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+          <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <DetailItem label="Hostname" value={device.hostname} />
-            <DetailItem label="OS" value={device.os} />
-            <DetailItem label="IP Address" value={device.ip} />
-            <DetailItem label="MAC Address" value={device.mac} />
-            <DetailItem label="Group" value={device.group} />
-            <DetailItem label="Uptime" value={formatUptimeVerbose(metrics.uptime)} />
-            <DetailItem label="OS Platform" value={sampleSystem.os?.platform} />
+            <DetailItem label="Environment" value={device.os} />
+            <DetailItem label="IPV4 Address" value={device.ip} />
+            <DetailItem label="MAC Identifier" value={device.mac} />
+            <DetailItem label="Cluster" value={device.group} />
+            <DetailItem label="Active Session" value={formatUptimeVerbose(metrics.uptime)} />
+            <DetailItem label="Kernel Platform" value={sampleSystem.os?.platform} />
           </dl>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <Cpu size={15} />
-            Important Specs
+        <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+          <h4 className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+            <Cpu size={14} strokeWidth={3} />
+            Hardware Profile
           </h4>
-          <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+          <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <DetailItem label="Manufacturer" value={specs.manufacturer} />
-            <DetailItem label="Model" value={specs.model} />
-            <DetailItem label="CPU" value={specs.cpu} />
+            <DetailItem label="Board Model" value={specs.model} />
+            <DetailItem label="Processor" value={specs.cpu} />
             <DetailItem
-              label="Cores / Threads"
+              label="Logical Cores"
               value={`${specs.cpuCores || 0} / ${specs.cpuThreads || 0}`}
             />
             <DetailItem
-              label="Memory"
+              label="Physical Memory"
               value={`${specs.totalMemoryGb || 0} GB`}
             />
-            <DetailItem label="BIOS" value={specs.bios} />
+            <DetailItem label="Firmware/BIOS" value={specs.bios} />
           </dl>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <Usb size={15} />
-            Peripherals
+        <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+          <h4 className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+            <Usb size={14} strokeWidth={3} />
+            Peripheral Registry
           </h4>
-          <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-            <DetailItem label="Mouse" value={formatBool(peripherals.mouse)} />
+          <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <DetailItem label="Pointing Device" value={formatBool(peripherals.mouse)} />
             <DetailItem
-              label="Keyboard"
+              label="Input Matrix"
               value={formatBool(peripherals.keyboard)}
             />
             <DetailItem
-              label="WiFi Dongle"
+              label="Wireless Vector"
               value={formatBool(peripherals.wifiDongle)}
             />
             <DetailItem
-              label="BT Dongle"
+              label="Radio Vector"
               value={formatBool(peripherals.bluetoothDongle)}
             />
-            <DetailItem label="Webcam" value={formatBool(peripherals.webcam)} />
+            <DetailItem label="Imaging Unit" value={formatBool(peripherals.webcam)} />
             <DetailItem
-              label="USB Storage"
+              label="Block Storage"
               value={formatBool(peripherals.storage)}
             />
           </dl>
         </section>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <Thermometer size={15} />
-            Temperature
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+          <h4 className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+            <Thermometer size={14} strokeWidth={3} />
+            Thermal Status
           </h4>
-          <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+          <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <DetailItem
-              label="CPU Temperature"
+              label="CPU Thermal State"
               value={formatTemperature(sampleTemperature.cpu?.temperatureCelsius)}
             />
             <DetailItem
-              label="GPU Temperature"
+              label="GPU Thermal State"
               value={formatTemperature(sampleTemperature.gpu?.temperatureCelsius)}
             />
-            <DetailItem label="GPU Model" value={sampleTemperature.gpu?.model} />
+            <DetailItem label="Integrated GPU" value={sampleTemperature.gpu?.model} />
           </dl>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <Network size={15} />
-            Network Metrics
+        <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+          <h4 className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+            <Network size={14} strokeWidth={3} />
+            Network Performance
           </h4>
-          <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-            <DetailItem label="Interface" value={sampleNetwork.interface} />
-            <DetailItem label="Upload" value={formatBytesPerSecond(sampleNetwork.uploadBytesPerSec)} />
-            <DetailItem label="Download" value={formatBytesPerSecond(sampleNetwork.downloadBytesPerSec)} />
+          <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <DetailItem label="Active Interface" value={sampleNetwork.interface} />
+            <DetailItem label="Inbound Delta" value={formatBytesPerSecond(sampleNetwork.uploadBytesPerSec)} />
+            <DetailItem label="Outbound Delta" value={formatBytesPerSecond(sampleNetwork.downloadBytesPerSec)} />
             <DetailItem
-              label="Latency"
-              value={sampleNetwork.latencyMs == null ? "Unknown" : `${Math.round(Number(sampleNetwork.latencyMs))} ms`}
+              label="Latency (MS)"
+              value={sampleNetwork.latencyMs == null ? "—" : `${Math.round(Number(sampleNetwork.latencyMs))} ms`}
             />
-            <DetailItem label="Packet Loss" value={formatPercent(sampleNetwork.packetLoss)} />
+            <DetailItem label="Signal Integrity" value={formatPercent(sampleNetwork.packetLoss)} />
           </dl>
         </section>
 
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-3">
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-          <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
-            Graphics
+      <div className="mt-6 grid gap-6 xl:grid-cols-3">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+          <h4 className="mb-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+            Video Adapters
           </h4>
-          <div className="grid gap-2">
+          <div className="grid gap-2.5">
             {graphicsCards.length ? (
               graphicsCards.map((gpu, index) => (
                 <ListItem
-                  detail={`${gpu.vendor || "Unknown"} ${gpu.vram ? `- ${gpu.vram} MB VRAM` : ""}`}
+                  detail={`${gpu.vendor || "Unknown"} • ${gpu.vram ? `${gpu.vram} MB VRAM` : "Integrated"}`}
                   key={index}
                   title={gpu.model}
                 />
               ))
             ) : (
-              <p className="text-sm text-slate-500">No GPU details reported.</p>
+              <div className="p-4 text-center rounded-lg border border-dashed border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-300">Null Output</div>
             )}
           </div>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-          <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
-            Disks
+        <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+          <h4 className="mb-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+            Storage Clusters
           </h4>
-          <div className="grid gap-2">
+          <div className="grid gap-2.5">
             {disks.length ? (
               disks.map((disk, index) => (
                 <ListItem
-                  detail={`${disk.type || "Unknown"} - ${disk.sizeGb || 0} GB`}
+                  detail={`${disk.type || "Fixed"} • ${disk.sizeGb || 0} GB`}
                   key={index}
                   title={disk.name}
                 />
               ))
             ) : (
-              <p className="text-sm text-slate-500">No disk details reported.</p>
+              <div className="p-4 text-center rounded-lg border border-dashed border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-300">Null Output</div>
             )}
           </div>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-          <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
-            USB Devices
+        <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+          <h4 className="mb-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+            External Bus Devices
           </h4>
-          <div className="grid max-h-56 gap-2 overflow-auto pr-1">
+          <div className="grid max-h-64 gap-2.5 overflow-auto custom-scrollbar pr-1">
             {usbDevices.length ? (
               usbDevices.map((device, index) => (
                 <ListItem
-                  detail={`${device.type || "USB"} - ${device.vendor || "Unknown"}`}
+                  detail={`${device.type || "Logic"} • ${device.vendor || "Standard"}`}
                   key={index}
                   title={device.name}
                 />
               ))
             ) : (
-              <p className="text-sm text-slate-500">No USB devices reported.</p>
+              <div className="p-4 text-center rounded-lg border border-dashed border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-300">Null Output</div>
             )}
           </div>
         </section>
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-          <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
-            Network Adapters
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+          <h4 className="mb-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+            Adapter Stack
           </h4>
-          <div className="grid max-h-56 gap-2 overflow-auto pr-1">
+          <div className="grid max-h-64 gap-2.5 overflow-auto custom-scrollbar pr-1">
             {networkAdapters.length ? (
               networkAdapters.map((adapter, index) => (
                 <ListItem
-                  detail={`${adapter.type || "Unknown"} - ${adapter.mac || "Unknown"} - ${adapter.ip4 || "Unknown"}`}
+                  detail={`${adapter.type || "Ethernet"} • ${adapter.mac || "—"} • ${adapter.ip4 || "—"}`}
                   key={index}
                   title={adapter.name}
                 />
               ))
             ) : (
-              <p className="text-sm text-slate-500">No network adapters reported.</p>
+              <div className="p-4 text-center rounded-lg border border-dashed border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-300">Null Output</div>
             )}
           </div>
         </section>
 
-        <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-          <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
-            Displays
+        <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 shadow-inner">
+          <h4 className="mb-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+            Display Output
           </h4>
-          <div className="grid max-h-56 gap-2 overflow-auto pr-1">
+          <div className="grid max-h-64 gap-2.5 overflow-auto custom-scrollbar pr-1">
             {displays.length ? (
               displays.map((display, index) => (
                 <ListItem
-                  detail={display.resolution || "Unknown resolution"}
+                  detail={display.resolution || "Logic Output"}
                   key={index}
                   title={display.model}
                 />
               ))
             ) : (
-              <p className="text-sm text-slate-500">No display details reported.</p>
+              <div className="p-4 text-center rounded-lg border border-dashed border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-300">Null Output</div>
             )}
           </div>
         </section>
@@ -900,12 +893,12 @@ export function DeviceTable({
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-line bg-white p-12 text-center shadow-sm">
-        <div className="flex flex-col items-center gap-3">
-          <div className="text-signal">
+      <div className="rounded-2xl border border-slate-200 bg-white p-20 text-center shadow-sm">
+        <div className="flex flex-col items-center gap-5">
+          <div className="text-slate-900">
             <SentrixLogoLoader />
           </div>
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Synchronizing Fleet Data...</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em]">Synchronizing Fleet Registry...</p>
         </div>
       </div>
     );
@@ -913,10 +906,10 @@ export function DeviceTable({
 
   if (devices.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center">
-        <div className="flex flex-col items-center gap-2">
-          <Monitor className="text-slate-300" size={32} />
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No devices registered in this view</p>
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-20 text-center">
+        <div className="flex flex-col items-center gap-4">
+          <Monitor className="text-slate-200" size={48} strokeWidth={1.5} />
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">No Terminals Registered</p>
         </div>
       </div>
     );
@@ -939,67 +932,66 @@ export function DeviceTable({
         onConfirm={confirmArchive}
       />
 
-      <div className="overflow-hidden rounded-xl border border-line bg-white shadow-sm ring-1 ring-slate-200/50 animate-in fade-in slide-in-from-bottom-2 duration-500">
-        <div className="hidden bg-slate-50/80 px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 lg:grid lg:grid-cols-[60px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(280px,1.4fr)_minmax(150px,0.7fr)_100px_80px] lg:items-center lg:gap-6 border-b border-line/60">
-          <div className="text-center">Expand</div>
-          <div>Device Terminal</div>
-          <div>Network Info</div>
-          <div>Live Metrics</div>
-          <div>Group Policy</div>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/40 ring-1 ring-slate-100 animate-in fade-in slide-in-from-bottom-3 duration-700">
+        <div className="hidden bg-slate-50/80 px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:grid lg:grid-cols-[60px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(280px,1.4fr)_minmax(150px,0.7fr)_100px_80px] lg:items-center lg:gap-8 border-b border-slate-200 font-ui">
+          <div className="text-center opacity-50">#</div>
+          <div>Node Terminal</div>
+          <div>Network Stack</div>
+          <div>Metrics</div>
+          <div>Cluster Group</div>
           <div className="text-center">Status</div>
           <div className="text-right">Manage</div>
         </div>
 
-        <div className="divide-y divide-line/60">
+        <div className="divide-y divide-slate-100">
           {devices.map((device) => {
             const metrics = device.metrics || {};
             const groupValue = device.group || "Unassigned";
             const expanded = expandedId === device.id;
 
             return (
-              <article className={`bg-white transition-colors duration-200 ${expanded ? 'bg-slate-50/30' : 'hover:bg-slate-50/50'}`} key={device.id}>
-                <div className="grid gap-4 px-4 py-6 text-sm text-slate-700 lg:grid-cols-[60px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(280px,1.4fr)_minmax(150px,0.7fr)_100px_80px] lg:items-center lg:gap-6">
+              <article className={`bg-white transition-all duration-300 ${expanded ? 'bg-slate-50/30' : 'hover:bg-slate-50/50'}`} key={device.id}>
+                <div className="grid gap-6 px-6 py-7 text-sm text-slate-700 lg:grid-cols-[60px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(280px,1.4fr)_minmax(150px,0.7fr)_100px_80px] lg:items-center lg:gap-8">
                   <div className="flex justify-center">
                     <button
-                      className={`grid h-10 w-10 place-items-center rounded-xl border transition-all duration-300 ${expanded ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'bg-white border-line text-slate-500 hover:border-signal hover:text-signal shadow-sm'}`}
+                      className={`grid h-11 w-11 place-items-center rounded-xl transition-all duration-500 active:scale-90 ${expanded ? 'bg-slate-900 text-white shadow-2xl shadow-slate-900/30 rotate-180' : 'bg-white border border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-900 shadow-sm'}`}
                       onClick={() =>
                         setExpandedId(expanded ? null : device.id)
                       }
-                      title={expanded ? "Collapse details" : "Expand details"}
+                      title={expanded ? "Collapse" : "Audit Node"}
                       type="button"
                     >
                       <ChevronDown
-                        className={`transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
-                        size={18}
+                        size={20}
                         strokeWidth={2.5}
                       />
                     </button>
                   </div>
 
-                  <div className="min-w-0">
-                    <strong className="block break-words text-base font-bold text-slate-950 lg:text-[15px] tracking-tight">
+                  <div className="min-w-0 font-ui">
+                    <strong className="block break-words text-[15px] font-bold text-slate-900 tracking-tight leading-none">
                       {device.hostname}
                     </strong>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-slate-100 text-[9px] font-bold text-slate-500 uppercase">OS</span>
-                      <span className="block break-words text-xs font-medium text-slate-500">
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="badge-minimal px-1.5 py-0 border-slate-100 text-[8px] tracking-tight">{device.os?.split(' ')[0]}</span>
+                      <span className="block break-words text-[11px] font-bold text-slate-400 truncate">
                         {device.os}
                       </span>
                     </div>
                   </div>
 
-                  <div className="min-w-0">
-                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400 lg:hidden">
-                      Network
+                  <div className="min-w-0 font-data">
+                    <span className="mb-2 block text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:hidden font-ui">
+                      Network Stack
                     </span>
                     <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <div className="h-1 w-1 rounded-full bg-slate-300" />
-                        <span className="block break-words font-bold text-slate-700 tabular-nums">{device.ip}</span>
+                        <span className="block break-words font-bold text-slate-700 tabular-nums text-sm">{device.ip}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-1 w-1 rounded-full bg-slate-200" />
-                        <span className="block break-words text-[11px] font-medium text-slate-400 tabular-nums font-mono">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-1 w-1 rounded-full bg-slate-100" />
+                        <span className="block break-words text-[11px] font-medium text-slate-400 tabular-nums">
                           {device.mac}
                         </span>
                       </div>
@@ -1019,22 +1011,22 @@ export function DeviceTable({
                     />
                     <MetricPill
                       icon={HardDrive}
-                      label="Disk"
+                      label="DSK"
                       value={formatPercent(metrics.disk)}
                     />
                     <MetricPill
                       icon={Timer}
-                      label="Up"
+                      label="UP"
                       value={formatUptimeVerbose(metrics.uptime)}
                     />
                   </div>
 
-                  <div className="min-w-0">
-                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400 lg:hidden">
-                      Group Policy
+                  <div className="min-w-0 font-ui">
+                    <span className="mb-2 block text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:hidden">
+                      Cluster Group
                     </span>
                     <select
-                      className="h-10 w-full min-w-0 rounded-xl border border-line bg-white px-3 text-xs font-bold text-slate-600 outline-none transition-all focus:border-signal focus:ring-4 focus:ring-blue-50 lg:w-40 shadow-sm"
+                      className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 outline-none transition-all focus:border-slate-900 focus:ring-4 focus:ring-slate-100 lg:w-40 shadow-sm cursor-pointer"
                       onChange={(event) =>
                         onUpdateGroup(device.id, event.target.value)
                       }
@@ -1056,35 +1048,35 @@ export function DeviceTable({
 
                   <div className="flex justify-center">
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest border transition-all ${
+                      className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] border transition-all ${
                         device.status === "online"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-100 shadow-sm shadow-emerald-50"
-                          : "bg-red-50 text-red-700 border-red-100 shadow-sm shadow-red-50"
+                          ? "bg-white text-emerald-600 border-emerald-100 shadow-sm"
+                          : "bg-white text-rose-600 border-rose-100 shadow-sm"
                       }`}
                     >
-                      <div className={`h-1.5 w-1.5 rounded-full ${device.status === 'online' ? 'bg-emerald-500' : 'bg-red-500'} ${device.status === 'online' ? 'animate-pulse' : ''}`} />
+                      <div className={`h-1.5 w-1.5 rounded-full ${device.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
                       {device.status}
                     </span>
                   </div>
 
                   <div className="group relative flex justify-start lg:justify-end">
                     <button
-                      className="grid h-9 w-9 place-items-center rounded-xl border border-red-100 bg-white text-red-600 shadow-sm transition-all hover:bg-red-600 hover:text-white hover:shadow-lg active:scale-95"
+                      className="btn-minimal-rose h-10 w-10 p-0 rounded-xl shadow-sm hover:shadow-lg active:scale-90"
                       onClick={() => setPendingArchive(device)}
-                      title="Archive device"
+                      title="Archive Terminal"
                       type="button"
                     >
-                      <Archive size={16} strokeWidth={2.5} />
+                      <Archive size={18} strokeWidth={2} />
                     </button>
-                    <div className="pointer-events-none absolute right-0 top-full mt-2 z-30 hidden w-44 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium text-white shadow-xl group-hover:block">
-                      Remove from active fleet
-                      <div className="absolute bottom-full right-4 border-4 border-transparent border-b-slate-900" />
+                    <div className="pointer-events-none absolute right-0 top-full mt-3 z-30 hidden w-48 rounded-xl bg-slate-900 px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-widest text-white shadow-2xl group-hover:block transition-all animate-in zoom-in-95 origin-top-right">
+                      Revoke Terminal Access
+                      <div className="absolute bottom-full right-4 border-[6px] border-transparent border-b-slate-900" />
                     </div>
                   </div>
                 </div>
 
                 {expanded ? (
-                  <div className="animate-in slide-in-from-top-2 duration-300">
+                  <div className="animate-in slide-in-from-top-3 duration-500 ease-out">
                     <DeviceDetails
                       device={device}
                       error={detailCache[device.id]?.error}

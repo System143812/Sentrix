@@ -10,12 +10,12 @@ export function DevicesPage({
   onArchive,
 }) {
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 font-data">
       <PageHeader
         icon={Laptop}
         title="Fleet Management"
-        subtitle="Manage device groups, expand terminal details, and review real-time agent status at a glance."
-        backgroundImage="/love_computer.jpg"
+        subtitle="Manage logical groupings and technical specifications for the terminal fleet."
+        backgroundImage="/love_computer.gif"
       />
 
       <div className="min-w-0 w-full">
@@ -30,3 +30,4 @@ export function DevicesPage({
     </div>
   );
 }
+

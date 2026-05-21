@@ -362,43 +362,42 @@ function MultiLineChart({ devices = [] }) {
 
 function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, selectedGroup, setSelectedGroup, dark = false }) {
   return (
-    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
       <div className="flex flex-wrap items-center gap-2">
-        <TooltipIcon icon={CalendarDays} label="Select analytics time range" tone={dark ? "blue" : "teal"} />
         {timeRanges.map((range) => (
           <button
-            className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition ${
+            className={`btn-minimal h-10 px-5 active:scale-95 transition-all ${
               rangeKey === range.key
-                ? "border-signal bg-signal text-white shadow-lg shadow-blue-900/20"
+                ? "bg-slate-900 border-slate-900 text-white shadow-lg shadow-slate-900/20"
                 : dark 
-                  ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white hover:border-white/30"
-                  : "border-line bg-white text-slate-700 shadow-sm hover:border-signal hover:text-signal"
+                  ? "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+                  : "bg-white text-slate-500 hover:bg-slate-50"
             }`}
             key={range.key}
             onClick={() => setRangeKey(range.key)}
             title={`Show ${range.label} analytics`}
             type="button"
           >
-            <Clock3 size={15} />
-            {range.label}
+            <Clock3 size={15} strokeWidth={2.5} />
+            <span className="font-bold uppercase tracking-widest text-[10px]">{range.label}</span>
           </button>
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold shadow-sm ${dark ? 'border-white/10 bg-white/5 text-slate-300' : 'border-line bg-white text-slate-600'}`}>
-          <RefreshCcw className={loading ? "animate-spin" : ""} size={15} />
-          {loading ? "Refreshing" : "Live cached"}
+      <div className="flex flex-wrap items-center gap-2 font-ui">
+        <span className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/5 bg-white/5 text-slate-400' : 'border-slate-100 bg-white text-slate-500'}`}>
+          <RefreshCcw className={loading ? "animate-spin" : ""} size={14} strokeWidth={2.5} />
+          {loading ? "Syncing" : "Data Live"}
         </span>
-        <label className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold shadow-sm ${dark ? 'border-white/10 bg-white/5 text-slate-300' : 'border-line bg-white text-slate-600'}`}>
-          <Filter size={15} />
+        <label className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/5 bg-white/5 text-slate-400' : 'border-slate-100 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200'}`}>
+          <Filter size={14} strokeWidth={2.5} />
           <select
-            className="bg-transparent text-sm font-semibold outline-none cursor-pointer"
+            className="bg-transparent outline-none cursor-pointer"
             onChange={(event) => setSelectedGroup(event.target.value)}
             title="Filter analytics by group"
             value={selectedGroup}
           >
-            <option className="text-slate-900" value="all">All groups</option>
+            <option className="text-slate-900" value="all">All Clusters</option>
             {groupOptions.map((group) => (
               <option className="text-slate-900" key={group} value={group}>
                 {group}

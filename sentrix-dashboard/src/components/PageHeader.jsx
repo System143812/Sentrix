@@ -22,22 +22,22 @@ export function PageHeader({
         />
       )}
 
-      <div className={`relative z-10 p-6 ${isDark ? 'text-white' : ''}`}>
-        <div className="flex items-start justify-between gap-4">
+      <div className={`relative z-10 p-6 sm:p-8 ${isDark ? 'text-white' : ''}`}>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              {Icon ? <Icon size={22} className={isDark ? "text-blue-400" : "text-ocean"} strokeWidth={2.5} /> : null}
-              <h2 className={`text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{title}</h2>
+            <div className="flex items-center gap-3">
+              {Icon ? <Icon size={20} className={isDark ? "text-blue-400" : "text-blue-600"} strokeWidth={2} /> : null}
+              <h2 className={`text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'} font-ui`}>{title}</h2>
             </div>
             {subtitle && (
-              <p className={`mt-2 max-w-3xl text-sm leading-6 ${isDark ? 'text-slate-300 font-medium' : 'text-slate-500'}`}>
+              <p className={`mt-2 max-w-3xl text-sm leading-relaxed ${isDark ? 'text-slate-300 font-medium' : 'text-slate-500'}`}>
                 {subtitle}
               </p>
             )}
           </div>
-          {action && <div className="shrink-0">{action}</div>}
+          {action && <div className="shrink-0 flex items-center">{action}</div>}
         </div>
-        {children ? <div className={`mt-5 ${isDark ? 'border-t border-white/10 pt-5' : ''}`}>{children}</div> : null}
+        {children ? <div className={`mt-6 ${isDark ? 'border-t border-white/5 pt-6' : 'border-t border-slate-100 pt-6'}`}>{children}</div> : null}
       </div>
     </Card>
   );

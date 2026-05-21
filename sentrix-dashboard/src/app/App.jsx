@@ -155,44 +155,44 @@ function DashboardShell({
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 font-ui">
             <span
-              className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold ${
+              className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-bold uppercase tracking-widest shadow-sm ${
                 connected
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-red-200 bg-red-50 text-red-700"
+                  ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                  : "border-rose-100 bg-rose-50 text-rose-700"
               }`}
             >
-              {connected ? <Wifi size={16} /> : <WifiOff size={16} />}
-              {connected ? "Realtime connected" : "Realtime offline"}
+              {connected ? <Wifi size={14} strokeWidth={2.5} /> : <WifiOff size={14} strokeWidth={2.5} />}
+              {connected ? "Live" : "Offline"}
             </span>
 
-            <span className="inline-flex items-center gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
-              <UserCircle size={16} />
-              {user.role === "network_admin" ? "Network Admin" : "Admin"}
+            <span className="inline-flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-500 shadow-sm">
+              <UserCircle size={14} strokeWidth={2.5} />
+              {user.role === "network_admin" ? "System Root" : "Operator"}
             </span>
 
             <button
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink shadow-sm transition hover:border-signal hover:text-signal disabled:cursor-wait disabled:opacity-70"
+              className="btn-minimal h-10 px-4 active:scale-[0.98]"
               onClick={refresh}
               disabled={loading}
               type="button"
             >
               {loading ? (
-                <LoaderCircle className="animate-spin" size={16} />
+                <LoaderCircle className="animate-spin" size={15} />
               ) : (
-                <RefreshCcw size={16} />
+                <RefreshCcw size={15} strokeWidth={2.5} />
               )}
-              <span className="hidden sm:inline">{loading ? "Refreshing" : "Refresh"}</span>
+              <span className="hidden sm:inline font-bold uppercase tracking-widest text-[10px]">{loading ? "Syncing" : "Sync"}</span>
             </button>
 
             <button
               type="button"
               onClick={onLogout}
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-red-400 hover:text-red-600"
+              className="btn-minimal h-10 px-4 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 active:scale-[0.98]"
             >
-              <LogOut size={16} />
-              Logout
+              <LogOut size={15} strokeWidth={2.5} />
+              <span className="font-bold uppercase tracking-widest text-[10px]">Logout</span>
             </button>
           </div>
           </header>
