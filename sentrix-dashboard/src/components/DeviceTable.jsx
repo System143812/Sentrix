@@ -14,7 +14,7 @@ import {
   Usb,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useEffect, useState } from "react";
 import { MetricPill } from "./MetricPill.jsx";
 import * as clientApi from "../services/clientApi.js";
 import {
@@ -192,99 +192,6 @@ function ConfirmDialog({ device, onCancel, onConfirm }) {
   );
 }
 
-function buildSampleNetworkActivity(device) {
-  const hostname = device.hostname || "client-pc";
-  const ip = device.ip || "192.168.1.24";
-
-  return {
-    activeDns: [
-      {
-        id: "dns-active-1",
-        domain: "classroom.portal.local",
-        url: "https://classroom.portal.local/dashboard",
-        remoteAddress: "192.168.1.10",
-        processName: "chrome.exe",
-        openedAt: "Now",
-        status: "Active",
-      },
-      {
-        id: "dns-active-2",
-        domain: "updates.microsoft.com",
-        url: "https://updates.microsoft.com",
-        remoteAddress: "20.53.203.50",
-        processName: "svchost.exe",
-        openedAt: "2 minutes ago",
-        status: "Active",
-      },
-    ],
-    dnsHistory: [
-      {
-        id: "dns-history-1",
-        domain: "accounts.google.com",
-        resolvedAddress: "142.250.190.45",
-        processName: "chrome.exe",
-        checkedAt: "8 minutes ago",
-      },
-      {
-        id: "dns-history-2",
-        domain: "cdn.jsdelivr.net",
-        resolvedAddress: "151.101.1.229",
-        processName: "msedge.exe",
-        checkedAt: "14 minutes ago",
-      },
-      {
-        id: "dns-history-3",
-        domain: hostname.toLowerCase().replaceAll(" ", "-"),
-        resolvedAddress: ip,
-        processName: "sentrix-agent.exe",
-        checkedAt: "21 minutes ago",
-      },
-    ],
-    processes: [
-      {
-        id: "proc-1",
-        pid: 4820,
-        name: "chrome.exe",
-        user: "Student",
-        cpu: 7,
-        memoryMb: 420,
-        network: "1.8 MB/s",
-        status: "Running",
-      },
-      {
-        id: "proc-2",
-        pid: 1196,
-        name: "sentrix-agent.exe",
-        user: "SYSTEM",
-        cpu: 2,
-        memoryMb: 96,
-        network: "220 KB/s",
-        status: "Running",
-      },
-      {
-        id: "proc-3",
-        pid: 764,
-        name: "svchost.exe",
-        user: "SYSTEM",
-        cpu: 1,
-        memoryMb: 138,
-        network: "80 KB/s",
-        status: "Running",
-      },
-      {
-        id: "proc-4",
-        pid: 3328,
-        name: "msedge.exe",
-        user: "Student",
-        cpu: 4,
-        memoryMb: 310,
-        network: "640 KB/s",
-        status: "Running",
-      },
-    ],
-  };
-}
-
 function DetailViewSwitch({ activeView, onChange }) {
   const buttons = [
     { id: "specification", label: "Specification", icon: Monitor },
@@ -317,45 +224,313 @@ function DetailViewSwitch({ activeView, onChange }) {
   );
 }
 
+function ActivityMonitor({ connections, history, error }) {
+  const activeDomains = new Set(connections.map(c => c.domain));
+  const filteredHistory = history.filter(h => !activeDomains.has(h.domain));
+  
+  const activeListRef = useRef(null);
+  const historyListRef = useRef(null);
+  const scrollPos = useRef({ active: 0, history: 0 });
+
+  useLayoutEffect(() => {
+    if (activeListRef.current) activeListRef.current.scrollTop = scrollPos.current.active;
+    if (historyListRef.current) historyListRef.current.scrollTop = scrollPos.current.history;
+  });
+
+  const handleScroll = (type) => (e) => {
+    scrollPos.current[type] = e.target.scrollTop;
+  };
+
+  return (
+    <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+      <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+        <Globe2 size={15} />
+        Activity Monitor
+      </h4>
+
+      {error && (
+        <p className="mb-3 text-xs font-medium text-red-600">{error}</p>
+      )}
+
+      <div className="grid gap-3">
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase text-slate-500">
+            Active Sites & Connections
+          </p>
+          <div 
+            className="grid max-h-80 gap-2 overflow-auto pr-1"
+            onScroll={handleScroll('active')}
+            ref={activeListRef}
+          >
+            {connections.length > 0 ? connections.map((item) => (
+              <div
+                className="rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70"
+                key={item.id ? `conn-${item.id}` : `conn-${item.process}-${item.domain}-${item.peerAddress}-${item.peerPort}`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className={`break-words text-sm font-bold ${item.domain?.includes('localhost') ? 'text-signal' : 'text-slate-900'}`}>
+                      {item.domain || item.peerAddress}
+                    </p>
+                    {item.organization && item.organization !== item.domain && (
+                      <p className="truncate text-[10px] font-medium text-slate-400 flex items-center gap-1">
+                        {item.organization}
+                        {item.isCloud && (
+                          <span className="rounded bg-blue-50 px-1 py-0.5 text-[8px] font-bold text-blue-600 uppercase">Cloud</span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    {item.count > 1 && (
+                      <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
+                        {item.count} hits
+                      </span>
+                    )}
+                    <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                      Live
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-1 break-words text-xs leading-5 text-slate-500">
+                  via <span className="font-semibold text-slate-700">{item.process}</span>
+                </p>
+              </div>
+            )) : (
+              <p className="py-4 text-center text-xs text-slate-400">No active activity detected.</p>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase text-slate-500">
+            Recent Activity History
+          </p>
+          <div 
+            className="grid max-h-80 gap-2 overflow-auto pr-1"
+            onScroll={handleScroll('history')}
+            ref={historyListRef}
+          >
+            {filteredHistory.length > 0 ? filteredHistory.map((item) => (
+              <div
+                className="rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70 opacity-80"
+                key={`hist-${item.domain}-${item.process}`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="break-words text-sm font-semibold text-slate-700">
+                    {item.domain}
+                  </p>
+                  <span className="text-[10px] font-medium text-slate-400">
+                    {new Date(item.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-slate-500">
+                    {item.process}
+                  </p>
+                  <span 
+                    className="text-[10px] text-slate-400"
+                    title="Number of times this domain was detected as active"
+                  >
+                    {item.hitCount} views
+                  </span>
+                </div>
+              </div>
+            )) : (
+              <p className="py-4 text-center text-xs text-slate-400">No history archived yet.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses, onToggle }) => {
+  const listRef = useRef(null);
+  const scrollPos = useRef(0);
+
+  useLayoutEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = scrollPos.current;
+  });
+
+  const handleScroll = (e) => {
+    scrollPos.current = e.target.scrollTop;
+  };
+
+  return (
+    <div className="flex flex-col">
+      <h5 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase text-slate-500">
+        <Icon size={12} />
+        {title} ({list.length})
+      </h5>
+      <div className="overflow-hidden rounded-md border border-line bg-white shadow-sm">
+        <div className="hidden grid-cols-[44px_1fr_60px_80px_90px] gap-3 bg-slate-50 px-3 py-1.5 text-[10px] font-bold uppercase text-slate-400 lg:grid">
+          <div />
+          <div>Process</div>
+          <div className="text-right">CPU</div>
+          <div className="text-right">Memory</div>
+          <div className="text-center">Status</div>
+        </div>
+
+        <div 
+          className="max-h-80 divide-y divide-line overflow-auto"
+          onScroll={handleScroll}
+          ref={listRef}
+        >
+          {list.length > 0 ? list.map((process) => {
+            const ended = process.status === "Ended";
+            const uniqueId = `proc-${process.pid}-${process.name}`;
+
+            return (
+              <label
+                className={`grid gap-2 px-3 py-2.5 text-sm transition lg:grid-cols-[44px_1fr_60px_80px_90px] lg:items-center lg:gap-3 ${
+                  ended ? "bg-slate-50 text-slate-400" : "text-slate-700 hover:bg-slate-50"
+                }`}
+                key={uniqueId}
+              >
+                <div className="flex items-center justify-center">
+                  <input
+                    checked={selectedProcesses.includes(uniqueId)}
+                    className="h-3.5 w-3.5 rounded border-line text-signal focus:ring-signal"
+                    disabled={ended || actionLoading}
+                    onChange={() => onToggle(uniqueId)}
+                    type="checkbox"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-slate-900 leading-tight">
+                    {process.name}
+                  </p>
+                  <p className="truncate text-[10px] text-slate-500 mt-0.5">
+                    {process.windowTitle || `PID ${process.pid} - ${process.user}`}
+                  </p>
+                </div>
+                <span className="text-right text-xs font-medium">{process.cpu}%</span>
+                <span className="text-right text-xs font-medium">{process.memoryMb} MB</span>
+                <div className="flex justify-center">
+                  <span
+                    className={`w-fit rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                      ended
+                        ? "bg-slate-100 text-slate-400"
+                        : "bg-emerald-50 text-emerald-600"
+                    }`}
+                  >
+                    {process.status}
+                  </span>
+                </div>
+              </label>
+            );
+          }) : (
+            <div className="py-6 text-center text-xs text-slate-400 italic">No processes in this category.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProcesses, onToggle, onEnd }) {
+  return (
+    <section className="rounded-lg border border-line bg-slate-100/80 p-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+        <h4 className="flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+          <CircleStop size={15} />
+          Running Processes
+        </h4>
+        <button
+          className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            actionLoading 
+              ? "bg-slate-100 text-slate-500 border-slate-200" 
+              : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+          }`}
+          disabled={selectedProcesses.length === 0 || actionLoading}
+          onClick={onEnd}
+          type="button"
+        >
+          <CircleStop className={actionLoading ? "animate-spin" : ""} size={14} />
+          {actionLoading ? "Ending..." : "End selected"}
+        </button>
+      </div>
+
+      {actionMessage.text && (
+        <div className={`mb-4 rounded-md border p-2 text-xs font-medium ${
+          actionMessage.type === "error" ? "bg-red-50 border-red-200 text-red-800" :
+          actionMessage.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-800" :
+          "bg-blue-50 border-blue-200 text-blue-800"
+        }`}>
+          {actionMessage.text}
+        </div>
+      )}
+
+      <div className="grid gap-6">
+        <ProcessList 
+          icon={Cpu} 
+          list={processes} 
+          title="Live Process Stream" 
+          actionLoading={actionLoading}
+          selectedProcesses={selectedProcesses}
+          onToggle={onToggle}
+        />
+      </div>
+    </section>
+  );
+}
+
 function NetworkActivityDetails({ device }) {
-  const metrics = device.metrics || {};
+  const [processes, setProcesses] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState({ text: "", type: "" });
+  
   const [selectedProcesses, setSelectedProcesses] = useState([]);
   const [endedProcesses, setEndedProcesses] = useState([]);
 
-  const hasRealData = Array.isArray(metrics.processes) && metrics.processes.length > 0;
+  useEffect(() => {
+    let active = true;
+    let timer = null;
 
-  const activity = hasRealData ? {
-    activeDns: (metrics.networkActivity?.activeConnections || []).map((conn, idx) => ({
-      id: `dns-active-${idx}`,
-      domain: conn.domain || "Direct IP",
-      url: conn.domain ? `https://${conn.domain}` : `http://${conn.peerAddress}`,
-      remoteAddress: conn.peerAddress,
-      processName: conn.process || "Unknown",
-      openedAt: "Active",
-      status: conn.state === "LISTEN" ? "Listening" : "Active",
-    })).slice(0, 15),
-    dnsHistory: (metrics.networkActivity?.dnsCache || []).map((dns, idx) => ({
-      id: `dns-history-${idx}`,
-      domain: dns.domain,
-      resolvedAddress: dns.resolvedAddress,
-      processName: "DNS Cache",
-      checkedAt: "Recent",
-    })).slice(0, 30),
-    processes: (metrics.processes || []).map((p, idx) => ({
-      id: `proc-${idx}`,
-      pid: p.pid,
-      name: p.name,
-      user: p.user,
-      cpu: p.cpu,
-      memoryMb: p.memoryMb,
-      network: "...",
-      status: p.state.charAt(0).toUpperCase() + p.state.slice(1),
-    })),
-  } : buildSampleNetworkActivity(device);
+    async function fetchData() {
+      try {
+        const [procData, activityData, historyData] = await Promise.all([
+          clientApi.getClientProcesses(device.id),
+          clientApi.getClientNetworkActivity(device.id),
+          clientApi.getClientActivityHistory(device.id),
+        ]);
 
-  const processes = activity.processes.map((process) => ({
-    ...process,
-    status: endedProcesses.includes(process.id) ? "Ended" : process.status,
+        if (!active) return;
+
+        setProcesses(procData || []);
+        setHistory(historyData || []);
+        setConnections(activityData?.activeConnections || activityData?.connections || []);
+        setLoading(false);
+        setError("");
+      } catch (err) {
+        if (!active) return;
+        setError("Failed to load real-time network activity.");
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+    timer = setInterval(fetchData, 5000); 
+
+    return () => {
+      active = false;
+      if (timer) clearInterval(timer);
+    };
+  }, [device.id]);
+
+  const displayedProcesses = processes.map((p) => ({
+    pid: p.pid,
+    name: p.name,
+    user: p.user,
+    cpu: p.cpu,
+    memoryMb: p.memoryMb,
+    status: endedProcesses.includes(p.pid) ? "Ended" : "Running",
   }));
 
   function toggleProcess(processId) {
@@ -366,137 +541,76 @@ function NetworkActivityDetails({ device }) {
     );
   }
 
-  function endSelectedProcesses() {
-    setEndedProcesses((current) => [
-      ...new Set([...current, ...selectedProcesses]),
-    ]);
+  async function endSelectedProcesses() {
+    if (selectedProcesses.length === 0) return;
+
+    const count = selectedProcesses.length;
+    const confirmMsg = count === 1 
+      ? "Are you sure you want to end this process?"
+      : `Are you sure you want to end these ${count} processes?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setActionLoading(true);
+    setActionMessage({ text: "Ending processes...", type: "info" });
+
+    const pidsToKill = selectedProcesses.map(id => {
+      const match = id.match(/proc-(\d+)-/);
+      return match ? parseInt(match[1], 10) : null;
+    }).filter(Boolean);
+
+    const results = [];
+
+    for (const pid of pidsToKill) {
+      try {
+        const result = await clientApi.killClientProcess(device.id, pid);
+        if (result.success) {
+          setEndedProcesses(prev => [...prev, pid]);
+          results.push({ pid, success: true });
+        }
+      } catch (err) {
+        results.push({ pid, success: false, message: err.message });
+      }
+    }
+
+    const failed = results.filter(r => !r.success);
+    if (failed.length > 0) {
+      setActionMessage({ text: failed[0].message, type: "error" });
+    } else {
+      setActionMessage({ text: "Processes ended successfully.", type: "success" });
+    }
+
     setSelectedProcesses([]);
+    setActionLoading(false);
+    
+    // Success disappears in 5s, errors stay for 15s so they can be read
+    const delay = failed.length > 0 ? 15000 : 5000;
+    setTimeout(() => setActionMessage({ text: "", type: "" }), delay);
+  }
+
+  if (loading && processes.length === 0) {
+    return (
+      <div className="py-8 text-center">
+        <p className="text-sm font-medium text-slate-500">Connecting to agent for real-time data...</p>
+      </div>
+    );
   }
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
-      <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-        <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-          <Globe2 size={15} />
-          DNS Logging
-        </h4>
-
-        <div className="grid gap-3">
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase text-slate-500">
-              Active URLs and DNS
-            </p>
-            <div className="grid gap-2">
-              {activity.activeDns.map((item) => (
-                <div
-                  className="rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70"
-                  key={item.id}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="break-words text-sm font-semibold text-slate-800">
-                      {item.domain}
-                    </p>
-                    <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
-                      {item.status}
-                    </span>
-                  </div>
-                  <p className="mt-1 break-words text-xs leading-5 text-slate-500">
-                    {item.url}
-                  </p>
-                  <p className="text-xs leading-5 text-slate-500">
-                    {item.remoteAddress} - {item.processName} - {item.openedAt}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase text-slate-500">
-              DNS History
-            </p>
-            <div className="grid max-h-64 gap-2 overflow-auto pr-1">
-              {activity.dnsHistory.map((item) => (
-                <ListItem
-                  detail={`${item.resolvedAddress} - ${item.processName} - ${item.checkedAt}`}
-                  key={item.id}
-                  title={item.domain}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-line bg-slate-100/80 p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h4 className="flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-            <CircleStop size={15} />
-            Process Monitoring
-          </h4>
-          <button
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={selectedProcesses.length === 0}
-            onClick={endSelectedProcesses}
-            type="button"
-          >
-            <CircleStop size={15} />
-            End selected
-          </button>
-        </div>
-
-        <div className="overflow-hidden rounded-md border border-line bg-white">
-          <div className="hidden grid-cols-[44px_1fr_80px_80px_100px_90px] gap-3 bg-slate-100 px-3 py-2 text-xs font-bold uppercase text-slate-500 lg:grid">
-            <div />
-            <div>Process</div>
-            <div>CPU</div>
-            <div>Memory</div>
-            <div>Network</div>
-            <div>Status</div>
-          </div>
-
-          <div className="divide-y divide-line">
-            {processes.map((process) => {
-              const ended = process.status === "Ended";
-
-              return (
-                <label
-                  className={`grid gap-2 px-3 py-3 text-sm transition lg:grid-cols-[44px_1fr_80px_80px_100px_90px] lg:items-center lg:gap-3 ${
-                    ended ? "bg-slate-50 text-slate-400" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                  key={process.id}
-                >
-                  <input
-                    checked={selectedProcesses.includes(process.id)}
-                    className="h-4 w-4 rounded border-line text-signal focus:ring-signal"
-                    disabled={ended}
-                    onChange={() => toggleProcess(process.id)}
-                    type="checkbox"
-                  />
-                  <div className="min-w-0">
-                    <p className="break-words font-semibold">{process.name}</p>
-                    <p className="text-xs text-slate-500">
-                      PID {process.pid} - {process.user}
-                    </p>
-                  </div>
-                  <span>{process.cpu}%</span>
-                  <span>{process.memoryMb} MB</span>
-                  <span>{process.network}</span>
-                  <span
-                    className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${
-                      ended
-                        ? "bg-slate-100 text-slate-500"
-                        : "bg-emerald-50 text-emerald-700"
-                    }`}
-                  >
-                    {process.status}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      <ActivityMonitor 
+        connections={connections}
+        error={error}
+        history={history}
+      />
+      <ProcessMonitor 
+        actionLoading={actionLoading}
+        actionMessage={actionMessage}
+        onEnd={endSelectedProcesses}
+        onToggle={toggleProcess}
+        processes={displayedProcesses}
+        selectedProcesses={selectedProcesses}
+      />
     </div>
   );
 }

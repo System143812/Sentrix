@@ -24,6 +24,21 @@ export async function getClientHardware(id) {
   return result.data;
 }
 
+export async function getClientProcesses(id) {
+  const result = await fetchJson(`/api/clients/${id}/processes`);
+  return result.data;
+}
+
+export async function getClientNetworkActivity(id) {
+  const result = await fetchJson(`/api/clients/${id}/network-activity`);
+  return result.data;
+}
+
+export async function getClientActivityHistory(id) {
+  const result = await fetchJson(`/api/clients/${id}/activity-history`);
+  return result.data;
+}
+
 export async function updateClientGroup(id, group) {
   const result = await fetchJson(`/api/clients/${id}/group`, {
     method: "PATCH",
@@ -36,6 +51,13 @@ export async function updateClientGroup(id, group) {
 export async function archiveClient(id) {
   const result = await fetchJson(`/api/clients/${id}`, {
     method: "DELETE",
+  });
+  return result;
+}
+
+export async function killClientProcess(id, pid) {
+  const result = await fetchJson(`/api/clients/${id}/processes/${pid}/kill`, {
+    method: "POST",
   });
   return result;
 }
