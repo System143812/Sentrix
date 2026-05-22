@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { TabNav } from "../components/TabNav.jsx";
 import { SentrixLogo, SentrixLogoLoader } from "../components/SentrixLogo.jsx";
+import { ToastProvider, useToast } from "../components/ToastProvider.jsx";
 import { useDevices } from "../hooks/useDevices.js";
 import { useDiscovery } from "../hooks/useDiscovery.js";
 import { LoginPage } from "../pages/LoginPage.jsx";
@@ -112,14 +113,16 @@ export default function App() {
   }
 
   return (
-    <DashboardShell
-      user={user}
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}
-      groups={groups}
-      onGroupsChanged={loadGroups}
-      onLogout={handleLogout}
-    />
+    <ToastProvider>
+      <DashboardShell
+        user={user}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        groups={groups}
+        onGroupsChanged={loadGroups}
+        onLogout={handleLogout}
+      />
+    </ToastProvider>
   );
 }
 
@@ -140,6 +143,35 @@ function DashboardShell({
     archiveDevice,
   } = useDevices();
   const discovery = useDiscovery();
+  const { notify } = useToast();
+
+  async function handleUpdateGroup(id, group) {
+    const device = dashboardData.clients?.find((client) => client.id === id);
+
+    try {
+      await updateGroup(id, group);
+      notify(`${device?.hostname || "Device"} moved to ${group}.`, "success");
+    } catch (error) {
+      notify(error.message || "Unable to update device group.", "failed");
+      throw error;
+    }
+  }
+
+  async function handleArchiveDevice(deviceOrId) {
+    const id = typeof deviceOrId === "object" ? deviceOrId.id : deviceOrId;
+    const hostname =
+      typeof deviceOrId === "object"
+        ? deviceOrId.hostname
+        : dashboardData.clients?.find((client) => client.id === id)?.hostname;
+
+    try {
+      await archiveDevice(id);
+      notify(`${hostname || "Device"} archived.`, "success");
+    } catch (error) {
+      notify(error.message || "Unable to archive device.", "failed");
+      throw error;
+    }
+  }
 
   return (
     <main className="min-h-screen bg-mist text-ink">
@@ -207,9 +239,9 @@ function DashboardShell({
             user={user}
             dashboardData={dashboardData}
             loading={loading}
-            onUpdateGroup={updateGroup}
+            onUpdateGroup={handleUpdateGroup}
             groups={groups}
-            onArchive={archiveDevice}
+            onArchive={handleArchiveDevice}
           />
         ) : activeTab === "network" ? (
           <NetworkPage
@@ -223,9 +255,9 @@ function DashboardShell({
           <DevicesPage
             dashboardData={dashboardData}
             loading={loading}
-            onUpdateGroup={updateGroup}
+            onUpdateGroup={handleUpdateGroup}
             groups={groups}
-            onArchive={archiveDevice}
+            onArchive={handleArchiveDevice}
           />
         ) : activeTab === "analytics" ? (
           <AnalyticsPage dashboardData={dashboardData} loading={loading} />
