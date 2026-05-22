@@ -206,7 +206,7 @@ function DetailViewSwitch({ activeView, onChange }) {
   ];
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
+    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
       {buttons.map((button) => {
         const Icon = button.icon;
         const selected = activeView === button.id;
@@ -215,8 +215,8 @@ function DetailViewSwitch({ activeView, onChange }) {
           <button
             className={`btn-minimal h-10 px-4 transition-all ${
               selected
-                ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/15 hover:bg-slate-800 hover:text-white"
-                : "bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                ? "border-blue-200 bg-blue-50 text-blue-700 shadow-sm hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                : "bg-white text-slate-500 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
             }`}
             key={button.id}
             onClick={() => onChange(button.id)}
@@ -1032,11 +1032,15 @@ export function DeviceTable({
 
   async function confirmArchive() {
     if (!pendingArchive) return;
-    await onArchive?.(pendingArchive.id);
-    setExpandedId((current) =>
-      current === pendingArchive.id ? null : current,
-    );
-    setPendingArchive(null);
+    try {
+      await onArchive?.(pendingArchive);
+      setExpandedId((current) =>
+        current === pendingArchive.id ? null : current,
+      );
+      setPendingArchive(null);
+    } catch (error) {
+      // The shared toast handles the visible error message.
+    }
   }
 
   return (
@@ -1048,7 +1052,7 @@ export function DeviceTable({
       />
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-200/30 ring-1 ring-slate-100">
-        <div className="hidden bg-slate-50/90 px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 lg:grid lg:grid-cols-[48px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(260px,1.4fr)_minmax(150px,0.7fr)_auto_auto] lg:items-center lg:gap-4">
+        <div className="hidden bg-slate-50/90 px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 xl:grid xl:grid-cols-[48px_minmax(170px,1.1fr)_minmax(140px,0.8fr)_minmax(250px,1.35fr)_minmax(150px,0.7fr)_auto_auto] xl:items-center xl:gap-4">
           <div />
           <div>Device</div>
           <div>Network</div>
@@ -1066,7 +1070,7 @@ export function DeviceTable({
 
             return (
               <article className={`bg-white transition ${expanded ? "bg-slate-50/30" : "hover:bg-slate-50/50"}`} key={device.id}>
-                <div className="grid gap-4 px-4 py-5 text-sm text-slate-700 transition sm:px-5 lg:grid-cols-[48px_minmax(180px,1.25fr)_minmax(140px,0.85fr)_minmax(260px,1.4fr)_minmax(150px,0.7fr)_auto_auto] lg:items-start lg:gap-4">
+                <div className="grid gap-4 px-4 py-5 text-sm text-slate-700 transition sm:px-5 lg:grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-x-5 lg:gap-y-4 xl:grid-cols-[48px_minmax(170px,1.1fr)_minmax(140px,0.8fr)_minmax(250px,1.35fr)_minmax(150px,0.7fr)_auto_auto] xl:gap-4">
                   <button
                     className={`grid h-10 w-10 place-items-center rounded-xl border shadow-sm transition-all duration-300 active:scale-95 ${
                       expanded
@@ -1091,8 +1095,8 @@ export function DeviceTable({
                     </span>
                   </div>
 
-                  <div className="min-w-0 rounded-md bg-slate-50 p-3 lg:bg-transparent lg:p-0">
-                    <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
+                  <div className="min-w-0 rounded-md bg-slate-50 p-3 xl:bg-transparent xl:p-0">
+                    <span className="mb-1 block text-xs font-bold uppercase text-slate-400 xl:hidden">
                       Network
                     </span>
                     <span className="block break-words font-medium">{device.ip}</span>
@@ -1101,7 +1105,7 @@ export function DeviceTable({
                     </span>
                   </div>
 
-                  <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+                  <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 lg:col-span-3 lg:grid-cols-4 xl:col-span-1 xl:grid-cols-2">
                     <MetricPill
                       icon={Cpu}
                       label="CPU"
@@ -1124,15 +1128,19 @@ export function DeviceTable({
                     />
                   </div>
 
-                  <div className="min-w-0">
-                    <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
+                  <div className="min-w-0 lg:col-start-2 xl:col-start-auto">
+                    <span className="mb-1 block text-xs font-bold uppercase text-slate-400 xl:hidden">
                       Group
                     </span>
                     <select
                       className="h-10 w-full min-w-0 cursor-pointer rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none shadow-sm transition hover:border-slate-300 focus:border-slate-900 focus:ring-4 focus:ring-slate-100 lg:w-40"
-                      onChange={(event) =>
-                        onUpdateGroup(device.id, event.target.value)
-                      }
+                      onChange={async (event) => {
+                        try {
+                          await onUpdateGroup(device.id, event.target.value);
+                        } catch (error) {
+                          // The shared toast handles the visible error message.
+                        }
+                      }}
                       value={groupValue}
                     >
                       {[
