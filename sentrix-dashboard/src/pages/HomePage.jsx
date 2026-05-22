@@ -41,6 +41,7 @@ export function HomePage({
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={Laptop}
         title="Device lifecycle management for school labs"
         subtitle={`Signed in as ${user?.email}. Monitor, discover, organize, and prepare agent deployment from one console.`}
         backgroundImage="/home_header.jpg"

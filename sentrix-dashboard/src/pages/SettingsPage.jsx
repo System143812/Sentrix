@@ -19,6 +19,7 @@ import {
 import { Card } from "../components/Card.jsx";
 import { FormInput } from "../components/FormInput.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
+import { useToast } from "../components/ToastProvider.jsx";
 import { usePendingAction } from "../hooks/usePendingAction.js";
 import * as userApi from "../services/userApi.js";
 import * as groupApi from "../services/groupApi.js";
@@ -157,6 +158,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [message, setMessage] = useState("");
   const { pending: pendingAction, setPending } = usePendingAction();
+  const { notify } = useToast();
 
   useEffect(() => {
     if (isNetworkAdmin) {
@@ -173,53 +175,74 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
     event.preventDefault();
     setMessage("");
 
-    await setPending("create-admin", async () => {
-      await userApi.createAdmin(email, password);
-      setEmail("");
-      setPassword("");
-      setMessage("Admin account created.");
-      await loadAdmins();
-    });
+    try {
+      await setPending("create-admin", async () => {
+        await userApi.createAdmin(email, password);
+        setEmail("");
+        setPassword("");
+        setMessage("Admin account created.");
+        notify("Admin account created.", "success");
+        await loadAdmins();
+      });
+    } catch (error) {
+      notify(error.message || "Unable to create admin account.", "failed");
+    }
   }
 
   async function handleDeleteAdmin(id) {
     setMessage("");
 
-    await setPending(`delete-admin-${id}`, async () => {
-      await userApi.deleteAdmin(id);
-      setMessage("Admin account removed.");
-      await loadAdmins();
-    });
+    try {
+      await setPending(`delete-admin-${id}`, async () => {
+        await userApi.deleteAdmin(id);
+        setMessage("Admin account removed.");
+        notify("Admin account removed.", "success");
+        await loadAdmins();
+      });
+    } catch (error) {
+      notify(error.message || "Unable to remove admin account.", "failed");
+    }
   }
 
   async function handleSaveGroup(event) {
     event.preventDefault();
     setMessage("");
 
-    await setPending("save-group", async () => {
-      if (editingGroupId) {
-        await groupApi.updateGroup(editingGroupId, groupName, groupDescription);
-        setMessage("Group renamed.");
-      } else {
-        await groupApi.createGroup(groupName, groupDescription);
-        setMessage("Group created.");
-      }
+    try {
+      await setPending("save-group", async () => {
+        if (editingGroupId) {
+          await groupApi.updateGroup(editingGroupId, groupName, groupDescription);
+          setMessage("Group renamed.");
+          notify("Group renamed.", "success");
+        } else {
+          await groupApi.createGroup(groupName, groupDescription);
+          setMessage("Group created.");
+          notify("Group created.", "success");
+        }
 
-      setEditingGroupId(null);
-      setGroupName("");
-      setGroupDescription("");
-      await onGroupsChanged?.();
-    });
+        setEditingGroupId(null);
+        setGroupName("");
+        setGroupDescription("");
+        await onGroupsChanged?.();
+      });
+    } catch (error) {
+      notify(error.message || "Unable to save group.", "failed");
+    }
   }
 
   async function handleDeleteGroup(id) {
     setMessage("");
 
-    await setPending(`delete-group-${id}`, async () => {
-      await groupApi.deleteGroup(id);
-      setMessage("Group deleted. Devices in that group were moved to Unassigned.");
-      await onGroupsChanged?.();
-    });
+    try {
+      await setPending(`delete-group-${id}`, async () => {
+        await groupApi.deleteGroup(id);
+        setMessage("Group deleted. Devices in that group were moved to Unassigned.");
+        notify("Group deleted. Devices were moved to Unassigned.", "success");
+        await onGroupsChanged?.();
+      });
+    } catch (error) {
+      notify(error.message || "Unable to delete group.", "failed");
+    }
   }
 
   function startEditingGroup(group) {
