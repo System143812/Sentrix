@@ -22,6 +22,7 @@ import {
   Timer,
   Upload,
   Wifi,
+  ChevronLeft,
   ChevronRight,
   Users,
 } from "lucide-react";
@@ -379,7 +380,7 @@ function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, select
             <button
               className={`btn-minimal h-10 px-5 transition-all font-ui active:scale-100 hover:scale-100 ${
                 selected
-                  ? "!border-blue-400 !bg-blue-600 text-white shadow-lg shadow-blue-900/25 hover:!border-blue-400 hover:!bg-blue-600 hover:text-white cursor-default"
+                  ? "!border-white !bg-white text-slate-950 shadow-lg shadow-black/20 hover:!border-white hover:!bg-white hover:text-slate-950 cursor-default"
                   : dark 
                     ? "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
                     : "bg-white text-slate-500 hover:bg-slate-50"
@@ -397,11 +398,11 @@ function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, select
       </div>
 
       <div className="flex flex-wrap items-center gap-2 font-ui">
-        <span className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/5 bg-white/5 text-slate-400' : 'border-slate-100 bg-white text-slate-500'}`}>
+        <span className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/25 bg-white/20 text-white backdrop-blur-md' : 'border-slate-100 bg-white text-slate-500'}`}>
           <RefreshCcw className={loading ? "animate-spin" : ""} size={14} strokeWidth={2.5} />
           {loading ? "Syncing..." : "Data Live"}
         </span>
-        <label className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/5 bg-white/5 text-slate-400' : 'border-slate-100 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200'}`}>
+        <label className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25' : 'border-slate-100 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200'}`}>
           <Filter size={14} strokeWidth={2.5} />
           <select
             className="bg-transparent outline-none cursor-pointer"
@@ -409,7 +410,7 @@ function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, select
             title="Filter analytics by group"
             value={selectedGroup}
           >
-            <option className="text-slate-900" value="all">All Clusters</option>
+            <option className="text-slate-900" value="all">All Groups</option>
             {groupOptions.map((group) => (
               <option className="text-slate-900" key={group} value={group}>
                 {group}
@@ -584,6 +585,7 @@ function HealthScorePanel({ analytics, loading }) {
                 tone === "emerald" ? "rgba(16, 185, 129, 0.55)" :
                 tone === "amber" ? "rgba(245, 158, 11, 0.55)" :
                 "rgba(244, 63, 94, 0.55)",
+              transition: "border-color 700ms ease, box-shadow 700ms ease",
             }}
           >
             <div className="text-center font-ui">
@@ -880,6 +882,26 @@ function StatusTransitionsPanel({ analytics, loading }) {
 }
 
 function GroupPerformancePanel({ analytics, loading }) {
+  const [activeGroupIndex, setActiveGroupIndex] = useState(0);
+  const groups = analytics.groupStats || [];
+  const activeIndex = groups.length ? Math.min(activeGroupIndex, groups.length - 1) : 0;
+
+  useEffect(() => {
+    if (activeGroupIndex >= groups.length) {
+      setActiveGroupIndex(0);
+    }
+  }, [activeGroupIndex, groups.length]);
+
+  function showPreviousGroup() {
+    if (!groups.length) return;
+    setActiveGroupIndex((currentIndex) => (currentIndex === 0 ? groups.length - 1 : currentIndex - 1));
+  }
+
+  function showNextGroup() {
+    if (!groups.length) return;
+    setActiveGroupIndex((currentIndex) => (currentIndex + 1) % groups.length);
+  }
+
   return (
     <Panel
       icon={Gauge}
@@ -887,10 +909,35 @@ function GroupPerformancePanel({ analytics, loading }) {
       title="Cluster Performance"
       subtitle="Metrics breakdown by logical grouping"
       tone="teal"
+      action={
+        groups.length > 1 ? (
+          <div className="flex items-center gap-2">
+            <button
+              className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-600"
+              onClick={showPreviousGroup}
+              title="Previous group"
+              type="button"
+            >
+              <ChevronLeft size={16} strokeWidth={2.5} />
+            </button>
+            <button
+              className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-600"
+              onClick={showNextGroup}
+              title="Next group"
+              type="button"
+            >
+              <ChevronRight size={16} strokeWidth={2.5} />
+            </button>
+          </div>
+        ) : null
+      }
     >
-      <div className="space-y-6 flex flex-col flex-1 overflow-auto custom-scrollbar pr-1 max-h-[600px]">
-        {analytics.groupStats.length ? analytics.groupStats.map((group) => (
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md" key={group.name}>
+      <div className="flex flex-1 flex-col">
+        {groups.length ? groups.map((group, index) => (
+          <div
+            className={`rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-500 hover:shadow-md ${index === activeIndex ? "block opacity-100 translate-x-0" : "hidden opacity-0 translate-x-4"}`}
+            key={group.name}
+          >
             <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-5">
               <div className="flex items-center gap-3 font-ui">
                 <span className="p-2 rounded-lg bg-teal-50 text-teal-600 border border-teal-100">
@@ -917,8 +964,24 @@ function GroupPerformancePanel({ analytics, loading }) {
                 </div>
                 <ProgressBar value={group.load} color="blue" height="h-1" />
               </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {[
+                  { label: "CPU", value: `${group.cpu}%`, tone: "rose" },
+                  { label: "RAM", value: `${group.ram}%`, tone: "blue" },
+                  { label: "Disk", value: `${group.disk}%`, tone: "amber" },
+                  { label: "CPU Temp", value: formatTemperature(group.cpuTemperature), tone: "rose" },
+                  { label: "Latency", value: group.latencyMs == null ? "Unknown" : `${Math.round(Number(group.latencyMs))}ms`, tone: "teal" },
+                  { label: "Nodes", value: group.count, tone: "slate" },
+                ].map((item) => (
+                  <div className={`rounded-lg border p-3 shadow-sm ${GLASS_TONES[item.tone] || GLASS_TONES.slate}`} key={item.label}>
+                    <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-slate-400 font-ui">{item.label}</p>
+                    <p className="truncate text-sm font-bold text-slate-700 font-data tabular-nums">{item.value}</p>
+                  </div>
+                ))}
+              </div>
               
-              <div className="grid gap-3 grid-cols-2 mt-2">
+              <div className="hidden">
                 <div className="rounded-lg bg-slate-50/80 p-3 border border-slate-100">
                   <p className="text-[9px] font-bold uppercase text-slate-400 tracking-widest mb-1.5 border-b border-slate-100/50 pb-1 font-ui">Resources</p>
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-600 font-data tabular-nums">
@@ -994,13 +1057,6 @@ function ExportPanel({ analytics, loading, onExportCsv, exporting }) {
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="mt-auto pt-6 border-t border-slate-100 border-dashed mt-6">
-           <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-slate-400 font-ui italic">
-              <span>Auth: Verified System</span>
-              <span>Report Hash: {Math.random().toString(36).substring(7).toUpperCase()}</span>
-           </div>
         </div>
       </div>
     </Panel>

@@ -46,14 +46,14 @@ function SettingsSection({ icon: Icon, title, subtitle, children, tone = "slate"
 function ActionButton({ label, icon: Icon, description, tone = "slate" }) {
   return (
     <div className="group relative">
-      <button className="btn-minimal h-14 w-full justify-between p-4" type="button">
-        <span className="flex items-center gap-3">
+      <button className="btn-minimal relative h-14 w-full justify-center px-12 py-4" type="button">
+        <span className="absolute left-4 flex items-center">
           <span className={`rounded-lg border p-2 shadow-sm transition group-hover:scale-105 ${ICON_TONES[tone]}`}>
             <Icon size={18} strokeWidth={2.5} />
           </span>
-          <span className="text-sm font-bold text-slate-700">{label}</span>
         </span>
-        <ChevronRight size={16} className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-slate-500" />
+        <span className="min-w-0 truncate text-center text-sm font-bold text-slate-700">{label}</span>
+        <ChevronRight size={16} className="absolute right-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-slate-500" />
       </button>
       <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-60 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2.5 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
         {description}
@@ -105,16 +105,26 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
               );
             })}
           </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="flex gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-xs font-medium leading-5 text-slate-600">
+              <Info size={16} className="shrink-0 text-blue-500" />
+              Local mode keeps dashboard actions inside this lab network.
+            </div>
+            <div className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50/80 p-4 text-xs font-medium leading-5 text-slate-600">
+              <Info size={16} className="shrink-0 text-slate-500" />
+              Online mode is reserved for future remote sync controls.
+            </div>
+          </div>
         </div>
 
         <div>
           <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
             Telemetry Interval
           </p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {["1s", "5s", "10s", "30s", "1m"].map((value) => (
+          <div className="flex flex-wrap gap-2">
+            {["1s", "5s", "10s", "30s"].map((value) => (
               <button
-                className={`h-11 rounded-lg border px-4 py-2 text-xs font-bold transition ${
+                className={`h-10 min-w-20 rounded-lg border px-4 py-2 text-xs font-bold transition ${
                   interval === value
                     ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/10"
                     : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
