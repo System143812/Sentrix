@@ -35,13 +35,16 @@ export function DeployDialog({ ip, onCancel, onConfirm, loading, error }) {
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <p className="text-sm text-slate-600">
-            Enter administrative credentials for the target PC. This allows Sentrix to remotely install the agent as a SYSTEM service.
+            Enter administrative credentials for the target PC. This allows
+            Sentrix to remotely install the agent as a SYSTEM service.
           </p>
 
           <div className="rounded-md bg-blue-50/50 p-3 text-xs leading-relaxed text-blue-800 ring-1 ring-blue-100">
-            <strong>💡 Zero-Touch Mode:</strong> For automated lab deployment, use the 
-            built-in <code>Administrator</code> account. Ensure you have run the 
-            <code>scripts/Sentrix-PC-Provisioner.ps1</code> script on your master image first.
+            <strong>Zero-Touch Mode:</strong> For automated lab deployment, use
+            the built-in <code>Administrator</code> account. Ensure you have run
+            the
+            <code> scripts/Sentrix-PC-Provisioner.ps1</code> script on your
+            master image first.
           </div>
 
           {error ? (
