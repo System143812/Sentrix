@@ -1,3 +1,4 @@
+import { MonitorCog } from "lucide-react";
 import { DeviceTable } from "../components/DeviceTable.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 
@@ -11,6 +12,7 @@ export function DevicesPage({
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={MonitorCog}
         title="Devices"
         subtitle="Manage device groups, expand device details, and review agent status at a glance."
         backgroundImage="/love_computer.jpg"

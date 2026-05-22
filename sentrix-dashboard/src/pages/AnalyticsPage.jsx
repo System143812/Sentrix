@@ -380,7 +380,9 @@ function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, select
             <button
               className={`btn-minimal h-10 px-5 transition-all font-ui active:scale-100 hover:scale-100 ${
                 selected
-                  ? "!border-white !bg-white text-slate-950 shadow-lg shadow-black/20 hover:!border-white hover:!bg-white hover:text-slate-950 cursor-default"
+                  ? dark
+                    ? "border-white/10 bg-white/10 text-white shadow-lg shadow-black/20 cursor-default"
+                    : "border-slate-300 bg-slate-50 text-slate-900 shadow-sm cursor-default"
                   : dark 
                     ? "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
                     : "bg-white text-slate-500 hover:bg-slate-50"
