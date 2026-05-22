@@ -28,14 +28,14 @@ function SettingsSection({ icon: Icon, title, subtitle, children, tone = "slate"
   return (
     <Card padding="0" className="flex h-full min-w-0 flex-col overflow-hidden border-slate-200/70 bg-white shadow-sm transition hover:shadow-md">
       <div className="flex flex-1 flex-col p-6">
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mb-6 flex items-start gap-4">
+          <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl border shadow-sm ${ICON_TONES[tone]}`}>
+            <Icon size={20} strokeWidth={2.25} />
+          </span>
           <div className="min-w-0">
             <h3 className="text-lg font-semibold">{title}</h3>
             {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
           </div>
-          <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl border shadow-sm ${ICON_TONES[tone]}`}>
-            <Icon size={20} strokeWidth={2.25} />
-          </span>
         </div>
         <div className="flex flex-1 flex-col">{children}</div>
       </div>
@@ -74,7 +74,7 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
       subtitle="Local dashboard preferences for operation mode and telemetry cadence."
       tone="blue"
     >
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-8">
         <div>
           <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
             Operation Mode
@@ -111,10 +111,10 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
           <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
             Telemetry Interval
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {["1s", "5s", "10s", "30s", "1m"].map((value) => (
               <button
-                className={`rounded-lg border px-4 py-2 text-xs font-bold transition ${
+                className={`h-11 rounded-lg border px-4 py-2 text-xs font-bold transition ${
                   interval === value
                     ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/10"
                     : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
