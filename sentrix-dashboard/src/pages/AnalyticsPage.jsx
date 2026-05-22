@@ -53,6 +53,24 @@ const timeRanges = [
   { key: "30d", label: "30d", points: ["W1", "W2", "W3", "W4", "W5", "Now"] },
 ];
 const ANALYTICS_REFRESH_MS = 5000;
+const GLASS_TONES = {
+  emerald: "border-emerald-100/70 bg-emerald-50/45 shadow-emerald-900/5",
+  blue: "border-blue-100/70 bg-blue-50/45 shadow-blue-900/5",
+  amber: "border-amber-100/70 bg-amber-50/45 shadow-amber-900/5",
+  rose: "border-rose-100/70 bg-rose-50/45 shadow-rose-900/5",
+  teal: "border-teal-100/70 bg-teal-50/45 shadow-teal-900/5",
+  indigo: "border-indigo-100/70 bg-indigo-50/45 shadow-indigo-900/5",
+  slate: "border-slate-200/80 bg-slate-50/70 shadow-slate-900/5",
+};
+const PROGRESS_TRACK_TONES = {
+  emerald: "bg-emerald-100/70",
+  blue: "bg-blue-100/70",
+  amber: "bg-amber-100/70",
+  rose: "bg-rose-100/70",
+  teal: "bg-teal-100/70",
+  indigo: "bg-indigo-100/70",
+  slate: "bg-slate-100",
+};
 
 function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
   const safeData = data || EMPTY_ANALYTICS;
@@ -209,8 +227,10 @@ function Panel({ icon, title, subtitle, children, action, loading = false, tone 
 }
 
 function MetricCard({ icon: Icon, label, value, detail, tone = "blue", warning = false, loading = false }) {
+  const cardTone = warning ? "rose" : tone;
+
   return (
-    <Card padding="0" className={`analytics-card analytics-reveal relative overflow-hidden bg-white border-slate-200/60 shadow-sm transition-all hover:shadow-md hover:border-slate-300`}>
+    <Card padding="0" className={`analytics-card analytics-reveal relative overflow-hidden border shadow-sm backdrop-blur-md transition-all hover:shadow-md ${GLASS_TONES[cardTone] || GLASS_TONES.slate}`}>
       <ModuleLoader loading={loading} />
       <div className="p-6">
         <div className="flex items-center justify-between gap-3">
@@ -226,7 +246,7 @@ function MetricCard({ icon: Icon, label, value, detail, tone = "blue", warning =
           </span>
         </div>
         <div className="mt-5 flex items-center gap-2">
-          <div className="h-1 w-full overflow-hidden rounded-full bg-slate-100/80">
+          <div className={`h-1 w-full overflow-hidden rounded-full ${PROGRESS_TRACK_TONES[cardTone] || PROGRESS_TRACK_TONES.slate}`}>
             <div 
               className={`h-full transition-all duration-1000 ${PROGRESS_BAR_COLORS[warning ? "rose" : tone]}`}
               style={{ width: value.includes("%") ? value : "100%" }}
@@ -359,7 +379,7 @@ function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, select
             <button
               className={`btn-minimal h-10 px-5 transition-all font-ui active:scale-100 hover:scale-100 ${
                 selected
-                  ? "bg-slate-900 border-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-900 hover:text-white"
+                  ? "!border-blue-400 !bg-blue-600 text-white shadow-lg shadow-blue-900/25 hover:!border-blue-400 hover:!bg-blue-600 hover:text-white cursor-default"
                   : dark 
                     ? "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
                     : "bg-white text-slate-500 hover:bg-slate-50"
@@ -475,7 +495,7 @@ function AgentMetricsPanel({ analytics, loading }) {
           {metrics.map((metric) => {
             const Icon = metric.icon;
             return (
-              <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-slate-200" key={metric.label}>
+              <div className={`rounded-xl border p-5 shadow-sm backdrop-blur-md transition-all hover:shadow-md ${GLASS_TONES[metric.tone] || GLASS_TONES.slate}`} key={metric.label}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 font-ui">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{metric.label}</p>
@@ -556,8 +576,16 @@ function HealthScorePanel({ analytics, loading }) {
       tone="emerald"
     >
       <div className="grid gap-8 md:grid-cols-[200px_minmax(0,1fr)]">
-        <div className="grid place-items-center rounded-xl border border-slate-100 bg-slate-50/50 p-6 shadow-inner">
-          <div className="grid h-36 w-36 place-items-center rounded-full border-[10px] border-slate-200 bg-white shadow-sm ring-4 ring-slate-50">
+        <div className={`grid place-items-center rounded-xl border p-6 shadow-inner ${GLASS_TONES[tone] || GLASS_TONES.emerald}`}>
+          <div
+            className="analytics-donut grid h-36 w-36 place-items-center rounded-full border-[10px] bg-white shadow-sm ring-4 ring-white/70"
+            style={{
+              borderColor:
+                tone === "emerald" ? "rgba(16, 185, 129, 0.55)" :
+                tone === "amber" ? "rgba(245, 158, 11, 0.55)" :
+                "rgba(244, 63, 94, 0.55)",
+            }}
+          >
             <div className="text-center font-ui">
               <strong className={`block text-4xl font-bold tracking-tight ${STATUS_TONES[tone].split(' ')[0]}`}>{analytics.health}%</strong>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fleet Index</span>
@@ -568,7 +596,7 @@ function HealthScorePanel({ analytics, loading }) {
           {factors.map((factor) => {
             const Icon = factor.icon;
             return (
-              <div className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm transition-all hover:shadow-md font-ui" key={factor.label}>
+              <div className={`rounded-xl border p-4 shadow-sm backdrop-blur-md transition-all hover:shadow-md font-ui ${GLASS_TONES[factor.color] || GLASS_TONES.slate}`} key={factor.label}>
                 <div className="flex items-center justify-between gap-3">
                   <span className="inline-flex min-w-0 items-center gap-2.5 text-sm font-bold text-slate-700">
                     <Icon className="text-slate-400" size={15} />
@@ -598,7 +626,7 @@ function AlertTrendsPanel({ analytics, loading }) {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         <Sparkline color="#f43f5e" label="Alert count trend" points={analytics.alertTrend} />
         <div className="space-y-3 font-ui">
-          <div className="rounded-xl border border-rose-100 bg-rose-50/40 p-4 shadow-sm">
+          <div className="rounded-xl border border-rose-100/70 bg-rose-50/60 p-4 shadow-sm shadow-rose-900/5 backdrop-blur-md">
             <div className="flex items-center justify-between gap-3">
               <span className="inline-flex items-center gap-2 text-xs font-bold text-rose-700 uppercase tracking-wider">
                 <AlertTriangle className="text-rose-500" size={15} />
@@ -610,7 +638,7 @@ function AlertTrendsPanel({ analytics, loading }) {
           
           <div className="flex flex-col gap-2 max-h-[220px] overflow-auto custom-scrollbar pr-1">
             {analytics.topAlerts.length ? analytics.topAlerts.map((alert) => (
-              <div className="flex items-center justify-between gap-3 rounded-lg bg-white border border-slate-100 p-3 shadow-sm hover:border-slate-200 transition-colors" key={alert.name}>
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-rose-100/60 bg-rose-50/35 p-3 shadow-sm shadow-rose-900/5 transition-colors hover:border-rose-200 hover:bg-rose-50/60" key={alert.name}>
                 <span className="inline-flex min-w-0 items-center gap-2.5 text-xs font-bold text-slate-600">
                   <div className="h-1.5 w-1.5 rounded-full bg-rose-400" />
                   <span className="truncate">{alert.name}</span>
@@ -766,7 +794,7 @@ function EventTimelinePanel({ analytics, loading }) {
       subtitle="Chronological log of cluster alerts"
       tone="blue"
     >
-      <div className="space-y-4 flex flex-col flex-1">
+      <div className="space-y-4 flex max-h-[380px] flex-col overflow-auto pr-1 custom-scrollbar">
         {events.length ? events.map((event, index) => (
           <div className="flex gap-4 rounded-xl bg-white border border-slate-100 p-4 transition hover:bg-slate-50/50 hover:shadow-sm" key={`${event.title}-${index}`}>
             <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${event.warning ? "bg-rose-50 border-rose-100 text-rose-500" : "bg-emerald-50 border-emerald-100 text-emerald-500"}`}>
@@ -799,7 +827,7 @@ function TopIssuesPanel({ analytics, loading }) {
       subtitle="Consolidated failure and warning metrics"
       tone="rose"
     >
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
+      <div className="grid max-h-[380px] grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 overflow-auto pr-1 custom-scrollbar">
         {(analytics.topAlerts.length ? analytics.topAlerts : [{ name: "Standard", count: 0 }]).map((issue) => (
           <button
             className="group flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white p-4 text-left transition hover:border-slate-300 hover:shadow-md ring-1 ring-slate-100"
@@ -931,44 +959,44 @@ function ExportPanel({ analytics, loading, onExportCsv, exporting }) {
       subtitle="Fleet-wide reporting and compliance data engine"
       tone="indigo"
     >
-      <div className="flex flex-col flex-1 pt-10">
-        <div className="space-y-10">
-          <div className="py-4">
+      <div className="flex flex-col flex-1 pt-4">
+        <div className="space-y-5">
+          <div>
             <button
-              className="btn-minimal-primary w-full py-12 px-16 text-sm tracking-tight rounded-2xl shadow-xl shadow-indigo-900/20 active:scale-[0.98] justify-between overflow-hidden group relative"
+              className="btn-minimal-primary w-full justify-between overflow-hidden rounded-xl px-6 py-6 text-sm tracking-tight shadow-lg shadow-indigo-900/15 active:scale-[0.98] group relative"
               disabled={loading || exporting}
               onClick={onExportCsv}
               title="Download Telemetry Report"
               type="button"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-              <div className="flex items-center gap-12 relative z-10">
-                 <div className="p-5 rounded-2xl bg-white/10 text-white shadow-inner border border-white/10">
-                    <Download size={32} strokeWidth={2.5} />
+              <div className="flex min-w-0 items-center gap-5 relative z-10">
+                 <div className="p-3 rounded-xl bg-white/10 text-white shadow-inner border border-white/10">
+                    <Download size={22} strokeWidth={2.5} />
                  </div>
-                 <div className="text-left font-ui">
-                    <p className="text-white font-bold leading-none text-2xl tracking-tight">{exporting ? "Finalizing Package..." : "Export Fleet Analytics"}</p>
-                    <p className="text-[14px] text-white/60 uppercase tracking-[0.3em] mt-4 font-bold">Production Technical .CSV Registry</p>
+                 <div className="min-w-0 text-left font-ui">
+                    <p className="truncate text-lg font-bold leading-none text-white tracking-tight">{exporting ? "Finalizing Package..." : "Export Fleet Analytics"}</p>
+                    <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-white/60">Production Technical .CSV Registry</p>
                  </div>
               </div>
-              <ChevronRight className="text-white/40 group-hover:translate-x-3 transition-transform relative z-10" size={40} />
+              <ChevronRight className="shrink-0 text-white/40 group-hover:translate-x-2 transition-transform relative z-10" size={26} />
             </button>
           </div>
           
-          <div className="flex items-center justify-between rounded-2xl bg-rose-500/10 border border-rose-500/20 p-8 shadow-sm backdrop-blur-md ring-1 ring-rose-500/5 transition-all hover:bg-rose-500/20">
-            <div className="flex items-center gap-6">
-              <div className="p-4 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20 shadow-inner">
-                <BadgeAlert size={26} strokeWidth={2.5} />
+          <div className="flex items-center justify-between rounded-xl bg-rose-500/10 border border-rose-500/20 p-5 shadow-sm backdrop-blur-md ring-1 ring-rose-500/5 transition-all hover:bg-rose-500/20">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="p-3 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20 shadow-inner">
+                <BadgeAlert size={20} strokeWidth={2.5} />
               </div>
               <div className="min-w-0 font-ui">
-                <p className="text-[12px] font-bold uppercase tracking-[0.25em] text-rose-500/70 leading-none mb-3">Critical Registry</p>
-                <p className="text-lg font-bold text-rose-700 tracking-tight leading-none">{analytics.criticalAlerts} Flagged Items Found</p>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-rose-500/70 leading-none">Critical Registry</p>
+                <p className="text-base font-bold text-rose-700 tracking-tight leading-none">{analytics.criticalAlerts} Flagged Items Found</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-auto pt-10 border-t border-slate-100 border-dashed mt-10">
+        <div className="mt-auto pt-6 border-t border-slate-100 border-dashed mt-6">
            <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-slate-400 font-ui italic">
               <span>Auth: Verified System</span>
               <span>Report Hash: {Math.random().toString(36).substring(7).toUpperCase()}</span>
