@@ -5,6 +5,7 @@ import {
   Cpu,
   Globe2,
   HardDrive,
+  Info,
   MemoryStick,
   Monitor,
   Network,
@@ -215,8 +216,8 @@ function DetailViewSwitch({ activeView, onChange }) {
           <button
             className={`btn-minimal h-10 px-4 transition-all ${
               selected
-                ? "border-blue-200 bg-blue-50 text-blue-700 shadow-sm hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                : "bg-white text-slate-500 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                ? "!border-slate-900 !bg-slate-900 !text-white shadow-lg shadow-slate-900/15 hover:!border-slate-900 hover:!bg-slate-900 hover:!text-white"
+                : "!bg-white text-slate-500 hover:!border-slate-300 hover:!bg-slate-50 hover:!text-slate-900"
             }`}
             key={button.id}
             onClick={() => onChange(button.id)}
@@ -296,6 +297,12 @@ function RemoteControlPanel({ device }) {
               </div>
             );
           })}
+        </div>
+        <div className="mt-4 flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs font-semibold leading-5 text-blue-800">
+          <Info className="mt-0.5 shrink-0 text-blue-600" size={16} strokeWidth={2.5} />
+          <p>
+            These controls send secure power and session commands to the selected online device.
+          </p>
         </div>
         {commandStatus ? (
           <div className="mt-4 flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-700 shadow-sm">
