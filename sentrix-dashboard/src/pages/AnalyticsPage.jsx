@@ -22,6 +22,7 @@ import {
   Timer,
   Upload,
   Wifi,
+  WifiOff,
   ChevronLeft,
   ChevronRight,
   Users,
@@ -72,6 +73,7 @@ const PROGRESS_TRACK_TONES = {
   indigo: "bg-indigo-100/70",
   slate: "bg-slate-100",
 };
+const TREND_POINT_COLORS = ["#f43f5e", "#f59e0b", "#2563eb", "#14b8a6", "#8b5cf6", "#10b981"];
 
 function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
   const safeData = data || EMPTY_ANALYTICS;
@@ -277,7 +279,7 @@ function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
   const areaPath = path ? `${path} L ${width} ${height} L 0 ${height} Z` : "";
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-6 shadow-inner">
+    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
       <svg
         className="h-56 w-full sm:h-64"
         preserveAspectRatio="none"
@@ -289,15 +291,14 @@ function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
           <line
             key={line}
             stroke="currentColor"
-            className="text-slate-100"
-            strokeDasharray="4 6"
+            className="text-slate-100/80"
             x1="0"
             x2={width}
             y1={line}
             y2={line}
           />
         ))}
-        <path className="analytics-area" d={areaPath} fill={color} opacity="0.1" />
+        <path className="analytics-area" d={areaPath} fill={color} opacity="0.08" />
         <path
           className="analytics-line"
           d={path}
@@ -305,7 +306,7 @@ function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
           key={`${label}-${points.map((point) => point.value).join("-")}`}
           stroke={color}
           strokeLinecap="round"
-          strokeWidth="4"
+          strokeWidth="5"
         />
         {coordinates.map((point, index) => (
           <circle
@@ -314,23 +315,30 @@ function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
             cy={point.y}
             fill="#ffffff"
             key={`${label}-${index}`}
-            r="4"
-            stroke={color}
+            r="5"
+            stroke={TREND_POINT_COLORS[index % TREND_POINT_COLORS.length]}
             strokeWidth="3"
           />
         ))}
       </svg>
-      <div className="mt-6 flex flex-wrap justify-between gap-3">
-        {points.map((point) => (
-          <div className="min-w-[75px] rounded-lg bg-white px-3 py-2.5 shadow-sm border border-slate-100/60" key={point.label}>
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        {points.map((point, index) => {
+          const pointColor = TREND_POINT_COLORS[index % TREND_POINT_COLORS.length];
+          return (
+          <div
+            className="min-w-0 rounded-lg border bg-white px-3 py-2.5 shadow-sm"
+            key={point.label}
+            style={{ borderColor: `${pointColor}33`, backgroundColor: `${pointColor}0d` }}
+          >
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-ui">
               {point.label}
             </p>
-            <p className="mt-0.5 text-xs font-bold text-slate-700 font-data tabular-nums">
+            <p className="mt-0.5 text-xs font-bold font-data tabular-nums" style={{ color: pointColor }}>
               {point.value}%
             </p>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -518,10 +526,9 @@ function AgentMetricsPanel({ analytics, loading }) {
           })}
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
-          <div className="overflow-x-auto custom-scrollbar">
-            <div className="min-w-[1000px]">
-              <div className="grid grid-cols-[1.8fr_repeat(6,1fr)] bg-slate-50 border-b border-slate-200 px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-ui">
+        <div className="max-h-[520px] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 custom-scrollbar">
+            <div>
+              <div className="hidden grid-cols-[1.8fr_repeat(6,1fr)] bg-slate-50 border-b border-slate-200 px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-ui md:grid">
                 <span>Client Terminal</span>
                 <span className="text-right">CPU Temp</span>
                 <span className="text-right">GPU Temp</span>
@@ -535,16 +542,31 @@ function AgentMetricsPanel({ analytics, loading }) {
                   const cm = getClientMetrics(device);
 
                   return (
-                    <div className="grid grid-cols-[1.8fr_repeat(6,1fr)] gap-4 px-6 py-4 text-sm items-center hover:bg-slate-50/50 transition-colors" key={device.id}>
+                    <div className="grid gap-3 p-4 text-sm transition-colors hover:bg-slate-50/50 md:grid-cols-[1.8fr_repeat(6,1fr)] md:items-center md:px-6" key={device.id}>
                       <span className="font-bold text-slate-800 tracking-tight truncate font-ui">
                         {device.hostname}
                       </span>
-                      <span className="text-right tabular-nums text-slate-600 font-bold">{formatTemperature(cm.cpuTemperature)}</span>
-                      <span className="text-right tabular-nums text-slate-600 font-bold">{formatTemperature(cm.gpuTemperature)}</span>
-                      <span className="text-right tabular-nums text-slate-600 font-bold">{formatBytesPerSecond(cm.uploadBytesPerSec)}</span>
-                      <span className="text-right tabular-nums text-slate-600 font-bold">{formatBytesPerSecond(cm.downloadBytesPerSec)}</span>
+                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">CPU Temp</span>
+                        {formatTemperature(cm.cpuTemperature)}
+                      </span>
+                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">GPU Temp</span>
+                        {formatTemperature(cm.gpuTemperature)}
+                      </span>
+                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">Upload</span>
+                        {formatBytesPerSecond(cm.uploadBytesPerSec)}
+                      </span>
+                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">Download</span>
+                        {formatBytesPerSecond(cm.downloadBytesPerSec)}
+                      </span>
                       <span className="text-right tabular-nums text-slate-600 font-bold">{cm.latencyMs == null ? "—" : `${Math.round(Number(cm.latencyMs))}ms`}</span>
-                      <span className="text-right tabular-nums text-slate-600 font-bold">{formatPercent(cm.packetLoss)}</span>
+                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">Loss</span>
+                        {formatPercent(cm.packetLoss)}
+                      </span>
                     </div>
                   );
                 }) : (
@@ -555,7 +577,6 @@ function AgentMetricsPanel({ analytics, loading }) {
               </div>
             </div>
           </div>
-        </div>
       </div>
     </Panel>
   );
@@ -671,7 +692,7 @@ function DeviceComparisonPanel({ devices, loading, rangeKey }) {
       tone="blue"
     >
       <MultiLineChart devices={devices} rangeKey={rangeKey} />
-      <div className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
+      <div className="mt-8 max-h-[460px] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 custom-scrollbar">
         <div className="hidden grid-cols-[1.3fr_0.7fr_0.7fr_0.7fr] bg-slate-50 border-b border-slate-200 px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 md:grid font-ui">
           <span>Hostname</span>
           <span className="text-center">Health</span>
@@ -685,11 +706,17 @@ function DeviceComparisonPanel({ devices, loading, rangeKey }) {
             const isOutlier = health < 65 || load > 82;
 
             return (
-              <div className="grid gap-4 px-6 py-4 text-sm items-center hover:bg-slate-50/50 transition-colors md:grid-cols-[1.3fr_0.7fr_0.7fr_0.7fr]" key={device.id}>
+              <div className="grid gap-3 p-4 text-sm transition-colors hover:bg-slate-50/50 md:grid-cols-[1.3fr_0.7fr_0.7fr_0.7fr] md:items-center md:px-6" key={device.id}>
                 <span className="font-bold text-slate-800 tracking-tight font-ui truncate">{device.hostname}</span>
-                <span className="text-center tabular-nums text-slate-600 font-bold">{health}%</span>
-                <span className="text-center tabular-nums text-slate-600 font-bold">{load}%</span>
-                <div className="flex justify-end font-ui">
+                <span className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">Health</span>
+                  {health}%
+                </span>
+                <span className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">Load</span>
+                  {load}%
+                </span>
+                <div className="flex justify-start font-ui md:justify-end">
                   <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight border transition-all ${isOutlier ? "bg-rose-50 text-rose-700 border-rose-100" : "bg-emerald-50 text-emerald-700 border-emerald-100"}`}>
                     <div className={`h-1 w-1 rounded-full ${isOutlier ? 'bg-rose-500' : 'bg-emerald-500'}`} />
                     {isOutlier ? "Review" : "Standard"}
@@ -781,12 +808,14 @@ function EventTimelinePanel({ analytics, loading }) {
       detail: item.device.hostname,
       time: formatTimeAgo(getLastSeenAt(item.device)),
       warning: true,
+      offline: false,
     })),
     ...analytics.recentDevices.slice(0, 3).map((device) => ({
       title: device.status === "online" ? "Heartbeat Logged" : "Node Offline",
       detail: device.hostname,
       time: formatTimeAgo(getLastSeenAt(device)),
-      warning: device.status !== "online",
+      warning: false,
+      offline: device.status !== "online",
     })),
   ].slice(0, 6);
 
@@ -801,8 +830,14 @@ function EventTimelinePanel({ analytics, loading }) {
       <div className="space-y-4 flex max-h-[380px] flex-col overflow-auto pr-1 custom-scrollbar">
         {events.length ? events.map((event, index) => (
           <div className="flex gap-4 rounded-xl bg-white border border-slate-100 p-4 transition hover:bg-slate-50/50 hover:shadow-sm" key={`${event.title}-${index}`}>
-            <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${event.warning ? "bg-rose-50 border-rose-100 text-rose-500" : "bg-emerald-50 border-emerald-100 text-emerald-500"}`}>
-              {event.warning ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+            <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${
+              event.warning
+                ? "bg-rose-50 border-rose-100 text-rose-500"
+                : event.offline
+                  ? "bg-rose-50 border-rose-100 text-rose-500"
+                  : "bg-emerald-50 border-emerald-100 text-emerald-500"
+            }`}>
+              {event.warning ? <AlertTriangle size={16} /> : event.offline ? <WifiOff size={16} /> : <CheckCircle2 size={16} />}
             </span>
             <div className="min-w-0 flex-1 font-ui">
               <div className="flex items-start justify-between gap-3">
@@ -935,7 +970,9 @@ function GroupPerformancePanel({ analytics, loading }) {
       }
     >
       <div className="flex flex-1 flex-col">
-        {groups.length ? groups.map((group, index) => (
+        {groups.length ? (
+          <>
+            {groups.map((group, index) => (
           <div
             className={`rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-500 hover:shadow-md ${index === activeIndex ? "block opacity-100 translate-x-0" : "hidden opacity-0 translate-x-4"}`}
             key={group.name}
@@ -1005,7 +1042,27 @@ function GroupPerformancePanel({ analytics, loading }) {
               </div>
             </div>
           </div>
-        )) : (
+            ))}
+            {groups.length > 1 ? (
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {groups.map((group, index) => (
+                  <button
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      index === activeIndex
+                        ? "w-6 bg-teal-500 shadow-sm shadow-teal-900/20"
+                        : "w-2 bg-teal-100 hover:bg-teal-300"
+                    }`}
+                    key={`dot-${group.name}`}
+                    onClick={() => setActiveGroupIndex(index)}
+                    title={`Show ${group.name}`}
+                    type="button"
+                    aria-label={`Show ${group.name}`}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : (
           <div className="flex-1 grid place-items-center rounded-xl bg-slate-50/50 border border-dashed border-slate-200 font-ui">
              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Provisioned Clusters</p>
           </div>
