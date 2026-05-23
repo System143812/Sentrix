@@ -189,6 +189,8 @@ function DashboardShell({
 
             <div className="flex flex-wrap items-center gap-2 font-ui">
             <span
+              title={connected ? "Live" : "Offline"}
+              aria-label={connected ? "Live connection" : "Offline connection"}
               className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide shadow-sm ${
                 connected
                   ? "border-emerald-100 bg-emerald-50 text-emerald-700"
@@ -196,7 +198,7 @@ function DashboardShell({
               }`}
             >
               {connected ? <Wifi size={14} strokeWidth={2.5} /> : <WifiOff size={14} strokeWidth={2.5} />}
-              {connected ? "Live" : "Offline"}
+              <span className="hidden sm:inline">{connected ? "Live" : "Offline"}</span>
             </span>
 
             <span className="inline-flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-sm">
@@ -223,10 +225,12 @@ function DashboardShell({
             <button
               type="button"
               onClick={onLogout}
-              className="btn-minimal h-10 px-4 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+              title="Logout"
+              aria-label="Logout"
+              className="btn-minimal h-10 px-3 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 sm:px-4"
             >
               <LogOut size={15} strokeWidth={2.5} />
-              <span className="text-[10px] font-bold uppercase tracking-wide">Logout</span>
+              <span className="hidden text-[10px] font-bold uppercase tracking-wide sm:inline">Logout</span>
             </button>
           </div>
           </header>
