@@ -1,6 +1,6 @@
 function NavTooltip({ label }) {
   return (
-    <span className="pointer-events-none absolute left-1/2 top-12 z-20 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white shadow-xl group-hover:block group-focus-within:block">
+    <span className="pointer-events-none absolute left-1/2 top-12 z-20 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white shadow-xl lg:group-hover:block lg:group-focus-within:block">
       {label}
       <span className="absolute bottom-full left-1/2 -ml-1 border-4 border-transparent border-b-slate-900" />
     </span>
@@ -9,7 +9,7 @@ function NavTooltip({ label }) {
 
 export function TabNav({ tabs, activeTab, onSelect }) {
   return (
-    <nav className="flex w-full min-w-0 snap-x items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-200/70 bg-white p-1.5 shadow-sm lg:w-auto lg:flex-wrap lg:overflow-visible">
+    <nav className="flex w-fit max-w-full min-w-0 snap-x items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-200/70 bg-white p-1.5 shadow-sm lg:flex-wrap lg:overflow-visible">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const active = activeTab === tab.id;
