@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Wifi } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Wifi, WifiOff } from "lucide-react";
 import { DEVICE_STATUS_COLORS } from "../styles/tones.js";
 
 // Badge for displaying device status (online/offline) or alert status
@@ -42,7 +42,7 @@ export function StatusBadge({ status, alert, showIcon = true, size = "md" }) {
 
   if (status) {
     const statusStyle = DEVICE_STATUS_COLORS[status] || DEVICE_STATUS_COLORS.offline;
-    const Icon = status === "online" ? Wifi : AlertTriangle;
+    const Icon = status === "online" ? Wifi : WifiOff;
 
     return (
       <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border font-bold capitalize backdrop-blur ${sizeClasses[size]} ${statusStyle}`}>

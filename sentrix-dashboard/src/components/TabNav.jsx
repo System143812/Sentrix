@@ -18,7 +18,10 @@ export function TabNav({ tabs, activeTab, onSelect }) {
           <div className="group relative shrink-0 snap-start" key={tab.id}>
             <button
               type="button"
-              onClick={() => onSelect(tab.id)}
+              onClick={(event) => {
+                onSelect(tab.id);
+                event.currentTarget.blur();
+              }}
               title={tab.label}
               aria-label={tab.label}
               className={`grid h-10 w-10 place-items-center rounded-lg transition active:scale-95 ${
