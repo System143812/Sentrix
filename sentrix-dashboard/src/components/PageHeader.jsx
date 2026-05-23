@@ -22,7 +22,7 @@ export function PageHeader({
         <div
           className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 hover:scale-[1.02]"
           style={{
-            backgroundImage: `linear-gradient(to bottom right, rgba(2, 6, 23, 0.78), rgba(15, 23, 42, 0.6), rgba(37, 99, 235, 0.22)), url("${backgroundImage}")`,
+            backgroundImage: `linear-gradient(to bottom right, rgba(2, 6, 23, 0.9), rgba(15, 23, 42, 0.75)), url("${backgroundImage}")`,
           }}
         />
       ) : null}
@@ -61,7 +61,9 @@ export function PageHeader({
         {children ? (
           <div
             className={`mt-5 ${
-              isDark ? "border-t border-white/10 pt-5" : "border-t border-slate-100 pt-5"
+              isDark
+                ? "border-t border-white/10 pt-5"
+                : "border-t border-slate-100 pt-5"
             }`}
           >
             {children}
