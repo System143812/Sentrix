@@ -221,10 +221,12 @@ function DetailViewSwitch({ activeView, onChange }) {
             }`}
             key={button.id}
             onClick={() => onChange(button.id)}
+            title={button.label}
             type="button"
+            aria-label={button.label}
           >
             <Icon size={16} strokeWidth={2.5} />
-            <span className="text-xs font-bold uppercase tracking-wide">{button.label}</span>
+            <span className="hidden text-xs font-bold uppercase tracking-wide sm:inline">{button.label}</span>
           </button>
         );
       })}
@@ -298,8 +300,8 @@ function RemoteControlPanel({ device }) {
             );
           })}
         </div>
-        <div className="mt-4 flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs font-semibold leading-5 text-blue-800">
-          <Info className="mt-0.5 shrink-0 text-blue-600" size={16} strokeWidth={2.5} />
+        <div className="mt-4 flex items-start gap-3 rounded-lg border border-slate-200 bg-white/80 px-4 py-3 text-xs font-medium leading-5 text-slate-500 shadow-sm">
+          <Info className="mt-0.5 shrink-0 text-slate-400" size={16} strokeWidth={2.5} />
           <p>
             These controls send secure power and session commands to the selected online device.
           </p>
@@ -333,7 +335,7 @@ function ActivityMonitor({ connections, history, error }) {
   };
 
   return (
-    <section className="h-full overflow-hidden rounded-lg border border-line bg-slate-100/80 p-4">
+    <section className="h-full overflow-hidden rounded-lg border border-line bg-slate-100/80 p-3 sm:p-4">
       <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
         <Globe2 size={15} />
         Activity Monitor
@@ -358,7 +360,7 @@ function ActivityMonitor({ connections, history, error }) {
                 className="rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70"
                 key={item.id ? `conn-${item.id}` : `conn-${item.process}-${item.domain}-${item.peerAddress}-${item.peerPort}`}
               >
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
                     <p className={`break-words text-sm font-bold ${item.domain?.includes('localhost') ? 'text-signal' : 'text-slate-900'}`}>
                       {item.domain || item.peerAddress}
@@ -372,7 +374,7 @@ function ActivityMonitor({ connections, history, error }) {
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex shrink-0 flex-wrap gap-2">
                     {item.count > 1 && (
                       <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
                         {item.count} hits
@@ -407,7 +409,7 @@ function ActivityMonitor({ connections, history, error }) {
                 className="rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70 opacity-80"
                 key={`hist-${item.domain}-${item.process}`}
               >
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="break-words text-sm font-semibold text-slate-700">
                     {item.domain}
                   </p>
@@ -415,8 +417,8 @@ function ActivityMonitor({ connections, history, error }) {
                     {new Date(item.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
-                <div className="flex items-center justify-between mt-1">
-                  <p className="text-xs text-slate-500">
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="min-w-0 truncate text-xs text-slate-500">
                     {item.process}
                   </p>
                   <span 
@@ -497,9 +499,15 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
                     {process.windowTitle || `PID ${process.pid} - ${process.user}`}
                   </p>
                 </div>
-                <span className="text-right text-xs font-medium">{process.cpu}%</span>
-                <span className="text-right text-xs font-medium">{process.memoryMb} MB</span>
-                <div className="flex justify-center">
+                <span className="flex justify-between text-xs font-medium lg:block lg:text-right">
+                  <span className="font-bold uppercase text-slate-400 lg:hidden">CPU</span>
+                  {process.cpu}%
+                </span>
+                <span className="flex justify-between text-xs font-medium lg:block lg:text-right">
+                  <span className="font-bold uppercase text-slate-400 lg:hidden">Memory</span>
+                  {process.memoryMb} MB
+                </span>
+                <div className="flex justify-start lg:justify-center">
                   <span
                     className={`w-fit rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
                       ended
@@ -523,7 +531,7 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
 
 function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProcesses, onToggle, onEnd }) {
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-line bg-slate-100/80 p-4">
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-line bg-slate-100/80 p-3 sm:p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
         <h4 className="flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
           <CircleStop size={15} />
@@ -728,11 +736,6 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
 
   return (
     <div className="border-t border-line bg-slate-50 px-4 py-5 sm:px-5">
-      {loading ? (
-        <p className="mb-4 rounded-md border border-blue-100 bg-white px-3 py-2 text-sm font-semibold text-slate-600">
-          Loading normalized agent details...
-        </p>
-      ) : null}
       {error ? (
         <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
           {error}
