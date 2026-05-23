@@ -294,17 +294,18 @@ export function NetworkPage({
       ) : null}
 
       <Card padding="6">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h3 className="text-lg font-semibold">Discovered hosts</h3>
             <p className="mt-2 text-sm text-slate-500">
               Hostnames are best-effort. Registered Sentrix agents are the
               trusted identity source.
             </p>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+          <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
             <ServerCog size={16} />
-            {scanResults.length} found
+            <span className="font-bold tabular-nums">{scanResults.length}</span>
+            <span>found</span>
           </span>
         </div>
 
