@@ -263,14 +263,14 @@ export function NetworkPage({
           </button>
         }
       >
-        <div className="mt-4 flex flex-wrap gap-3 text-xs font-bold text-white">
-          <span className="rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 shadow-xl shadow-black/10 backdrop-blur-md">
+        <div className="mt-4 flex flex-wrap gap-3 text-xs font-semibold text-white/70">
+          <span className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 shadow-sm shadow-black/5 backdrop-blur-md">
             Subnet: {snapshot?.subnet || "Unknown"}
           </span>
-          <span className="rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 shadow-xl shadow-black/10 backdrop-blur-md">
+          <span className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 shadow-sm shadow-black/5 backdrop-blur-md">
             Last scan: {formatTime(snapshot?.lastScanAt)}
           </span>
-          <span className="rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 shadow-xl shadow-black/10 backdrop-blur-md">
+          <span className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 shadow-sm shadow-black/5 backdrop-blur-md">
             Next auto scan: {formatTime(snapshot?.nextScanAt)}
           </span>
         </div>
