@@ -381,11 +381,11 @@ function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, select
               className={`btn-minimal h-10 px-5 transition-all font-ui active:scale-100 hover:scale-100 ${
                 selected
                   ? dark
-                    ? "border-white/10 bg-white/10 text-white shadow-lg shadow-black/20 cursor-default"
-                    : "border-slate-300 bg-slate-50 text-slate-900 shadow-sm cursor-default"
+                    ? "!border-white/10 !bg-white/10 !text-white shadow-lg shadow-black/20 cursor-default"
+                    : "!border-slate-200 !bg-slate-50 !text-slate-900 shadow-sm cursor-default"
                   : dark 
-                    ? "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
-                    : "bg-white text-slate-500 hover:bg-slate-50"
+                    ? "!border-transparent !bg-white/5 text-slate-200 hover:!border-white/10 hover:!bg-white/10 hover:!text-white"
+                    : "!bg-white text-slate-500 hover:!bg-slate-50"
               }`}
               key={range.key}
               onClick={() => setRangeKey(range.key)}
