@@ -350,7 +350,7 @@ function ActivityMonitor({ connections, history, error }) {
   };
 
   return (
-    <section className="flex flex-col h-full overflow-hidden rounded-xl border border-slate-200/60 bg-white p-4 sm:p-6 shadow-sm">
+    <section className="flex flex-col h-full max-h-[640px] overflow-hidden rounded-xl border border-slate-200/60 bg-white p-4 sm:p-6 shadow-sm">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
@@ -391,7 +391,7 @@ function ActivityMonitor({ connections, history, error }) {
         </p>
         <div 
           className="custom-scrollbar grid gap-3 overflow-auto pr-1 flex-1"
-          style={{ maxHeight: 'calc(100vh - 400px)', minHeight: '300px' }}
+          style={{ minHeight: '300px' }}
           onScroll={handleScroll(showHistory ? "history" : "active")}
           ref={showHistory ? historyListRef : activeListRef}
         >
@@ -500,7 +500,7 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
         </div>
 
         <div 
-          className="max-h-96 divide-y divide-slate-100 overflow-auto custom-scrollbar xl:min-h-0 xl:flex-1 xl:max-h-none"
+          className="max-h-96 divide-y divide-slate-100 overflow-auto custom-scrollbar xl:min-h-0 xl:flex-1"
           onScroll={handleScroll}
           ref={listRef}
         >
@@ -588,7 +588,7 @@ function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProce
   }, [processes, query, sortBy]);
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200/60 bg-white p-4 sm:p-6 shadow-sm">
+    <section className="flex h-full max-h-[640px] min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200/60 bg-white p-4 sm:p-6 shadow-sm">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4 border-b border-slate-50 pb-5">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm">
