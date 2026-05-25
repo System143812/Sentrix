@@ -101,7 +101,14 @@ async function getLibreHardwareTemperature() {
     
     // Check if we are running inside pkg
     if (process.pkg) {
+      // Look for assets next to the EXE if in pkg
       scriptPath = path.join(path.dirname(process.execPath), "assets", "temp-bridge.ps1");
+      
+      // If it doesn't exist next to the EXE, it might be in the internal snapshot (but PS can't run it from there directly)
+      // or the user might have placed it in a sibling folder.
+      if (!fs.existsSync(scriptPath)) {
+        scriptPath = path.join(path.dirname(process.execPath), "temp-bridge.ps1");
+      }
     }
 
     if (!fs.existsSync(scriptPath)) {
@@ -109,22 +116,26 @@ async function getLibreHardwareTemperature() {
       return null;
     }
 
-    const { stdout } = await execFileAsync("powershell.exe", [
+    // Use a more robust execution method: Dot-source and call inside -Command
+    const command = `& '${scriptPath}'`;
+    const { stdout, stderr } = await execFileAsync("powershell.exe", [
       "-NoProfile",
       "-NonInteractive",
       "-ExecutionPolicy", "Bypass",
-      "-File", scriptPath
+      "-Command", command
     ], {
-      timeout: 10000,
+      timeout: 15000,
       windowsHide: true,
     });
+
+    if (stderr) {
+      console.warn(`[Temperature] Bridge stderr: ${stderr}`);
+    }
 
     const result = JSON.parse(stdout);
     
     if (result.error) {
-      console.warn(`[Temperature] Bridge error: ${result.error}`);
-    } else if (result.info && result.info.includes("No hardware sensors found")) {
-      console.warn(`[Temperature] Bridge warning: ${result.info} (Admin: ${result.isAdmin})`);
+      console.warn(`[Temperature] Bridge script reported error: ${result.error}`);
     }
 
     return result;
