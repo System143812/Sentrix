@@ -117,9 +117,14 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
   let detailsSql = "";
 
   if (details) {
+    console.log(`[Core] Hardware update for ${id} (${currentClient.hostname}). USB Devices: ${details.usbDevices?.length || 0}`);
     detailsSql = ", details = ?";
     params.push(JSON.stringify(details));
-    await saveHardwareDetails(id, details);
+    try {
+      await saveHardwareDetails(id, details);
+    } catch (err) {
+      console.error(`[Core] Hardware save failed for ${id}:`, err);
+    }
   }
 
   params.push(id);

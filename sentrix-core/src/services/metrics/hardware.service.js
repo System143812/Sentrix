@@ -16,6 +16,8 @@ function buildPeripheralSnapshot(details = {}) {
   const networkAdapters = Array.isArray(details.specs?.networkAdapters) ? details.specs.networkAdapters : [];
   const items = [];
 
+  console.log(`[HardwareService] Building snapshot. USB Devices: ${usbDevices.length}, Peripherals:`, peripherals);
+
   for (const usb of usbDevices) {
     const identity = usb.id || `${usb.vendor || ""}-${usb.name || ""}-${usb.type || "USB"}`;
     items.push({
@@ -244,24 +246,35 @@ export async function saveHardwareDetails(clientId, details = {}) {
       if (usbDevices.length > 0) {
         const values = usbDevices.map(u => [clientId, u.name || null, u.type || null, u.vendor || null, u.id || null, now]);
         await connection.query(`INSERT INTO client_usb_devices (client_id, name, device_type, vendor, external_id, updated_at) VALUES ?`, [values]);
+        // Prune stale records for this client to prevent bloat while maintaining write-only speed.
+        await connection.query(`DELETE FROM client_usb_devices WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
       }
 
       const gpus = Array.isArray(peripherals.graphicsCards) ? peripherals.graphicsCards : [];
       if (gpus.length > 0) {
         const values = gpus.map(g => [clientId, g.model || null, g.vendor || null, toNumber(g.vram), now]);
         await connection.query(`INSERT INTO client_graphics_cards (client_id, model, vendor, vram_mb, updated_at) VALUES ?`, [values]);
+        await connection.query(`DELETE FROM client_graphics_cards WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
       }
 
       const displays = Array.isArray(peripherals.displays) ? peripherals.displays : [];
       if (displays.length > 0) {
         const values = displays.map(d => [clientId, d.model || null, d.resolution || null, now]);
         await connection.query(`INSERT INTO client_displays (client_id, model, resolution, updated_at) VALUES ?`, [values]);
+        await connection.query(`DELETE FROM client_displays WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
       }
 
-      await savePeripheralTracking(connection, clientId, details, now);
+      try {
+        await savePeripheralTracking(connection, clientId, details, now);
+      } catch (periphError) {
+        console.error(`[HardwareService] Failed to save peripheral tracking for ${clientId}:`, periphError);
+        // We don't want to fail the whole hardware update just for tracking, 
+        // but we need to know why it's failing.
+      }
 
       await connection.commit();
     } catch (error) {
+      console.error(`[HardwareService] Critical failure in saveHardwareDetails for ${clientId}:`, error);
       await connection.rollback();
       throw error;
     } finally {

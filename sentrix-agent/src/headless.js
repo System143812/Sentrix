@@ -98,6 +98,7 @@ async function refreshDetails(force = false) {
   try {
     lastDetails = await getDeviceDetails();
     lastDetailsAt = Date.now();
+    log(`Collected device details. Peripherals: ${lastDetails.usbDevices?.length || 0} USB devices found.`);
   } catch (error) {
     log("Failed to collect device details:", error.message);
   } finally {
