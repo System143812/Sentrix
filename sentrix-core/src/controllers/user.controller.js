@@ -4,6 +4,7 @@ import {
   deleteUser,
   getUserById,
 } from "../services/user.services.js";
+import { logAuditEvent } from "../services/audit.service.js";
 
 export async function listUsers(req, res, next) {
   try {
@@ -18,6 +19,13 @@ export async function createAdmin(req, res, next) {
   try {
     const { email, password } = req.body;
     const user = await createUser({ email, password, role: "admin" });
+    await logAuditEvent({
+      req,
+      action: "admin_account_created",
+      targetType: "user",
+      targetId: user.id,
+      targetLabel: user.email,
+    });
     return res.status(201).json({ success: true, data: user });
   } catch (error) {
     next(error);
@@ -47,6 +55,13 @@ export async function removeAdmin(req, res, next) {
         .status(404)
         .json({ success: false, message: "User not found." });
     }
+    await logAuditEvent({
+      req,
+      action: "admin_account_deleted",
+      targetType: "user",
+      targetId: user.id,
+      targetLabel: user.email,
+    });
     return res.json({ success: true, message: "User deleted." });
   } catch (error) {
     next(error);

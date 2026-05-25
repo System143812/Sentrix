@@ -49,7 +49,7 @@ export async function fetchJson(path, options = {}) {
   });
 
   const body = await response.json();
-  if (!response.ok) {
+  if (!response.ok || body?.success === false) {
     if (response.status === 401) {
       setAuthToken(null);
     }

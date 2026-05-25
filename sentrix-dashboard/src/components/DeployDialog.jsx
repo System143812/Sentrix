@@ -1,12 +1,12 @@
 import { X, ShieldAlert, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 
-export function DeployDialog({ ip, onCancel, onConfirm, loading, error }) {
+export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading, error }) {
   const [username, setUsername] = useState("Administrator");
   const [password, setPassword] = useState("");
 
-  function handleSubmit(e) {
-    e.preventDefault();
+  function handleSubmit(event) {
+    event.preventDefault();
     onConfirm({ username, password });
   }
 
@@ -19,7 +19,9 @@ export function DeployDialog({ ip, onCancel, onConfirm, loading, error }) {
               <ShieldAlert size={20} />
             </div>
             <div>
-              <h3 className="text-lg font-bold">Remote Deployment</h3>
+              <h3 className="text-lg font-bold">
+                {mode === "activate" ? "Activate Agent" : mode === "update" ? "Update Agent" : "Remote Setup"}
+              </h3>
               <p className="text-sm text-slate-500">Target IP: {ip}</p>
             </div>
           </div>
@@ -35,16 +37,18 @@ export function DeployDialog({ ip, onCancel, onConfirm, loading, error }) {
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <p className="text-sm text-slate-600">
-            Enter administrative credentials for the target PC. This allows
-            Sentrix to remotely install the agent as a SYSTEM service.
+            Enter administrative credentials for the target PC. This allows Sentrix to{" "}
+            {mode === "activate"
+              ? "start the existing agent task or reinstall the agent if it is missing."
+              : mode === "update"
+                ? "replace the current agent with the latest build and restart it."
+              : "set up the agent as a SYSTEM service."}
           </p>
 
           <div className="rounded-md bg-blue-50/50 p-3 text-xs leading-relaxed text-blue-800 ring-1 ring-blue-100">
-            <strong>Zero-Touch Mode:</strong> For automated lab deployment, use
-            the built-in <code>Administrator</code> account. Ensure you have run
-            the
-            <code> scripts/Sentrix-PC-Provisioner.ps1</code> script on your
-            master image first.
+            <strong>Automated setup:</strong> For lab devices, use the built-in{" "}
+            <code>Administrator</code> account. Ensure you have run{" "}
+            <code>scripts/Sentrix-PC-Provisioner.ps1</code> on your master image first.
           </div>
 
           {error ? (
@@ -63,7 +67,7 @@ export function DeployDialog({ ip, onCancel, onConfirm, loading, error }) {
               className="h-11 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-blue-100"
               placeholder="Administrator"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(event) => setUsername(event.target.value)}
               disabled={loading}
             />
             <p className="text-[10px] text-slate-400">
@@ -79,9 +83,9 @@ export function DeployDialog({ ip, onCancel, onConfirm, loading, error }) {
               type="password"
               required
               className="h-11 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-blue-100"
-              placeholder="••••••••"
+              placeholder="Password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
               disabled={loading}
             />
           </div>
@@ -103,10 +107,10 @@ export function DeployDialog({ ip, onCancel, onConfirm, loading, error }) {
               {loading ? (
                 <>
                   <LoaderCircle className="animate-spin" size={16} />
-                  <span>Deploying...</span>
+                  <span>{mode === "activate" ? "Activating..." : mode === "update" ? "Updating..." : "Setting up..."}</span>
                 </>
               ) : (
-                "Start Deployment"
+                mode === "activate" ? "Start Activation" : mode === "update" ? "Start Update" : "Start Setup"
               )}
             </button>
           </div>

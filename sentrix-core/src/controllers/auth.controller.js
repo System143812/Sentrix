@@ -5,7 +5,9 @@ import {
   countUsers,
   seedInitialAdmin,
   validatePassword,
+  updateUserPassword,
 } from "../services/user.services.js";
+import { logAuditEvent } from "../services/audit.service.js";
 
 const secret = process.env.JWT_SECRET || "sentrix-secret";
 
@@ -25,6 +27,13 @@ export async function login(req, res, next) {
     const user = await getUserForAuth(email);
 
     if (!user || !(await validatePassword(user, password))) {
+      await logAuditEvent({
+        req,
+        actor: { email, role: "unknown" },
+        action: "login_failed",
+        targetType: "user",
+        targetLabel: email,
+      });
       return res
         .status(401)
         .json({ success: false, message: "Invalid credentials." });
@@ -44,6 +53,15 @@ export async function login(req, res, next) {
 
     res.cookie("sentrix_token", token, getCookieOptions());
 
+    await logAuditEvent({
+      req,
+      actor: user,
+      action: "login_success",
+      targetType: "user",
+      targetId: user.id,
+      targetLabel: user.email,
+    });
+
     return res.json({
       success: true,
       data: {
@@ -62,8 +80,34 @@ export async function login(req, res, next) {
 
 export async function logout(req, res, next) {
   try {
+    await logAuditEvent({
+      req,
+      action: "logout",
+      targetType: "user",
+      targetId: req.user?.id,
+      targetLabel: req.user?.email,
+    });
     res.clearCookie("sentrix_token", getCookieOptions());
     return res.json({ success: true, data: { message: "Logged out." } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updatePassword(req, res, next) {
+  try {
+    const { currentPassword, nextPassword } = req.body || {};
+    const user = await updateUserPassword(req.user.id, currentPassword, nextPassword);
+
+    await logAuditEvent({
+      req,
+      action: "credential_updated",
+      targetType: "user",
+      targetId: user.id,
+      targetLabel: user.email,
+    });
+
+    res.json({ success: true, data: { id: user.id, email: user.email, role: user.role } });
   } catch (error) {
     next(error);
   }

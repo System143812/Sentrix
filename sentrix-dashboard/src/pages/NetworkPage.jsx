@@ -142,7 +142,7 @@ function DeploymentFailureOverlay({ failure, loading, onClose, onRetry }) {
 
         <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-            Technical message
+            Details
           </p>
           <p className="mt-1 break-words text-sm font-semibold leading-6 text-slate-700">
             {failure.technical}
@@ -164,7 +164,7 @@ function DeploymentFailureOverlay({ failure, loading, onClose, onRetry }) {
             type="button"
           >
             {loading ? <LoaderCircle className="animate-spin" size={16} /> : <RefreshCcw size={16} />}
-            Retry redeploy
+            Retry
           </button>
         </div>
       </div>
@@ -173,27 +173,41 @@ function DeploymentFailureOverlay({ failure, loading, onClose, onRetry }) {
 }
 
 export function NetworkPage({
+  user,
   snapshot,
   onScan,
   onDeploy,
   deployMessage,
   deployingIp,
 }) {
+  const canDeploy = user?.role === "network_admin";
   const [selectedIp, setSelectedIp] = useState(null);
   const [deploymentFailure, setDeploymentFailure] = useState(null);
   const [retryRequest, setRetryRequest] = useState(null);
   const { notify } = useToast();
   const scanResults = snapshot?.devices || [];
+  const selectedHost = scanResults.find((host) => host.ip === selectedIp);
   const scanLoading = snapshot?.status === "scanning";
 
   async function handleDeploy(credentials) {
+    let action = "deploy";
+
     try {
-      await onDeploy(selectedIp, "PC", credentials);
-      notify(`Deployment started for ${selectedIp}.`, "success");
+      if (!canDeploy) {
+        throw new Error("Only network admins can deploy agents.");
+      }
+      action =
+        selectedHost?.deployment_action === "activate"
+          ? "activate"
+          : selectedHost?.deployment_action === "update"
+            ? "update"
+            : "deploy";
+      await onDeploy(selectedIp, "PC", credentials, action);
+      notify(`${action === "activate" ? "Activation" : action === "update" ? "Update" : "Setup"} started for ${selectedIp}.`, "success");
       setSelectedIp(null);
     } catch (error) {
       const failure = getDeploymentFailure(error, selectedIp);
-      setRetryRequest({ ip: selectedIp, credentials });
+      setRetryRequest({ ip: selectedIp, credentials, action });
       setDeploymentFailure(failure);
       setSelectedIp(null);
       notify(failure.title, "failed");
@@ -203,12 +217,12 @@ export function NetworkPage({
   async function handleRetryDeploy() {
     if (!retryRequest?.ip) return;
 
-    const { ip, credentials } = retryRequest;
+    const { ip, credentials, action = "deploy" } = retryRequest;
     setDeploymentFailure(null);
 
     try {
-      await onDeploy(ip, "PC", credentials);
-      notify(`Deployment started for ${ip}.`, "success");
+      await onDeploy(ip, "PC", credentials, action);
+      notify(`${action === "activate" ? "Activation" : action === "update" ? "Update" : "Setup"} started for ${ip}.`, "success");
       setRetryRequest(null);
       setSelectedIp(null);
     } catch (error) {
@@ -228,6 +242,13 @@ export function NetworkPage({
       {selectedIp ? (
         <DeployDialog
           ip={selectedIp}
+          mode={
+            selectedHost?.deployment_action === "activate"
+              ? "activate"
+              : selectedHost?.deployment_action === "update"
+                ? "update"
+                : "deploy"
+          }
           onCancel={() => setSelectedIp(null)}
           onConfirm={handleDeploy}
           loading={deployingIp === selectedIp}
@@ -244,8 +265,8 @@ export function NetworkPage({
 
       <PageHeader
         icon={Radar}
-        title="Automatic Network Discovery"
-        subtitle="Sentrix scans in the background and streams discovery updates here. Use Rescan when you want to refresh the network now."
+        title="Network Scan"
+        subtitle="Sentrix scans the local network and shows which Windows PCs have an active, offline, or missing agent."
         backgroundImage="/network_header.jpg"
         action={
           <button
@@ -296,7 +317,7 @@ export function NetworkPage({
       <Card padding="6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold">Discovered hosts</h3>
+            <h3 className="text-lg font-semibold">Devices found</h3>
             <p className="mt-2 text-sm text-slate-500">
               Hostnames are best-effort. Registered Sentrix agents are the
               trusted identity source.
@@ -316,18 +337,19 @@ export function NetworkPage({
           </div>
         ) : (
           <div className="mt-6 overflow-hidden rounded-lg border border-slate-200">
-            <div className="hidden gap-4 bg-slate-100 px-4 py-3 text-xs font-semibold uppercase text-slate-500 lg:grid lg:grid-cols-[minmax(170px,1.2fr)_minmax(120px,0.7fr)_minmax(150px,1fr)_minmax(140px,0.9fr)_72px_150px]">
+            <div className="hidden gap-4 bg-slate-100 px-4 py-3 text-xs font-semibold uppercase text-slate-500 lg:grid lg:grid-cols-[minmax(160px,1.1fr)_minmax(110px,0.65fr)_minmax(140px,0.9fr)_minmax(120px,0.8fr)_70px_110px_130px]">
               <div>Host</div>
               <div>IP</div>
               <div>MAC</div>
               <div>Vendor</div>
               <div>Type</div>
-              <div className="text-right">DEPLOYMENT</div>
+              <div>Agent Status</div>
+              <div className="text-right">Action</div>
             </div>
             {scanResults.map((host) => (
               <div
                 key={host.ip}
-                className="grid gap-4 border-t border-slate-200 bg-white px-4 py-4 text-sm text-slate-700 first:border-t-0 lg:grid-cols-[minmax(170px,1.2fr)_minmax(120px,0.7fr)_minmax(150px,1fr)_minmax(140px,0.9fr)_72px_150px] lg:items-center"
+                className="grid gap-4 border-t border-slate-200 bg-white px-4 py-4 text-sm text-slate-700 first:border-t-0 lg:grid-cols-[minmax(160px,1.1fr)_minmax(110px,0.65fr)_minmax(140px,0.9fr)_minmax(120px,0.8fr)_70px_110px_130px] lg:items-center"
               >
                 <div className="min-w-0">
                   <p className="break-words font-semibold text-slate-900">
@@ -367,31 +389,59 @@ export function NetworkPage({
                     gateway={host.gateway}
                   />
                 </div>
+                <div>
+                  <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
+                    Agent Status
+                  </span>
+                  <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${
+                    host.agent_status === "running"
+                      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                      : host.agent_status === "offline"
+                        ? "border-amber-100 bg-amber-50 text-amber-700"
+                        : "border-slate-200 bg-slate-50 text-slate-500"
+                  }`}>
+                    {host.agent_status === "running" ? "Running" : host.agent_status === "offline" ? "Offline" : "No agent"}
+                  </span>
+                </div>
                 <div className="flex justify-start lg:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedIp(host.ip)}
-                    disabled={!host.deploy_eligible || deployingIp === host.ip}
-                    className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-                    title={
-                      host.deploy_eligible
-                        ? `Prepare installer for ${host.device_type}`
-                        : host.gateway
-                          ? "Deployment is not available for router/gateway devices"
-                          : `Deployment is not available for ${host.device_kind || host.device_type || "this device"}`
-                    }
-                  >
-                    {deployingIp === host.ip ? (
-                      <LoaderCircle className="animate-spin" size={15} />
-                    ) : (
-                      <PackageCheck size={15} />
-                    )}
-                    {host.deploy_eligible
-                      ? deployingIp === host.ip
-                        ? "Preparing"
-                        : "Deploy agent"
-                      : "Not eligible"}
-                  </button>
+                  {canDeploy ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIp(host.ip)}
+                      disabled={!host.deploy_eligible || deployingIp === host.ip}
+                      className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                      title={
+                        host.deploy_eligible
+                          ? `Prepare installer for ${host.device_type}`
+                          : host.gateway
+                            ? "Deployment is not available for router/gateway devices"
+                            : `Deployment is not available for ${host.device_kind || host.device_type || "this device"}`
+                      }
+                    >
+                      {deployingIp === host.ip ? (
+                        <LoaderCircle className="animate-spin" size={15} />
+                      ) : (
+                        <PackageCheck size={15} />
+                      )}
+                      {host.deployment_action === "update"
+                        ? deployingIp === host.ip
+                          ? "Updating"
+                          : "Update"
+                        : host.deployment_action === "activate"
+                          ? deployingIp === host.ip
+                            ? "Activating"
+                            : "Activate"
+                          : host.deploy_eligible
+                        ? deployingIp === host.ip
+                          ? "Preparing"
+                          : "Deploy"
+                        : "Not eligible"}
+                    </button>
+                  ) : (
+                    <span className="inline-flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-500">
+                      View only
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

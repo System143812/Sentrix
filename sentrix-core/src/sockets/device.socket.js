@@ -8,6 +8,7 @@ import {
   getDiscoverySnapshot,
   runDiscoveryScan,
 } from "../services/discovery/index.js";
+import { getTelemetrySettings } from "../services/settings.service.js";
 
 async function broadcastUpdate(io) {
   io.to("dashboards").emit("devices:update", await getClientSummary());
@@ -28,7 +29,9 @@ export function registerDeviceSocket(io) {
       try {
         agentId = payload.agentId || payload.id;
         const client = await registerClient(payload);
+        socket.join("agents");
         socket.join(`agent:${client.id}`);
+        socket.emit("settings:telemetry", await getTelemetrySettings());
         await broadcastUpdate(io);
         callback?.({ success: true, data: client });
       } catch (error) {

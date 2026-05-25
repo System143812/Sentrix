@@ -9,6 +9,7 @@ import {
   getLatestClientProcesses,
   getLatestClientNetworkActivity,
   getClientActivityHistory as getClientActivityHistoryFromRepo,
+  getClientPeripheralHistory as getClientPeripheralHistoryFromRepo,
 } from "./metrics/index.js";
 
 const HEARTBEAT_TIMEOUT_MS = Number(process.env.HEARTBEAT_TIMEOUT_MS || 60000);
@@ -184,6 +185,10 @@ export async function getClientNetworkActivity(id) {
 
 export async function getClientActivityHistory(id) {
   return await getClientActivityHistoryFromRepo(id);
+}
+
+export async function getClientPeripheralHistory(id) {
+  return await getClientPeripheralHistoryFromRepo(id);
 }
 
 export async function updateClientGroup(id, group) {

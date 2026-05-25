@@ -32,3 +32,11 @@ export async function logout() {
     setAuthToken(null);
   }
 }
+
+export async function updatePassword(currentPassword, nextPassword) {
+  const result = await fetchJson("/api/auth/password", {
+    method: "PATCH",
+    body: JSON.stringify({ currentPassword, nextPassword }),
+  });
+  return result.data;
+}

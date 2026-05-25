@@ -13,6 +13,7 @@ export {
 export {
   saveHardwareDetails,
   getClientHardware,
+  getClientPeripheralHistory,
 } from "./hardware.service.js";
 
 export {

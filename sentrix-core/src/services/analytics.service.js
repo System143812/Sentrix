@@ -405,24 +405,27 @@ function escapeCsv(value) {
 export async function getAnalyticsCsv(options = {}) {
   const summary = await getAnalyticsSummary(options);
   const header = [
-    "id",
-    "hostname",
-    "group",
-    "status",
-    "health",
-    "load",
-    "cpu",
-    "ram",
-    "disk",
-    "uptime",
-    "cpuTemperature",
-    "gpuTemperature",
-    "uploadBytesPerSec",
-    "downloadBytesPerSec",
-    "latencyMs",
-    "packetLoss",
-    "issues",
-    "lastSeenAt",
+    "Table",
+    "Device ID",
+    "Device Name",
+    "Group",
+    "Agent Status",
+    "Health Score (%)",
+    "Overall Load (%)",
+    "CPU Usage (%)",
+    "Memory Usage (%)",
+    "Disk Usage (%)",
+    "Uptime Seconds",
+    "CPU Temperature (C)",
+    "GPU Temperature (C)",
+    "Upload (bytes/sec)",
+    "Download (bytes/sec)",
+    "Latency (ms)",
+    "Packet Loss (%)",
+    "Active Issues",
+    "Last Seen",
+    "Export Range",
+    "Generated At",
   ];
 
   const rows = summary.devices.rows.map((device) => {
@@ -431,6 +434,7 @@ export async function getAnalyticsCsv(options = {}) {
     const temperature = metrics.temperature || {};
 
     return [
+      "Device Metrics",
       device.id,
       device.hostname,
       device.group,
@@ -448,11 +452,42 @@ export async function getAnalyticsCsv(options = {}) {
       network.latencyMs ?? metrics.latencyMs,
       network.packetLoss ?? metrics.packetLoss,
       device.issues.join("; "),
-      device.lastSeenAt,
+      device.lastSeenAt ? new Date(Number(device.lastSeenAt)).toISOString() : "",
+      summary.range.label,
+      new Date(Number(summary.generatedAt)).toISOString(),
     ];
   });
 
-  return [header, ...rows]
+  const groupHeader = [
+    "Table",
+    "Group",
+    "Total Devices",
+    "Online Devices",
+    "Offline Devices",
+    "Health Score (%)",
+    "Overall Load (%)",
+    "Average CPU (%)",
+    "Average Memory (%)",
+    "Average Disk (%)",
+    "Average Latency (ms)",
+    "Packet Loss (%)",
+  ];
+  const groupRows = summary.groups.map((group) => [
+    "Group Summary",
+    group.name,
+    group.count,
+    group.online,
+    group.offline,
+    group.health,
+    group.load,
+    group.cpu,
+    group.ram,
+    group.disk,
+    group.latencyMs,
+    group.packetLoss,
+  ]);
+
+  return [header, ...rows, [], groupHeader, ...groupRows]
     .map((row) => row.map(escapeCsv).join(","))
     .join("\n");
 }

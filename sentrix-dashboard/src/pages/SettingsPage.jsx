@@ -23,6 +23,8 @@ import { useToast } from "../components/ToastProvider.jsx";
 import { usePendingAction } from "../hooks/usePendingAction.js";
 import * as userApi from "../services/userApi.js";
 import * as groupApi from "../services/groupApi.js";
+import * as settingsApi from "../services/settingsApi.js";
+import * as authApi from "../services/authApi.js";
 import { ICON_TONES } from "../styles/tones.js";
 
 function SettingsSection({ icon: Icon, title, subtitle, children, tone = "slate" }) {
@@ -66,13 +68,33 @@ function ActionButton({ label, icon: Icon, description, tone = "slate" }) {
 
 function SystemConfigurationCard({ isNetworkAdmin }) {
   const [mode, setMode] = useState("local");
-  const [interval, setInterval] = useState("5s");
+  const [interval, setInterval] = useState(5000);
+  const { notify } = useToast();
+
+  useEffect(() => {
+    settingsApi.getTelemetrySettings()
+      .then((settings) => setInterval(settings.intervalMs || 5000))
+      .catch(() => {});
+  }, []);
+
+  async function saveInterval(value) {
+    setInterval(value);
+    if (!isNetworkAdmin) return;
+
+    try {
+      const settings = await settingsApi.updateTelemetrySettings(value);
+      setInterval(settings.intervalMs);
+      notify("Data collection interval updated.", "success");
+    } catch (error) {
+      notify(error.message || "Unable to update telemetry interval.", "failed");
+    }
+  }
 
   return (
     <SettingsSection
       icon={Globe}
-      title="System Configuration"
-      subtitle="Local dashboard preferences for operation mode and telemetry cadence."
+      title="System Preferences"
+      subtitle="Set dashboard mode and how often devices report data."
       tone="blue"
     >
       <div className="grid gap-8">
@@ -120,30 +142,82 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
 
         <div>
           <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-            Telemetry Interval
+            Data Collection Interval
           </p>
           <div className="flex flex-wrap gap-2">
-            {["1s", "5s", "10s", "30s"].map((value) => (
+            {[
+              { label: "1s", value: 1000 },
+              { label: "5s", value: 5000 },
+              { label: "10s", value: 10000 },
+              { label: "30s", value: 30000 },
+            ].map((item) => (
               <button
                 className={`h-10 min-w-20 rounded-lg border px-4 py-2 text-xs font-bold transition ${
-                  interval === value
+                  interval === item.value
                     ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/10"
                     : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                }`}
-                key={value}
-                onClick={() => setInterval(value)}
+                } ${!isNetworkAdmin ? "cursor-not-allowed opacity-60" : ""}`}
+                disabled={!isNetworkAdmin}
+                key={item.value}
+                onClick={() => saveInterval(item.value)}
                 type="button"
               >
-                {value}
+                {item.label}
               </button>
             ))}
           </div>
           <div className="mt-4 flex gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4 text-xs font-medium leading-5 text-slate-500">
             <Info size={16} className="shrink-0 text-blue-500" />
-            These controls are local UI preferences until backend configuration endpoints are added.
+            This schedule is saved globally and sent to connected devices for metrics and activity collection.
           </div>
         </div>
       </div>
+    </SettingsSection>
+  );
+}
+
+function CredentialCard() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [nextPassword, setNextPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const { pending, setPending } = usePendingAction();
+  const { notify } = useToast();
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (nextPassword !== confirmPassword) {
+      notify("New passwords do not match.", "failed");
+      return;
+    }
+
+    try {
+      await setPending("password", async () => {
+        await authApi.updatePassword(currentPassword, nextPassword);
+        setCurrentPassword("");
+        setNextPassword("");
+        setConfirmPassword("");
+        notify("Password updated.", "success");
+      });
+    } catch (error) {
+      notify(error.message || "Unable to update password.", "failed");
+    }
+  }
+
+  return (
+    <SettingsSection
+      icon={Lock}
+      title="Your Login & Recovery"
+      subtitle="Update your password and record the change in audit history."
+      tone="amber"
+    >
+      <form className="grid gap-3" onSubmit={handleSubmit}>
+        <FormInput onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Current password" type="password" value={currentPassword} required />
+        <FormInput onChange={(event) => setNextPassword(event.target.value)} placeholder="New password" type="password" value={nextPassword} required />
+        <FormInput onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm new password" type="password" value={confirmPassword} required />
+        <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70" disabled={pending === "password"} type="submit">
+          {pending === "password" ? <LoaderCircle className="animate-spin" size={17} /> : "Update password"}
+        </button>
+      </form>
     </SettingsSection>
   );
 }
@@ -161,10 +235,8 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
   const { notify } = useToast();
 
   useEffect(() => {
-    if (isNetworkAdmin) {
-      loadAdmins();
-    }
-  }, [isNetworkAdmin]);
+    loadAdmins();
+  }, []);
 
   async function loadAdmins() {
     const users = await userApi.getUsers();
@@ -438,39 +510,39 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
       </div>
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-3">
+        <CredentialCard />
+
         <SettingsSection
           icon={Lock}
-          title="Terminal Security"
-          subtitle="Security shortcuts for future account hardening."
+          title="Account Security"
+          subtitle="Security options for dashboard access."
           tone="amber"
         >
           <div className="grid gap-3">
-            <ActionButton label="Update Credential" icon={Lock} description="Securely reset administrative dashboard access keys." tone="amber" />
-            <ActionButton label="Active MFA" icon={Fingerprint} description="Prepare multi-factor authentication controls." tone="blue" />
+            <ActionButton label="Multi-factor sign-in" icon={Fingerprint} description="Prepare multi-factor authentication controls." tone="blue" />
           </div>
         </SettingsSection>
 
         <SettingsSection
           icon={Shield}
-          title="Telemetry Privacy"
-          subtitle="Privacy and retention actions for telemetry data."
+          title="Data Privacy"
+          subtitle="Privacy and retention actions for device data."
           tone="emerald"
         >
           <div className="grid gap-3">
-            <ActionButton label="Privacy Shield" icon={EyeOff} description="Restrict visibility of sensitive telemetry surfaces." tone="emerald" />
-            <ActionButton label="History Purge" icon={Clock} description="Review automated database retention behavior." tone="rose" />
+            <ActionButton label="Hide sensitive data" icon={EyeOff} description="Restrict visibility of sensitive device data." tone="emerald" />
+            <ActionButton label="Clear old history" icon={Clock} description="Review automated database retention behavior." tone="rose" />
           </div>
         </SettingsSection>
 
         <SettingsSection
           icon={ShieldCheck}
-          title="Protocol & Audit"
-          subtitle="Audit shortcuts for administrative activity."
+          title="Logs"
+          subtitle="Activity history for system actions."
           tone="indigo"
         >
           <div className="grid gap-3">
-            <ActionButton label="ToS Agreement" icon={Info} description="Review platform service agreement status." tone="indigo" />
-            <ActionButton label="Cluster Audit" icon={Layers} description="Trace group and device administration history." tone="teal" />
+            <ActionButton label="System logs" icon={Layers} description="Trace group, account, and device administration history." tone="teal" />
           </div>
         </SettingsSection>
       </div>

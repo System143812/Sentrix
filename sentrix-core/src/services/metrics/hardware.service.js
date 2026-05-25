@@ -1,5 +1,154 @@
 import pool from "../../lib/database.js";
-import { withDeadlockRetry, toNumber } from "../../utils/db.utils.js";
+import { withDeadlockRetry, toNumber, toJson } from "../../utils/db.utils.js";
+
+function normalizeKey(value = "") {
+  return String(value || "unknown")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 180);
+}
+
+function buildPeripheralSnapshot(details = {}) {
+  const peripherals = details.peripherals || {};
+  const usbDevices = Array.isArray(details.usbDevices) ? details.usbDevices : [];
+  const displays = Array.isArray(peripherals.displays) ? peripherals.displays : [];
+  const networkAdapters = Array.isArray(details.specs?.networkAdapters) ? details.specs.networkAdapters : [];
+  const items = [];
+
+  for (const usb of usbDevices) {
+    const identity = usb.id || `${usb.vendor || ""}-${usb.name || ""}-${usb.type || "USB"}`;
+    items.push({
+      key: `usb:${normalizeKey(identity)}`,
+      name: usb.name || "USB Device",
+      category: usb.type || "USB",
+      vendor: usb.vendor || "Unknown",
+      externalId: usb.id || null,
+    });
+  }
+
+  for (const display of displays) {
+    const identity = `${display.model || "display"}-${display.resolution || ""}`;
+    items.push({
+      key: `display:${normalizeKey(identity)}`,
+      name: display.model || "Display",
+      category: "Display",
+      vendor: null,
+      externalId: display.resolution || null,
+    });
+  }
+
+  for (const adapter of networkAdapters.filter((item) => /usb|wireless|bluetooth/i.test(`${item.name} ${item.type}`))) {
+    const identity = adapter.mac || adapter.name;
+    items.push({
+      key: `adapter:${normalizeKey(identity)}`,
+      name: adapter.name || "Network Adapter",
+      category: adapter.type || "Network Adapter",
+      vendor: null,
+      externalId: adapter.mac || null,
+    });
+  }
+
+  for (const [key, label] of [
+    ["mouse", "Mouse"],
+    ["keyboard", "Keyboard"],
+    ["webcam", "Webcam"],
+    ["wifiDongle", "WiFi Dongle"],
+    ["bluetoothDongle", "Bluetooth Dongle"],
+    ["storage", "USB Storage"],
+  ]) {
+    if (peripherals[key]) {
+      items.push({
+        key: `class:${key}`,
+        name: label,
+        category: label,
+        vendor: null,
+        externalId: null,
+      });
+    }
+  }
+
+  return [...new Map(items.map((item) => [item.key, item])).values()];
+}
+
+async function savePeripheralTracking(connection, clientId, details, now) {
+  const snapshot = buildPeripheralSnapshot(details);
+  const snapshotByKey = new Map(snapshot.map((item) => [item.key, item]));
+  const [existingRows] = await connection.query(
+    "SELECT * FROM client_peripheral_inventory WHERE client_id = ?",
+    [clientId],
+  );
+  const existingByKey = new Map(existingRows.map((row) => [row.peripheral_key, row]));
+
+  for (const item of snapshot) {
+    const existing = existingByKey.get(item.key);
+    await connection.query(
+      `
+      INSERT INTO client_peripheral_inventory
+        (client_id, peripheral_key, name, category, vendor, external_id, status, first_seen_at, last_seen_at, missing_since, missing_detected_offline, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'connected', ?, ?, NULL, 0, ?)
+      ON DUPLICATE KEY UPDATE
+        name = VALUES(name),
+        category = VALUES(category),
+        vendor = VALUES(vendor),
+        external_id = VALUES(external_id),
+        status = 'connected',
+        last_seen_at = VALUES(last_seen_at),
+        missing_since = NULL,
+        missing_detected_offline = 0,
+        updated_at = VALUES(updated_at)
+      `,
+      [clientId, item.key, item.name, item.category, item.vendor, item.externalId, now, now, now],
+    );
+
+    if (!existing || existing.status === "missing") {
+      await connection.query(
+        `
+        INSERT INTO client_peripheral_events
+          (client_id, peripheral_key, name, category, vendor, event_type, observed_at, last_seen_at, details)
+        VALUES (?, ?, ?, ?, ?, 'connected', ?, ?, ?)
+        `,
+        [clientId, item.key, item.name, item.category, item.vendor, now, now, toJson({ externalId: item.externalId })],
+      );
+    }
+  }
+
+  for (const row of existingRows) {
+    if (snapshotByKey.has(row.peripheral_key) || row.status === "missing") continue;
+
+    const missingOffline = Number(row.last_seen_at || 0) < now - 90_000;
+    await connection.query(
+      `
+      UPDATE client_peripheral_inventory
+      SET status = 'missing',
+          missing_since = ?,
+          missing_detected_offline = ?,
+          updated_at = ?
+      WHERE client_id = ? AND peripheral_key = ?
+      `,
+      [now, missingOffline ? 1 : 0, now, clientId, row.peripheral_key],
+    );
+
+    await connection.query(
+      `
+      INSERT INTO client_peripheral_events
+        (client_id, peripheral_key, name, category, vendor, event_type, observed_at, last_seen_at, details)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        clientId,
+        row.peripheral_key,
+        row.name,
+        row.category,
+        row.vendor,
+        missingOffline ? "missing_after_offline" : "disconnected",
+        now,
+        row.last_seen_at,
+        toJson({ note: missingOffline ? "Detected missing after the agent came back online." : "Detected while agent was online." }),
+      ],
+    );
+  }
+}
 
 export async function saveHardwareDetails(clientId, details = {}) {
   if (!details || typeof details !== "object") return;
@@ -109,6 +258,8 @@ export async function saveHardwareDetails(clientId, details = {}) {
         await connection.query(`INSERT INTO client_displays (client_id, model, resolution, updated_at) VALUES ?`, [values]);
       }
 
+      await savePeripheralTracking(connection, clientId, details, now);
+
       await connection.commit();
     } catch (error) {
       await connection.rollback();
@@ -117,6 +268,55 @@ export async function saveHardwareDetails(clientId, details = {}) {
       connection.release();
     }
   });
+}
+
+export async function getClientPeripheralHistory(clientId) {
+  const [inventoryRows] = await pool.query(
+    `
+    SELECT *
+    FROM client_peripheral_inventory
+    WHERE client_id = ?
+    ORDER BY status DESC, name ASC
+    `,
+    [clientId],
+  );
+  const [eventRows] = await pool.query(
+    `
+    SELECT *
+    FROM client_peripheral_events
+    WHERE client_id = ?
+    ORDER BY observed_at DESC
+    LIMIT 100
+    `,
+    [clientId],
+  );
+
+  return {
+    inventory: inventoryRows.map((row) => ({
+      key: row.peripheral_key,
+      name: row.name,
+      category: row.category,
+      vendor: row.vendor,
+      externalId: row.external_id,
+      status: row.status,
+      firstSeenAt: row.first_seen_at,
+      lastSeenAt: row.last_seen_at,
+      missingSince: row.missing_since,
+      missingDetectedOffline: Boolean(row.missing_detected_offline),
+      updatedAt: row.updated_at,
+    })),
+    events: eventRows.map((row) => ({
+      id: row.id,
+      key: row.peripheral_key,
+      name: row.name,
+      category: row.category,
+      vendor: row.vendor,
+      eventType: row.event_type,
+      observedAt: row.observed_at,
+      lastSeenAt: row.last_seen_at,
+      details: typeof row.details === "string" ? JSON.parse(row.details || "{}") : row.details,
+    })),
+  };
 }
 
 export async function getClientHardware(clientId) {

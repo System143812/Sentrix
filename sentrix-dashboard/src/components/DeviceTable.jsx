@@ -20,9 +20,14 @@ import {
   Lock,
   ArrowUpCircle,
   Terminal,
+  History,
+  Search,
+  ShieldAlert,
 } from "lucide-react";
-import { useLayoutEffect, useRef, useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useEffect, useMemo, useState } from "react";
 import { MetricPill } from "./MetricPill.jsx";
+import { SearchFilterBar, matchesSearch } from "./SearchFilterBar.jsx";
+import { useTelemetryInterval } from "../hooks/useTelemetryInterval.js";
 import * as clientApi from "../services/clientApi.js";
 import {
   formatBool,
@@ -199,11 +204,11 @@ function ConfirmDialog({ device, onCancel, onConfirm }) {
   );
 }
 
-function DetailViewSwitch({ activeView, onChange }) {
+function DetailViewSwitch({ activeView, onChange, canControl }) {
   const buttons = [
     { id: "specification", label: "Specification", icon: Monitor },
     { id: "networkActivity", label: "Network Activity", icon: RadioTower },
-    { id: "remoteControl", label: "Remote Controls", icon: Terminal },
+    ...(canControl ? [{ id: "remoteControl", label: "Remote Controls", icon: Terminal }] : []),
   ];
 
   return (
@@ -318,8 +323,16 @@ function RemoteControlPanel({ device }) {
 }
 
 function ActivityMonitor({ connections, history, error }) {
+  const [showHistory, setShowHistory] = useState(false);
+  const [query, setQuery] = useState("");
   const activeDomains = new Set(connections.map(c => c.domain));
   const filteredHistory = history.filter(h => !activeDomains.has(h.domain));
+  const visibleItems = useMemo(() => {
+    const source = showHistory ? filteredHistory : connections;
+    return source.filter((item) =>
+      matchesSearch(item, query, ["domain", "peerAddress", "process", "organization", "serviceLabel"]),
+    );
+  }, [connections, filteredHistory, query, showHistory]);
   
   const activeListRef = useRef(null);
   const historyListRef = useRef(null);
@@ -336,10 +349,29 @@ function ActivityMonitor({ connections, history, error }) {
 
   return (
     <section className="h-full overflow-hidden rounded-lg border border-line bg-slate-100/80 p-3 sm:p-4">
-      <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-        <Globe2 size={15} />
-        Activity Monitor
-      </h4>
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h4 className="flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+          <Globe2 size={15} />
+          Activity Monitor
+        </h4>
+        <button
+          className={`btn-minimal h-9 px-3 text-xs ${showHistory ? "!border-slate-900 !bg-slate-900 !text-white" : ""}`}
+          onClick={() => setShowHistory((current) => !current)}
+          title={showHistory ? "Show active sites and connections" : "Show recent activity history"}
+          type="button"
+        >
+          <History size={15} />
+          <span>{showHistory ? "Active" : "History"}</span>
+        </button>
+      </div>
+
+      <SearchFilterBar
+        className="mb-3 !border-slate-200 !bg-white/80"
+        count={visibleItems.length}
+        onQueryChange={setQuery}
+        placeholder={showHistory ? "Search recent activity" : "Search active sites and processes"}
+        query={query}
+      />
 
       {error && (
         <p className="mb-3 text-xs font-medium text-red-600">{error}</p>
@@ -348,14 +380,14 @@ function ActivityMonitor({ connections, history, error }) {
       <div className="grid gap-3">
         <div>
           <p className="mb-2 text-xs font-bold uppercase text-slate-500">
-            Active Sites & Connections
+            {showHistory ? "Recent Activity History" : "Active Sites & Connections"}
           </p>
           <div 
-            className="grid max-h-80 gap-2 overflow-auto pr-1"
-            onScroll={handleScroll('active')}
-            ref={activeListRef}
+            className="custom-scrollbar grid max-h-96 gap-2 overflow-auto pr-1"
+            onScroll={handleScroll(showHistory ? "history" : "active")}
+            ref={showHistory ? historyListRef : activeListRef}
           >
-            {connections.length > 0 ? connections.map((item) => (
+            {!showHistory && visibleItems.length > 0 ? visibleItems.map((item) => (
               <div
                 className="rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70"
                 key={item.id ? `conn-${item.id}` : `conn-${item.process}-${item.domain}-${item.peerAddress}-${item.peerPort}`}
@@ -389,22 +421,10 @@ function ActivityMonitor({ connections, history, error }) {
                   via <span className="font-semibold text-slate-700">{item.process}</span>
                 </p>
               </div>
-            )) : (
+            )) : !showHistory ? (
               <p className="py-4 text-center text-xs text-slate-400">No active activity detected.</p>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-2 text-xs font-bold uppercase text-slate-500">
-            Recent Activity History
-          </p>
-          <div 
-            className="grid max-h-80 gap-2 overflow-auto pr-1"
-            onScroll={handleScroll('history')}
-            ref={historyListRef}
-          >
-            {filteredHistory.length > 0 ? filteredHistory.map((item) => (
+            ) : null}
+            {showHistory && visibleItems.length > 0 ? visibleItems.map((item) => (
               <div
                 className="rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70 opacity-80"
                 key={`hist-${item.domain}-${item.process}`}
@@ -429,9 +449,9 @@ function ActivityMonitor({ connections, history, error }) {
                   </span>
                 </div>
               </div>
-            )) : (
+            )) : showHistory ? (
               <p className="py-4 text-center text-xs text-slate-400">No history archived yet.</p>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -530,6 +550,20 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
 };
 
 function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProcesses, onToggle, onEnd }) {
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState("cpu");
+  const visibleProcesses = useMemo(() => {
+    const searched = processes.filter((process) =>
+      matchesSearch(process, query, ["name", "user", "pid", "windowTitle", "status"]),
+    );
+
+    return [...searched].sort((first, second) => {
+      if (sortBy === "name") return String(first.name || "").localeCompare(String(second.name || ""));
+      if (sortBy === "memory") return Number(second.memoryMb || 0) - Number(first.memoryMb || 0);
+      return Number(second.cpu || 0) - Number(first.cpu || 0);
+    });
+  }, [processes, query, sortBy]);
+
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-line bg-slate-100/80 p-3 sm:p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
@@ -562,10 +596,31 @@ function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProce
         </div>
       )}
 
+      <SearchFilterBar
+        className="mb-4 !border-slate-200 !bg-white/80"
+        count={visibleProcesses.length}
+        filters={[
+          {
+            id: "sort",
+            label: "Sort",
+            value: sortBy,
+            onChange: setSortBy,
+            options: [
+              { value: "cpu", label: "CPU usage" },
+              { value: "memory", label: "Memory usage" },
+              { value: "name", label: "Alphabetical" },
+            ],
+          },
+        ]}
+        onQueryChange={setQuery}
+        placeholder="Search running processes"
+        query={query}
+      />
+
       <div className="grid min-h-0 flex-1 gap-6">
         <ProcessList 
           icon={Cpu} 
-          list={processes} 
+          list={visibleProcesses}
           title="Live Process Stream" 
           actionLoading={actionLoading}
           selectedProcesses={selectedProcesses}
@@ -573,6 +628,42 @@ function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProce
         />
       </div>
     </section>
+  );
+}
+
+function ProcessEndConfirmDialog({ count, loading, onCancel, onConfirm }) {
+  if (!count) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="flex items-start gap-4">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600">
+            <ShieldAlert size={22} />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-lg font-bold text-slate-900">End selected process{count > 1 ? "es" : ""}?</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              This sends a termination command to the agent. Unsaved work in the selected app may be lost.
+            </p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button className="btn-minimal h-10 px-4" disabled={loading} onClick={onCancel} type="button">
+            Cancel
+          </button>
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white shadow-lg shadow-rose-900/10 transition hover:bg-rose-700 disabled:cursor-wait disabled:opacity-70"
+            disabled={loading}
+            onClick={onConfirm}
+            type="button"
+          >
+            <CircleStop className={loading ? "animate-spin" : ""} size={16} />
+            End {count}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -587,6 +678,8 @@ function NetworkActivityDetails({ device }) {
   
   const [selectedProcesses, setSelectedProcesses] = useState([]);
   const [endedProcesses, setEndedProcesses] = useState([]);
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const refreshIntervalMs = useTelemetryInterval();
 
   useEffect(() => {
     let active = true;
@@ -615,13 +708,13 @@ function NetworkActivityDetails({ device }) {
     }
 
     fetchData();
-    timer = setInterval(fetchData, 5000); 
+    timer = setInterval(fetchData, refreshIntervalMs);
 
     return () => {
       active = false;
       if (timer) clearInterval(timer);
     };
-  }, [device.id]);
+  }, [device.id, refreshIntervalMs]);
 
   const displayedProcesses = processes.map((p) => ({
     pid: p.pid,
@@ -629,6 +722,7 @@ function NetworkActivityDetails({ device }) {
     user: p.user,
     cpu: p.cpu,
     memoryMb: p.memoryMb,
+    windowTitle: p.windowTitle,
     status: endedProcesses.includes(p.pid) ? "Ended" : "Running",
   }));
 
@@ -642,13 +736,6 @@ function NetworkActivityDetails({ device }) {
 
   async function endSelectedProcesses() {
     if (selectedProcesses.length === 0) return;
-
-    const count = selectedProcesses.length;
-    const confirmMsg = count === 1 
-      ? "Are you sure you want to end this process?"
-      : `Are you sure you want to end these ${count} processes?`;
-
-    if (!window.confirm(confirmMsg)) return;
 
     setActionLoading(true);
     setActionMessage({ text: "Ending processes...", type: "info" });
@@ -696,7 +783,16 @@ function NetworkActivityDetails({ device }) {
   }
 
   return (
-    <div className="grid items-stretch gap-4 xl:h-[48rem] xl:grid-cols-[1fr_1.2fr]">
+    <div className="grid min-w-0 items-stretch gap-4 xl:h-[48rem] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+      <ProcessEndConfirmDialog
+        count={confirmEnd ? selectedProcesses.length : 0}
+        loading={actionLoading}
+        onCancel={() => setConfirmEnd(false)}
+        onConfirm={async () => {
+          await endSelectedProcesses();
+          setConfirmEnd(false);
+        }}
+      />
       <ActivityMonitor 
         connections={connections}
         error={error}
@@ -705,7 +801,7 @@ function NetworkActivityDetails({ device }) {
       <ProcessMonitor 
         actionLoading={actionLoading}
         actionMessage={actionMessage}
-        onEnd={endSelectedProcesses}
+        onEnd={() => setConfirmEnd(true)}
         onToggle={toggleProcess}
         processes={displayedProcesses}
         selectedProcesses={selectedProcesses}
@@ -714,7 +810,86 @@ function NetworkActivityDetails({ device }) {
   );
 }
 
-function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
+function PeripheralHistoryPanel({ history }) {
+  const inventory = history?.inventory || [];
+  const events = history?.events || [];
+  const missing = inventory.filter((item) => item.status === "missing");
+
+  return (
+    <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h4 className="flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+          <Usb size={15} strokeWidth={2.5} />
+          Peripheral Tracking
+        </h4>
+        {missing.length ? (
+          <span className="w-fit rounded-full border border-rose-100 bg-rose-50 px-3 py-1 text-[10px] font-bold uppercase text-rose-600">
+            {missing.length} missing
+          </span>
+        ) : (
+          <span className="w-fit rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase text-emerald-600">
+            Inventory clear
+          </span>
+        )}
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="min-w-0">
+          <p className="mb-2 text-[10px] font-bold uppercase text-slate-400">Current Inventory</p>
+          <div className="custom-scrollbar grid max-h-64 gap-2 overflow-auto pr-1">
+            {inventory.length ? inventory.map((item) => (
+              <div className="rounded-lg border border-slate-100 bg-white px-3 py-2.5 shadow-sm" key={item.key}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-bold text-slate-800">{item.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">{item.category || "Peripheral"}{item.vendor ? ` - ${item.vendor}` : ""}</p>
+                  </div>
+                  <span className={`w-fit rounded-md px-2 py-1 text-[10px] font-bold uppercase ${item.status === "missing" ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}>
+                    {item.status === "missing" ? "Missing" : "Connected"}
+                  </span>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-400">
+                  Last seen {item.lastSeenAt ? new Date(Number(item.lastSeenAt)).toLocaleString() : "Unknown"}
+                </p>
+              </div>
+            )) : (
+              <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-center text-xs text-slate-400">
+                No peripheral inventory recorded yet.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          <p className="mb-2 text-[10px] font-bold uppercase text-slate-400">Recent Changes</p>
+          <div className="custom-scrollbar grid max-h-64 gap-2 overflow-auto pr-1">
+            {events.length ? events.map((event) => (
+              <div className="rounded-lg border border-slate-100 bg-white px-3 py-2.5 shadow-sm" key={event.id}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="break-words text-sm font-bold text-slate-800">{event.name}</p>
+                  <span className={`w-fit rounded-md px-2 py-1 text-[10px] font-bold uppercase ${
+                    event.eventType === "connected" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-700"
+                  }`}>
+                    {event.eventType === "missing_after_offline" ? "Missing after offline" : event.eventType}
+                  </span>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-400">
+                  {event.observedAt ? new Date(Number(event.observedAt)).toLocaleString() : "No time recorded"}
+                </p>
+              </div>
+            )) : (
+              <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-center text-xs text-slate-400">
+                No plug in/out history yet.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loading, error, canControl }) {
   const [activeView, setActiveView] = useState("specification");
   const details = device.details || {};
   const specs = hardware?.profile || details.specs || {};
@@ -742,7 +917,7 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
         </p>
       ) : null}
 
-      <DetailViewSwitch activeView={activeView} onChange={setActiveView} />
+      <DetailViewSwitch activeView={activeView} onChange={setActiveView} canControl={canControl} />
 
       {activeView === "specification" ? (
         <div className="device-detail-view">
@@ -948,6 +1123,8 @@ function DeviceDetails({ device, hardware, metricHistory, loading, error }) {
           </div>
         </section>
       </div>
+
+      <PeripheralHistoryPanel history={peripheralHistory} />
         </div>
       ) : activeView === "networkActivity" ? (
         <div className="device-detail-view">
@@ -968,6 +1145,7 @@ export function DeviceTable({
   onUpdateGroup,
   groups = [],
   onArchive,
+  canControl = false,
 }) {
   const [expandedId, setExpandedId] = useState(null);
   const [pendingArchive, setPendingArchive] = useState(null);
@@ -992,14 +1170,16 @@ export function DeviceTable({
     Promise.all([
       clientApi.getClientHardware(expandedId),
       clientApi.getClientMetrics(expandedId, { range: "24h", limit: 1440 }),
+      clientApi.getClientPeripheralHistory(expandedId),
     ])
-      .then(([hardware, metricHistory]) => {
+      .then(([hardware, metricHistory, peripheralHistory]) => {
         if (!active) return;
         setDetailCache((current) => ({
           ...current,
           [expandedId]: {
             hardware,
             metricHistory,
+            peripheralHistory,
             loading: false,
             loaded: true,
             error: "",
@@ -1014,7 +1194,7 @@ export function DeviceTable({
             ...current[expandedId],
             loading: false,
             loaded: true,
-            error: error.message || "Unable to load normalized agent details.",
+            error: error.message || "Unable to load device details.",
           },
         }));
       });
@@ -1200,6 +1380,8 @@ export function DeviceTable({
                     hardware={detailCache[device.id]?.hardware}
                     loading={detailCache[device.id]?.loading}
                     metricHistory={detailCache[device.id]?.metricHistory}
+                    peripheralHistory={detailCache[device.id]?.peripheralHistory}
+                    canControl={canControl}
                   />
                 ) : null}
               </article>
