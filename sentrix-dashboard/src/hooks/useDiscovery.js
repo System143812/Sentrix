@@ -56,12 +56,12 @@ export function useDiscovery() {
     }
   }
 
-  async function deploy(ip, deviceType, credentials = null) {
+  async function deploy(ip, deviceType, credentials = null, action = "deploy") {
     setDeployingIp(ip);
     setMessage("");
     try {
-      const result = await discoveryApi.deployAgent(ip, deviceType, credentials);
-      setMessage(result.message || `Deployment successful for ${ip}.`);
+      const result = await discoveryApi.deployAgent(ip, deviceType, credentials, action);
+      setMessage(result.message || `${action === "activate" ? "Activation" : action === "update" ? "Update" : "Setup"} successful for ${ip}.`);
       return result;
     } catch (error) {
       setMessage(error.message || "Agent deployment failed.");

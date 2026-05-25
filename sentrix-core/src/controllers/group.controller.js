@@ -7,6 +7,7 @@ import {
   updateGroup,
   renameClientsGroup,
 } from "../services/group.services.js";
+import { logAuditEvent } from "../services/audit.service.js";
 
 export async function listGroups(req, res, next) {
   try {
@@ -21,6 +22,13 @@ export async function createNewGroup(req, res, next) {
   try {
     const { name, description } = req.body;
     const group = await createGroup({ name, description });
+    await logAuditEvent({
+      req,
+      action: "group_created",
+      targetType: "group",
+      targetId: group.id,
+      targetLabel: group.name,
+    });
 
     const io = req.app.get("io");
     if (io) {
@@ -46,6 +54,14 @@ export async function updateGroupById(req, res, next) {
 
     const updated = await updateGroup(req.params.id, { name, description });
     await renameClientsGroup(group.name, updated.name);
+    await logAuditEvent({
+      req,
+      action: "group_updated",
+      targetType: "group",
+      targetId: updated.id,
+      targetLabel: updated.name,
+      details: { previousName: group.name },
+    });
 
     const io = req.app.get("io");
     if (io) {
@@ -73,6 +89,13 @@ export async function deleteGroupById(req, res, next) {
         .json({ success: false, message: "Group not found." });
     }
     await resetClientsGroup(group.name);
+    await logAuditEvent({
+      req,
+      action: "group_deleted",
+      targetType: "group",
+      targetId: group.id,
+      targetLabel: group.name,
+    });
 
     const io = req.app.get("io");
     if (io) {

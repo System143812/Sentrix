@@ -64,22 +64,52 @@ export function SentrixMark({ className = "", loading = false }) {
   );
 }
 
-export function SentrixLogo({ compact = false, inverse = false }) {
+const logoSizes = {
+  sm: {
+    shell: "h-9 w-9",
+    mark: "h-6 w-6",
+    title: "text-base",
+  },
+  md: {
+    shell: "h-11 w-11",
+    mark: "h-8 w-8",
+    title: "text-lg",
+  },
+  lg: {
+    shell: "h-14 w-14",
+    mark: "h-10 w-10",
+    title: "text-xl",
+  },
+};
+
+const logoTones = {
+  slate: "border-slate-200 bg-slate-50/90 text-slate-950 ring-slate-900/5",
+  white: "border-white/15 bg-white/10 text-white ring-white/20",
+  transparent: "border-transparent bg-transparent text-slate-950 ring-transparent shadow-none",
+};
+
+export function SentrixLogo({
+  compact = false,
+  inverse = false,
+  framed = true,
+  size = "md",
+  tone = "slate",
+}) {
+  const logoSize = logoSizes[size] || logoSizes.md;
+  const logoTone = inverse ? logoTones.white : logoTones[tone] || logoTones.slate;
+  const frameClass = framed
+    ? `grid ${logoSize.shell} place-items-center rounded-lg border shadow-sm ring-1 ${logoTone}`
+    : `grid ${logoSize.shell} place-items-center ${inverse ? "text-white" : "text-slate-950"}`;
+
   return (
     <div className="flex items-center gap-3">
-      <span
-        className={`grid h-12 w-12 place-items-center rounded-xl shadow-md shadow-slate-900/10 ring-1 ${
-          inverse
-            ? "bg-white/10 text-white ring-white/25"
-            : "bg-ink text-white ring-slate-900/10"
-        }`}
-      >
-        <SentrixMark className="h-9 w-9" />
+      <span className={frameClass}>
+        <SentrixMark className={logoSize.mark} />
       </span>
       {!compact ? (
         <div>
           <p
-            className={`text-lg font-black leading-none tracking-normal ${
+            className={`${logoSize.title} font-black leading-none tracking-normal ${
               inverse ? "text-white" : "text-ink"
             }`}
           >
@@ -90,7 +120,7 @@ export function SentrixLogo({ compact = false, inverse = false }) {
               inverse ? "text-slate-300" : "text-slate-500"
             }`}
           >
-            LabOps Console
+            Device Management
           </p>
         </div>
       ) : null}
@@ -109,7 +139,7 @@ export function SentrixLogoLoader({ label = "Loading", compact = false }) {
 
   return (
     <div className="grid place-items-center gap-3 text-center">
-      <span className="grid h-16 w-16 place-items-center rounded-2xl bg-ink text-white shadow-lg shadow-slate-300 ring-1 ring-slate-900/10">
+      <span className="grid h-16 w-16 place-items-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-lg shadow-slate-300 ring-1 ring-slate-900/5">
         <SentrixMark className="h-12 w-12" loading />
       </span>
       {label ? <p className="text-sm font-semibold text-slate-700">{label}</p> : null}

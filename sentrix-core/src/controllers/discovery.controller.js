@@ -3,6 +3,7 @@ import {
   runDiscoveryScan,
   deployAgentToHost,
 } from "../services/discovery/index.js";
+import { logAuditEvent } from "../services/audit.service.js";
 
 export async function scan(req, res, next) {
   try {
@@ -35,7 +36,7 @@ export async function getSnapshot(req, res, next) {
 
 export async function deploy(req, res, next) {
   try {
-    const { ip, credentials } = req.body;
+    const { ip, credentials, action = "deploy" } = req.body;
 
     if (!ip) {
       return res
@@ -43,7 +44,23 @@ export async function deploy(req, res, next) {
         .json({ success: false, message: "IP address is required." });
     }
 
-    const result = await deployAgentToHost(ip, credentials);
+    const result = await deployAgentToHost(ip, credentials, req.user?.id, action);
+
+    const auditAction =
+      action === "activate"
+        ? "agent_activate_requested"
+        : action === "update"
+          ? "agent_update_requested"
+          : "agent_deploy_requested";
+
+    await logAuditEvent({
+      req,
+      action: auditAction,
+      targetType: "host",
+      targetId: ip,
+      targetLabel: ip,
+      details: { action, success: Boolean(result.success), message: result.message },
+    });
 
     if (!result.success) {
       return res.status(200).json({ success: false, ...result });

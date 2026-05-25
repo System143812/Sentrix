@@ -32,7 +32,7 @@ export async function downloadAnalyticsCsv({ range = "24h", group = "all" } = {}
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = "sentrix-analytics.csv";
+  link.download = `sentrix-report-${range}-${group}.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();

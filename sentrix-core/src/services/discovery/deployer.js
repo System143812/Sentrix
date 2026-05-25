@@ -226,15 +226,29 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
   }
 }
 
-export async function deployAgentToHost(ip, lastScanResults, credentials = null) {
+export async function deployAgentToHost(ip, lastScanResults, credentials = null, options = {}) {
   const scannedDevice = lastScanResults.get(ip);
+  const action = ["activate", "update"].includes(options.action) ? options.action : "deploy";
   const serverUrl = process.env.SENTRIX_PUBLIC_SERVER_URL
     || process.env.CORE_PUBLIC_URL
     || process.env.BACKEND_URL
     || `http://${getPrimaryInterfaceAddress() || "localhost"}:${process.env.PORT || 4000}`;
 
   if (credentials) {
-    return await deployAgentToHostRemote(ip, credentials);
+    const result = await deployAgentToHostRemote(ip, credentials);
+    if (result.success && action === "activate") {
+      return {
+        ...result,
+        message: `Agent activation started for ${ip}. Sentrix will start the existing scheduled task when present or install a fresh agent if needed.`,
+      };
+    }
+    if (result.success && action === "update") {
+      return {
+        ...result,
+        message: `Agent update started for ${ip}. Sentrix will replace the current agent build and restart the scheduled task.`,
+      };
+    }
+    return result;
   }
 
   if (!scannedDevice) {
@@ -247,7 +261,11 @@ export async function deployAgentToHost(ip, lastScanResults, credentials = null)
 
   return {
     success: true,
-    message: `Deployment package prepared for ${ip}. Run the standalone agent on the target PC or provide credentials for remote deployment.`,
+    message: action === "activate"
+      ? `Activation prepared for ${ip}. Provide credentials to start the existing Sentrix Agent task or reinstall it if missing.`
+      : action === "update"
+        ? `Update prepared for ${ip}. Provide credentials to redeploy the latest Sentrix Agent build.`
+      : `Setup package prepared for ${ip}. Run the standalone agent on the target PC or provide credentials for remote setup.`,
     ip,
     device: scannedDevice,
     serverUrl,

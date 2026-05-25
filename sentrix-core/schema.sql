@@ -109,6 +109,10 @@ CREATE TABLE IF NOT EXISTS discovery_scan_results (
   device_type VARCHAR(100),
   device_kind VARCHAR(100),
   open_ports JSON,
+  agent_status ENUM('running', 'offline', 'none') NOT NULL DEFAULT 'none',
+  registered_client_id CHAR(36) NULL,
+  deployment_action VARCHAR(40) NOT NULL DEFAULT 'not_eligible',
+  last_agent_seen_at BIGINT NULL,
   last_scanned_at BIGINT NOT NULL,
   UNIQUE INDEX idx_discovery_ip (ip)
 );
@@ -307,6 +311,84 @@ CREATE TABLE IF NOT EXISTS client_network_activity_logs (
   INDEX idx_activity_logs_client_time (client_id, observed_at),
   INDEX idx_activity_logs_event_type (event_type),
   CONSTRAINT fk_activity_logs_client
+    FOREIGN KEY (client_id) REFERENCES clients(id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS system_settings (
+  setting_key VARCHAR(100) PRIMARY KEY,
+  setting_value JSON NOT NULL,
+  updated_by CHAR(36) NULL,
+  updated_at BIGINT NOT NULL,
+  INDEX idx_system_settings_updated_at (updated_at)
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  actor_id CHAR(36) NULL,
+  actor_email VARCHAR(255),
+  actor_role VARCHAR(50),
+  action VARCHAR(100) NOT NULL,
+  target_type VARCHAR(100),
+  target_id VARCHAR(255),
+  target_label VARCHAR(255),
+  ip_address VARCHAR(45),
+  mac_address VARCHAR(32),
+  details JSON,
+  created_at BIGINT NOT NULL,
+  INDEX idx_audit_created_at (created_at),
+  INDEX idx_audit_actor (actor_id, created_at),
+  INDEX idx_audit_action (action, created_at)
+);
+
+CREATE TABLE IF NOT EXISTS agent_deployment_records (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  ip VARCHAR(45) NOT NULL,
+  mac VARCHAR(32),
+  hostname VARCHAR(255),
+  status ENUM('requested', 'prepared', 'success', 'failed') NOT NULL DEFAULT 'requested',
+  message TEXT,
+  requested_by CHAR(36) NULL,
+  requested_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  UNIQUE INDEX idx_agent_deployment_ip (ip),
+  INDEX idx_agent_deployment_status (status, updated_at)
+);
+
+CREATE TABLE IF NOT EXISTS client_peripheral_inventory (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  client_id CHAR(36) NOT NULL,
+  peripheral_key VARCHAR(255) NOT NULL,
+  name VARCHAR(255),
+  category VARCHAR(100),
+  vendor VARCHAR(255),
+  external_id VARCHAR(255),
+  status ENUM('connected', 'missing') NOT NULL DEFAULT 'connected',
+  first_seen_at BIGINT NOT NULL,
+  last_seen_at BIGINT NOT NULL,
+  missing_since BIGINT NULL,
+  missing_detected_offline TINYINT(1) NOT NULL DEFAULT 0,
+  updated_at BIGINT NOT NULL,
+  UNIQUE INDEX idx_peripheral_identity (client_id, peripheral_key),
+  INDEX idx_peripheral_client_status (client_id, status),
+  CONSTRAINT fk_peripheral_inventory_client
+    FOREIGN KEY (client_id) REFERENCES clients(id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS client_peripheral_events (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  client_id CHAR(36) NOT NULL,
+  peripheral_key VARCHAR(255) NOT NULL,
+  name VARCHAR(255),
+  category VARCHAR(100),
+  vendor VARCHAR(255),
+  event_type ENUM('connected', 'disconnected', 'missing_after_offline') NOT NULL,
+  observed_at BIGINT NOT NULL,
+  last_seen_at BIGINT NULL,
+  details JSON,
+  INDEX idx_peripheral_events_client_time (client_id, observed_at),
+  CONSTRAINT fk_peripheral_events_client
     FOREIGN KEY (client_id) REFERENCES clients(id)
     ON DELETE CASCADE
 );

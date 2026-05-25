@@ -68,6 +68,31 @@ export async function validatePassword(user, password) {
   return bcrypt.compare(password, user.password_hash);
 }
 
+export async function updateUserPassword(id, currentPassword, nextPassword) {
+  if (!nextPassword || nextPassword.length < 8) {
+    throw new Error("New password must be at least 8 characters.");
+  }
+
+  const [rows] = await pool.query(`SELECT * FROM users WHERE id = ? LIMIT 1`, [id]);
+  const user = rows[0];
+
+  if (!user) {
+    throw new Error("User not found.");
+  }
+
+  if (!(await validatePassword(user, currentPassword))) {
+    throw new Error("Current password is incorrect.");
+  }
+
+  const passwordHash = await bcrypt.hash(nextPassword, 10);
+  await pool.query(
+    `UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`,
+    [passwordHash, Date.now(), id],
+  );
+
+  return getUserById(id);
+}
+
 export async function seedInitialAdmin({ email, password }) {
   const total = await countUsers();
   if (total > 0) {

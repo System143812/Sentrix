@@ -55,15 +55,78 @@ function getDisplayHostname(ip, hostname, registeredClient = null) {
   return `Host ${ip.split(".").at(-1)}`;
 }
 
+function normalizeMac(mac = "") {
+  return String(mac || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-F0-9]/g, "");
+}
+
+async function getDeploymentRecordsByIp() {
+  const [rows] = await pool.query("SELECT * FROM agent_deployment_records");
+  return new Map(rows.map((row) => [row.ip, row]));
+}
+
+export async function recordAgentDeployment({ ip, mac = null, hostname = null, status = "requested", message = "", userId = null }) {
+  const now = Date.now();
+  await pool.query(
+    `
+    INSERT INTO agent_deployment_records
+      (ip, mac, hostname, status, message, requested_by, requested_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      mac = COALESCE(VALUES(mac), mac),
+      hostname = COALESCE(VALUES(hostname), hostname),
+      status = VALUES(status),
+      message = VALUES(message),
+      requested_by = COALESCE(VALUES(requested_by), requested_by),
+      updated_at = VALUES(updated_at)
+    `,
+    [ip, mac, hostname, status, message, userId, now, now],
+  );
+}
+
+function getAgentStateForDevice(device, registeredClient = null, deploymentRecord = null) {
+  const deployEligible = canDeployAgent(device.device_type);
+
+  if (registeredClient?.status === "online") {
+    return {
+      agent_status: "running",
+      deployment_action: "update",
+      registered_client_id: registeredClient.id,
+      last_agent_seen_at: registeredClient.last_seen_at || null,
+      deploy_eligible: true,
+    };
+  }
+
+  if (registeredClient || (deployEligible && deploymentRecord)) {
+    return {
+      agent_status: "offline",
+      deployment_action: "activate",
+      registered_client_id: registeredClient?.id || null,
+      last_agent_seen_at: registeredClient?.last_seen_at || deploymentRecord?.updated_at || null,
+      deploy_eligible: true,
+    };
+  }
+
+  return {
+    agent_status: "none",
+    deployment_action: deployEligible ? "deploy" : "not_eligible",
+    registered_client_id: null,
+    last_agent_seen_at: null,
+    deploy_eligible: deployEligible,
+  };
+}
+
 async function saveScanResultsToDb(devices) {
   const now = Date.now();
   for (const device of devices) {
     await pool.query(
       `
       INSERT INTO discovery_scan_results
-        (ip, mac, hostname, vendor, device_type, device_kind, open_ports, last_scanned_at)
+        (ip, mac, hostname, vendor, device_type, device_kind, open_ports, agent_status, registered_client_id, deployment_action, last_agent_seen_at, last_scanned_at)
       VALUES
-        (?, ?, ?, ?, ?, ?, ?, ?)
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         mac = VALUES(mac),
         hostname = VALUES(hostname),
@@ -71,6 +134,10 @@ async function saveScanResultsToDb(devices) {
         device_type = VALUES(device_type),
         device_kind = VALUES(device_kind),
         open_ports = VALUES(open_ports),
+        agent_status = VALUES(agent_status),
+        registered_client_id = VALUES(registered_client_id),
+        deployment_action = VALUES(deployment_action),
+        last_agent_seen_at = VALUES(last_agent_seen_at),
         last_scanned_at = VALUES(last_scanned_at)
       `,
       [
@@ -81,6 +148,10 @@ async function saveScanResultsToDb(devices) {
         device.device_type,
         device.device_kind,
         JSON.stringify(device.open_ports),
+        device.agent_status || "none",
+        device.registered_client_id || null,
+        device.deployment_action || "not_eligible",
+        device.last_agent_seen_at || null,
         now,
       ],
     );
@@ -101,7 +172,11 @@ export async function loadDiscoveryResultsFromDb() {
         device_type: row.device_type,
         device_kind: row.device_kind,
         open_ports: typeof row.open_ports === "string" ? JSON.parse(row.open_ports) : row.open_ports,
-        deploy_eligible: canDeployAgent(row.device_type),
+        agent_status: row.agent_status || "none",
+        deployment_action: row.deployment_action || (canDeployAgent(row.device_type) ? "deploy" : "not_eligible"),
+        registered_client_id: row.registered_client_id,
+        last_agent_seen_at: row.last_agent_seen_at,
+        deploy_eligible: row.deployment_action === "not_eligible" ? false : canDeployAgent(row.device_type) || row.agent_status === "offline",
       }));
       
       devices.forEach((d) => lastScanResults.set(d.ip, d));
@@ -153,23 +228,34 @@ export async function scanLocalNetwork() {
   const arpTable = await readArpTable();
   const nmapResults = await nmapResultsPromise;
   const registeredClients = await registeredClientsPromise;
+  const deploymentRecordsByIp = await getDeploymentRecordsByIp().catch(() => new Map());
   const registeredByIp = new Map(
     registeredClients
       .filter((client) => client.ip)
       .map((client) => [client.ip, client]),
+  );
+  const registeredByMac = new Map(
+    registeredClients
+      .filter((client) => normalizeMac(client.mac))
+      .map((client) => [normalizeMac(client.mac), client]),
+  );
+  const deploymentRecordsByMac = new Map(
+    [...deploymentRecordsByIp.values()]
+      .filter((record) => normalizeMac(record.mac))
+      .map((record) => [normalizeMac(record.mac), record]),
   );
 
   const devices = await Promise.all(
     ipAddresses
       .map(async (ip) => {
         const nmapDevice = nmapResults.get(ip);
-        const registeredClient = registeredByIp.get(ip);
         const mac =
           nmapDevice?.mac && nmapDevice.mac !== "Unknown"
             ? nmapDevice.mac
             : findMacForIp(arpTable, ip);
 
         if (mac === "Unknown") return null;
+        const registeredClient = registeredByIp.get(ip) || registeredByMac.get(normalizeMac(mac));
 
         const [{ hostname, source }, openPorts] = await Promise.all([
           getHostnameForIp(ip),
@@ -199,6 +285,7 @@ export async function scanLocalNetwork() {
           
         const gateway = gatewayCandidates.has(ip) || ip.endsWith(".1") || ip.endsWith(".254");
         const device_kind = getDeviceKind(device_type, vendor, openPorts, gateway);
+        const deploymentRecord = deploymentRecordsByIp.get(ip) || deploymentRecordsByMac.get(normalizeMac(mac));
 
         return {
           ip,
@@ -210,7 +297,7 @@ export async function scanLocalNetwork() {
           device_kind,
           gateway,
           open_ports: openPorts,
-          deploy_eligible: canDeployAgent(device_type),
+          ...getAgentStateForDevice({ device_type }, registeredClient, deploymentRecord),
         };
       })
   );
@@ -273,6 +360,29 @@ export function startDiscoveryScheduler(io) {
   setInterval(runAndEmit, AUTO_SCAN_INTERVAL_MS);
 }
 
-export async function deployAgentToHost(ip, credentials = null) {
-  return await deployAgentToHostInternal(ip, lastScanResults, credentials);
+export async function deployAgentToHost(ip, credentials = null, userId = null, action = "deploy") {
+  const scanRecord = lastScanResults.get(ip);
+  await recordAgentDeployment({
+    ip,
+    mac: scanRecord?.mac,
+    hostname: scanRecord?.hostname,
+    status: "requested",
+    userId,
+  });
+
+  const result = await deployAgentToHostInternal(ip, lastScanResults, credentials, { action });
+  const deploymentStatus = result.success
+    ? result.installer
+      ? "prepared"
+      : "success"
+    : "failed";
+  await recordAgentDeployment({
+    ip,
+    mac: scanRecord?.mac,
+    hostname: scanRecord?.hostname,
+    status: deploymentStatus,
+    message: result.message,
+    userId,
+  });
+  return result;
 }
