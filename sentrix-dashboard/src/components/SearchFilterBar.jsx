@@ -1,23 +1,5 @@
 import { Filter, Search, X } from "lucide-react";
 
-export function matchesSearch(item, query, fields = []) {
-  const normalizedQuery = String(query || "")
-    .trim()
-    .toLowerCase();
-  if (!normalizedQuery) return true;
-
-  const values = fields.length
-    ? fields.map((field) =>
-        typeof field === "function" ? field(item) : item?.[field],
-      )
-    : Object.values(item || {});
-
-  return values
-    .flatMap((value) => (Array.isArray(value) ? value : [value]))
-    .filter((value) => value != null)
-    .some((value) => String(value).toLowerCase().includes(normalizedQuery));
-}
-
 export function SearchFilterBar({
   query,
   onQueryChange,
@@ -36,7 +18,7 @@ export function SearchFilterBar({
           size={16}
         />
         <input
-          className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-10 text-sm font-medium outline-none transition focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-100"
+          className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-10 text-sm font-medium outline-none transition focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-200/60"
           onChange={(event) => onQueryChange?.(event.target.value)}
           placeholder={placeholder}
           value={query}
@@ -56,12 +38,12 @@ export function SearchFilterBar({
       <div className="flex flex-wrap items-center gap-2">
         {filters.map((filter) => (
           <label
-            className="inline-flex h-11 min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500 shadow-sm"
+            className="inline-flex h-11 min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-500 shadow-sm transition-colors hover:border-slate-300"
             key={filter.id}
           >
-            <Filter size={14} />
+            <Filter className="shrink-0 text-slate-400" size={14} />
             <select
-              className="min-w-0 bg-transparent outline-none"
+              className="min-w-0 bg-transparent outline-none text-slate-700"
               onChange={(event) => filter.onChange?.(event.target.value)}
               value={filter.value}
               title={filter.label}
@@ -75,7 +57,13 @@ export function SearchFilterBar({
           </label>
         ))}
         {count != null ? (
-          <span className="inline-flex h-11 items-center rounded-lg border border-slate-100 bg-slate-50 px-3 text-xs font-bold text-slate-500">
+          <span
+            className={`inline-flex h-11 items-center rounded-lg border px-3 text-xs font-semibold transition-colors ${
+              count > 0
+                ? "border-indigo-100 bg-indigo-50 text-indigo-600 shadow-sm shadow-indigo-100/50"
+                : "border-slate-100 bg-slate-50 text-slate-500"
+            }`}
+          >
             {count} shown
           </span>
         ) : null}

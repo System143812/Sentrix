@@ -4,14 +4,14 @@ import {
   CircleStop,
   Cpu,
   Globe2,
-  HardDrive,
+  Database,
   Info,
-  MemoryStick,
+  CircuitBoard,
   Monitor,
   Network,
   RadioTower,
   Thermometer,
-  Timer,
+  Hourglass,
   Usb,
   X,
   Power,
@@ -23,10 +23,11 @@ import {
   History,
   Search,
   ShieldAlert,
+  LoaderCircle,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useEffect, useMemo, useState } from "react";
 import { MetricPill } from "./MetricPill.jsx";
-import { SearchFilterBar, matchesSearch } from "./SearchFilterBar.jsx";
+import { SearchFilterBar } from "./SearchFilterBar.jsx";
 import { useTelemetryInterval } from "../hooks/useTelemetryInterval.js";
 import * as clientApi from "../services/clientApi.js";
 import {
@@ -35,6 +36,7 @@ import {
   formatPercent,
   formatTemperature,
   formatUptimeVerbose,
+  matchesSearch,
 } from "../shared/utils.js";
 
 function getUsbSearchText(device = {}) {
@@ -117,9 +119,9 @@ function inferPeripherals(peripherals = {}, usbDevices = []) {
 
 function DetailItem({ label, value }) {
   return (
-    <div className="min-w-0 rounded-lg border border-slate-100 bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-100/60 transition hover:border-slate-200">
-      <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="mt-1 break-words text-sm font-bold leading-5 text-slate-800">
+    <div className="min-w-0 rounded-lg border border-slate-200/60 bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-100/60 transition hover:border-slate-200">
+      <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-semibold leading-5 text-slate-800">
         {value || "Unknown"}
       </dd>
     </div>
@@ -128,8 +130,8 @@ function DetailItem({ label, value }) {
 
 function ListItem({ title, detail }) {
   return (
-    <div className="min-w-0 rounded-lg border border-slate-100 bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-100/60 transition hover:bg-slate-50/60">
-      <p className="break-words text-sm font-bold text-slate-800">
+    <div className="min-w-0 rounded-lg border border-slate-200/60 bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-100/60 transition hover:bg-slate-50/60">
+      <p className="break-words text-sm font-semibold text-slate-800">
         {title || "Unknown"}
       </p>
       {detail ? <p className="mt-1 truncate text-xs leading-5 text-slate-500">{detail}</p> : null}
@@ -231,7 +233,7 @@ function DetailViewSwitch({ activeView, onChange, canControl }) {
             aria-label={button.label}
           >
             <Icon size={16} strokeWidth={2.5} />
-            <span className="hidden text-xs font-bold uppercase tracking-wide sm:inline">{button.label}</span>
+            <span className="hidden text-xs font-semibold uppercase tracking-wider sm:inline">{button.label}</span>
           </button>
         );
       })}
@@ -268,10 +270,10 @@ function RemoteControlPanel({ device }) {
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-        <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-          <Power size={15} strokeWidth={2.5} />
-          Remote Controls
+      <section className="rounded-xl border border-slate-200/60 bg-white p-5 sm:p-6 shadow-sm">
+        <h4 className="mb-5 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
+          <Terminal size={18} strokeWidth={2.5} className="text-slate-400" />
+          Remote Control Console
         </h4>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {powerActions.map((action) => {
@@ -281,7 +283,7 @@ function RemoteControlPanel({ device }) {
             return (
               <div className="group relative" key={action.id}>
                 <button
-                  className="flex h-20 w-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md active:scale-[0.98] active:border-slate-900 active:bg-slate-900 active:text-white disabled:cursor-wait disabled:opacity-50"
+                  className="flex h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-md active:scale-95 disabled:cursor-wait disabled:opacity-50"
                   disabled={Boolean(loadingCommand)}
                   onClick={() => handleCommand(action.id)}
                   type="button"
@@ -290,10 +292,10 @@ function RemoteControlPanel({ device }) {
                     className={`text-slate-400 transition-colors duration-200 ${action.hoverTone} group-active:text-white ${
                       pending ? "animate-pulse" : ""
                     }`}
-                    size={20}
+                    size={24}
                     strokeWidth={2.5}
                   />
-                  <span className="text-[10px] font-bold uppercase tracking-wide">
+                  <span className="text-[10px] font-bold uppercase tracking-widest">
                     {pending ? "Sending" : action.label}
                   </span>
                 </button>
@@ -305,15 +307,15 @@ function RemoteControlPanel({ device }) {
             );
           })}
         </div>
-        <div className="mt-4 flex items-start gap-3 rounded-lg border border-slate-200 bg-white/80 px-4 py-3 text-xs font-medium leading-5 text-slate-500 shadow-sm">
-          <Info className="mt-0.5 shrink-0 text-slate-400" size={16} strokeWidth={2.5} />
+        <div className="mt-5 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3.5 text-xs font-medium leading-5 text-blue-700 shadow-sm">
+          <Info className="mt-0.5 shrink-0 text-blue-400" size={18} strokeWidth={2.5} />
           <p>
-            These controls send secure power and session commands to the selected online device.
+            Commands are delivered instantly via reverse-tunnel. Ensure the device agent is online before execution.
           </p>
         </div>
         {commandStatus ? (
-          <div className="mt-4 flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-700 shadow-sm">
-            <div className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-pulse" />
+          <div className="mt-4 flex items-center gap-3 rounded-lg border border-slate-200/60 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-700 shadow-sm">
+            <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
             {commandStatus}
           </div>
         ) : null}
@@ -348,111 +350,122 @@ function ActivityMonitor({ connections, history, error }) {
   };
 
   return (
-    <section className="h-full overflow-hidden rounded-lg border border-line bg-slate-100/80 p-3 sm:p-4">
-      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h4 className="flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-          <Globe2 size={15} />
-          Activity Monitor
-        </h4>
+    <section className="flex flex-col h-full overflow-hidden rounded-xl border border-slate-200/60 bg-white p-4 sm:p-6 shadow-sm">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+            <Globe2 size={18} strokeWidth={2.5} />
+          </span>
+          <h4 className="text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
+            Activity Monitor
+          </h4>
+        </div>
         <button
-          className={`btn-minimal h-9 px-3 text-xs ${showHistory ? "!border-slate-900 !bg-slate-900 !text-white" : ""}`}
+          className={`btn-minimal h-10 px-4 text-xs font-bold uppercase tracking-wider ${showHistory ? "!border-slate-900 !bg-slate-900 !text-white" : ""}`}
           onClick={() => setShowHistory((current) => !current)}
           title={showHistory ? "Show active sites and connections" : "Show recent activity history"}
           type="button"
         >
-          <History size={15} />
+          <History size={16} strokeWidth={2.5} />
           <span>{showHistory ? "Active" : "History"}</span>
         </button>
       </div>
 
       <SearchFilterBar
-        className="mb-3 !border-slate-200 !bg-white/80"
+        className="mb-5 !border-slate-200 !bg-slate-50/50"
         count={visibleItems.length}
         onQueryChange={setQuery}
-        placeholder={showHistory ? "Search recent activity" : "Search active sites and processes"}
+        placeholder={showHistory ? "Search recent activity" : "Search active sites"}
         query={query}
       />
 
       {error && (
-        <p className="mb-3 text-xs font-medium text-red-600">{error}</p>
+        <div className="mb-5 rounded-lg border border-rose-100 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-600">
+          {error}
+        </div>
       )}
 
-      <div className="grid gap-3">
-        <div>
-          <p className="mb-2 text-xs font-bold uppercase text-slate-500">
-            {showHistory ? "Recent Activity History" : "Active Sites & Connections"}
-          </p>
-          <div 
-            className="custom-scrollbar grid max-h-96 gap-2 overflow-auto pr-1"
-            onScroll={handleScroll(showHistory ? "history" : "active")}
-            ref={showHistory ? historyListRef : activeListRef}
-          >
-            {!showHistory && visibleItems.length > 0 ? visibleItems.map((item) => (
-              <div
-                className="rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70"
-                key={item.id ? `conn-${item.id}` : `conn-${item.process}-${item.domain}-${item.peerAddress}-${item.peerPort}`}
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className={`break-words text-sm font-bold ${item.domain?.includes('localhost') ? 'text-signal' : 'text-slate-900'}`}>
-                      {item.domain || item.peerAddress}
+      <div className="flex flex-1 flex-col min-h-0">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui px-1">
+          {showHistory ? "Recent Activity History" : "Active Sites & Connections"}
+        </p>
+        <div 
+          className="custom-scrollbar grid gap-3 overflow-auto pr-1 flex-1"
+          style={{ maxHeight: 'calc(100vh - 400px)', minHeight: '300px' }}
+          onScroll={handleScroll(showHistory ? "history" : "active")}
+          ref={showHistory ? historyListRef : activeListRef}
+        >
+          {!showHistory && visibleItems.length > 0 ? visibleItems.map((item) => (
+            <div
+              className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md"
+              key={item.id ? `conn-${item.id}` : `conn-${item.process}-${item.domain}-${item.peerAddress}-${item.peerPort}`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className={`break-all text-sm font-bold font-ui ${item.domain?.includes('localhost') ? 'text-blue-600' : 'text-slate-900'}`}>
+                    {item.domain || item.peerAddress}
+                  </p>
+                  {item.organization && item.organization !== item.domain && (
+                    <p className="mt-1 truncate text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+                      {item.organization}
+                      {item.isCloud && (
+                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[8px] font-bold text-blue-600 uppercase border border-blue-100">Cloud</span>
+                      )}
                     </p>
-                    {item.organization && item.organization !== item.domain && (
-                      <p className="truncate text-[10px] font-medium text-slate-400 flex items-center gap-1">
-                        {item.organization}
-                        {item.isCloud && (
-                          <span className="rounded bg-blue-50 px-1 py-0.5 text-[8px] font-bold text-blue-600 uppercase">Cloud</span>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    {item.count > 1 && (
-                      <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
-                        {item.count} hits
-                      </span>
-                    )}
-                    <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
-                      Live
+                  )}
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  {item.count > 1 && (
+                    <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-500 uppercase">
+                      {item.count} hits
                     </span>
-                  </div>
+                  )}
+                  <span className="rounded-md border border-emerald-100 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-600 uppercase">
+                    Live
+                  </span>
                 </div>
-                <p className="mt-1 break-words text-xs leading-5 text-slate-500">
-                  via <span className="font-semibold text-slate-700">{item.process}</span>
+              </div>
+              <div className="mt-3 flex items-center gap-2 border-t border-slate-50 pt-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Via</span>
+                <span className="text-xs font-bold text-slate-700 font-data truncate">{item.process}</span>
+              </div>
+            </div>
+          )) : !showHistory ? (
+            <div className="flex h-full items-center justify-center py-12">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 font-ui">No active activity detected.</p>
+            </div>
+          ) : null}
+          {showHistory && visibleItems.length > 0 ? visibleItems.map((item) => (
+            <div
+              className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md opacity-90"
+              key={`hist-${item.domain}-${item.process}`}
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="break-all text-sm font-bold text-slate-700 font-ui">
+                  {item.domain}
                 </p>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter font-data">
+                  {new Date(item.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </div>
-            )) : !showHistory ? (
-              <p className="py-4 text-center text-xs text-slate-400">No active activity detected.</p>
-            ) : null}
-            {showHistory && visibleItems.length > 0 ? visibleItems.map((item) => (
-              <div
-                className="rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200/70 opacity-80"
-                key={`hist-${item.domain}-${item.process}`}
-              >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="break-words text-sm font-semibold text-slate-700">
-                    {item.domain}
-                  </p>
-                  <span className="text-[10px] font-medium text-slate-400">
-                    {new Date(item.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-50 pt-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Via</span>
+                  <span className="text-xs font-bold text-slate-600 font-data truncate">{item.process}</span>
                 </div>
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                  <p className="min-w-0 truncate text-xs text-slate-500">
-                    {item.process}
-                  </p>
-                  <span 
-                    className="text-[10px] text-slate-400"
-                    title="Number of times this domain was detected as active"
-                  >
-                    {item.hitCount} views
-                  </span>
-                </div>
+                <span 
+                  className="rounded-md bg-slate-50 border border-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-400 uppercase font-data whitespace-nowrap"
+                  title="Number of times this domain was detected as active"
+                >
+                  {item.hitCount} views
+                </span>
               </div>
-            )) : showHistory ? (
-              <p className="py-4 text-center text-xs text-slate-400">No history archived yet.</p>
-            ) : null}
-          </div>
+            </div>
+          )) : showHistory ? (
+            <div className="flex h-full items-center justify-center py-12">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 font-ui">No history archived yet.</p>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>
@@ -473,21 +486,21 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <h5 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase text-slate-500">
-        <Icon size={12} />
+      <h5 className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
+        <Icon size={12} strokeWidth={2.5} />
         {title} ({list.length})
       </h5>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-line bg-white shadow-sm">
-        <div className="hidden grid-cols-[44px_1fr_60px_80px_90px] gap-3 bg-slate-50 px-3 py-1.5 text-[10px] font-bold uppercase text-slate-400 lg:grid">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+        <div className="hidden grid-cols-[44px_1fr_80px_100px_100px] gap-4 border-b border-slate-100 bg-slate-50/50 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-ui lg:grid">
           <div />
-          <div>Process</div>
-          <div className="text-right">CPU</div>
+          <div>Process Name</div>
+          <div className="text-right">CPU Load</div>
           <div className="text-right">Memory</div>
           <div className="text-center">Status</div>
         </div>
 
         <div 
-          className="max-h-80 divide-y divide-line overflow-auto xl:min-h-0 xl:flex-1 xl:max-h-none"
+          className="max-h-96 divide-y divide-slate-100 overflow-auto custom-scrollbar xl:min-h-0 xl:flex-1 xl:max-h-none"
           onScroll={handleScroll}
           ref={listRef}
         >
@@ -497,42 +510,52 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
 
             return (
               <label
-                className={`grid gap-2 px-3 py-2.5 text-sm transition lg:grid-cols-[44px_1fr_60px_80px_90px] lg:items-center lg:gap-3 ${
-                  ended ? "bg-slate-50 text-slate-400" : "text-slate-700 hover:bg-slate-50"
-                }`}
+                className={`flex flex-col gap-3 px-4 py-3.5 transition lg:grid lg:grid-cols-[44px_1fr_80px_100px_100px] lg:items-center lg:gap-4 ${
+                  ended ? "bg-slate-50/50 text-slate-400" : "text-slate-700 hover:bg-slate-50/50"
+                } cursor-pointer`}
                 key={uniqueId}
               >
-                <div className="flex items-center justify-center">
+                <div className="flex items-center gap-3 lg:justify-center lg:gap-0">
                   <input
                     checked={selectedProcesses.includes(uniqueId)}
-                    className="h-3.5 w-3.5 rounded border-line text-signal focus:ring-signal"
+                    className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                     disabled={ended || actionLoading}
                     onChange={() => onToggle(uniqueId)}
                     type="checkbox"
                   />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">Select Process</span>
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate font-bold text-slate-900 leading-tight">
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold text-slate-900 leading-tight font-ui">
                     {process.name}
                   </p>
-                  <p className="truncate text-[10px] text-slate-500 mt-0.5">
+                  <p className="truncate text-[10px] text-slate-500 mt-1 font-data">
                     {process.windowTitle || `PID ${process.pid} - ${process.user}`}
                   </p>
                 </div>
-                <span className="flex justify-between text-xs font-medium lg:block lg:text-right">
-                  <span className="font-bold uppercase text-slate-400 lg:hidden">CPU</span>
-                  {process.cpu}%
-                </span>
-                <span className="flex justify-between text-xs font-medium lg:block lg:text-right">
-                  <span className="font-bold uppercase text-slate-400 lg:hidden">Memory</span>
-                  {process.memoryMb} MB
-                </span>
-                <div className="flex justify-start lg:justify-center">
+
+                <div className="flex items-center justify-between lg:block lg:text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">CPU Usage</span>
+                  <span className="text-xs font-bold font-data tabular-nums text-slate-700">
+                    {process.cpu}%
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between lg:block lg:text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">Memory</span>
+                  <span className="text-xs font-bold font-data tabular-nums text-slate-700">
+                    {process.memoryMb} MB
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between lg:justify-center">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">Status</span>
                   <span
-                    className={`w-fit rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                    className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight border ${
                       ended
-                        ? "bg-slate-100 text-slate-400"
-                        : "bg-emerald-50 text-emerald-600"
+                        ? "bg-slate-100 border-slate-200 text-slate-400"
+                        : "bg-emerald-50 border-emerald-100 text-emerald-600"
                     }`}
                   >
                     {process.status}
@@ -541,7 +564,7 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
               </label>
             );
           }) : (
-            <div className="py-6 text-center text-xs text-slate-400 italic">No processes in this category.</div>
+            <div className="py-12 text-center text-[10px] font-bold uppercase tracking-widest text-slate-300 font-ui">No processes detected.</div>
           )}
         </div>
       </div>
@@ -565,39 +588,48 @@ function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProce
   }, [processes, query, sortBy]);
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-line bg-slate-100/80 p-3 sm:p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
-        <h4 className="flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-          <CircleStop size={15} />
-          Running Processes
-        </h4>
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200/60 bg-white p-4 sm:p-6 shadow-sm">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-4 border-b border-slate-50 pb-5">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm">
+            <CircleStop size={18} strokeWidth={2.5} />
+          </span>
+          <h4 className="text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
+            Process Monitor
+          </h4>
+        </div>
         <button
-          className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+          className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-xs font-bold uppercase tracking-wider transition disabled:cursor-not-allowed disabled:opacity-50 ${
             actionLoading 
               ? "bg-slate-100 text-slate-500 border-slate-200" 
-              : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+              : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 active:scale-95"
           }`}
           disabled={selectedProcesses.length === 0 || actionLoading}
           onClick={onEnd}
           type="button"
         >
-          <CircleStop className={actionLoading ? "animate-spin" : ""} size={14} />
-          {actionLoading ? "Ending..." : "End selected"}
+          <CircleStop className={actionLoading ? "animate-spin" : ""} size={16} strokeWidth={2.5} />
+          {actionLoading ? "Ending..." : `End ${selectedProcesses.length || ""} selected`}
         </button>
       </div>
 
       {actionMessage.text && (
-        <div className={`mb-4 rounded-md border p-2 text-xs font-medium ${
-          actionMessage.type === "error" ? "bg-red-50 border-red-200 text-red-800" :
-          actionMessage.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-800" :
-          "bg-blue-50 border-blue-200 text-blue-800"
+        <div className={`mb-5 flex items-center gap-3 rounded-xl border px-4 py-3 text-xs font-bold shadow-sm ${
+          actionMessage.type === "error" ? "bg-rose-50 border-rose-200 text-rose-700" :
+          actionMessage.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
+          "bg-blue-50 border-blue-200 text-blue-700"
         }`}>
+          <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+            actionMessage.type === "error" ? "bg-rose-500" :
+            actionMessage.type === "success" ? "bg-emerald-500" :
+            "bg-blue-500"
+          } animate-pulse`} />
           {actionMessage.text}
         </div>
       )}
 
       <SearchFilterBar
-        className="mb-4 !border-slate-200 !bg-white/80"
+        className="mb-5 !border-slate-200 !bg-slate-50/50"
         count={visibleProcesses.length}
         filters={[
           {
@@ -613,7 +645,7 @@ function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProce
           },
         ]}
         onQueryChange={setQuery}
-        placeholder="Search running processes"
+        placeholder="Search active processes"
         query={query}
       />
 
@@ -621,7 +653,7 @@ function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProce
         <ProcessList 
           icon={Cpu} 
           list={visibleProcesses}
-          title="Live Process Stream" 
+          title="Process Stream" 
           actionLoading={actionLoading}
           selectedProcesses={selectedProcesses}
           onToggle={onToggle}
@@ -776,14 +808,15 @@ function NetworkActivityDetails({ device }) {
 
   if (loading && processes.length === 0) {
     return (
-      <div className="py-8 text-center">
-        <p className="text-sm font-medium text-slate-500">Connecting to agent for real-time data...</p>
+      <div className="py-12 text-center">
+        <LoaderCircle className="mx-auto animate-spin text-slate-400 mb-4" size={24} strokeWidth={2.5} />
+        <p className="text-sm font-bold uppercase tracking-widest text-slate-400 font-ui">Establishing real-time stream...</p>
       </div>
     );
   }
 
   return (
-    <div className="grid min-w-0 items-stretch gap-4 xl:h-[48rem] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
       <ProcessEndConfirmDialog
         count={confirmEnd ? selectedProcesses.length : 0}
         loading={actionLoading}
@@ -816,71 +849,75 @@ function PeripheralHistoryPanel({ history }) {
   const missing = inventory.filter((item) => item.status === "missing");
 
   return (
-    <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h4 className="flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
-          <Usb size={15} strokeWidth={2.5} />
-          Peripheral Tracking
-        </h4>
+    <section className="mt-6 rounded-xl border border-slate-200/60 bg-white p-5 sm:p-6 shadow-sm">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-600 shadow-sm">
+            <Usb size={18} strokeWidth={2.5} />
+          </span>
+          <h4 className="text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
+            Peripheral Tracking
+          </h4>
+        </div>
         {missing.length ? (
-          <span className="w-fit rounded-full border border-rose-100 bg-rose-50 px-3 py-1 text-[10px] font-bold uppercase text-rose-600">
-            {missing.length} missing
+          <span className="w-fit rounded-full border border-rose-200 bg-rose-50 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-rose-600 shadow-sm">
+            {missing.length} Missing Hardware
           </span>
         ) : (
-          <span className="w-fit rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase text-emerald-600">
-            Inventory clear
+          <span className="w-fit rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-600 shadow-sm">
+            Security Check: Clear
           </span>
         )}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-2 min-w-0">
         <div className="min-w-0">
-          <p className="mb-2 text-[10px] font-bold uppercase text-slate-400">Current Inventory</p>
-          <div className="custom-scrollbar grid max-h-64 gap-2 overflow-auto pr-1">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui px-1">Inventory State</p>
+          <div className="custom-scrollbar grid gap-3 overflow-auto pr-1" style={{ maxHeight: '400px' }}>
             {inventory.length ? inventory.map((item) => (
-              <div className="rounded-lg border border-slate-100 bg-white px-3 py-2.5 shadow-sm" key={item.key}>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm transition hover:bg-white hover:border-slate-200 min-w-0" key={item.key}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="break-words text-sm font-bold text-slate-800">{item.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">{item.category || "Peripheral"}{item.vendor ? ` - ${item.vendor}` : ""}</p>
+                    <p className="break-all text-sm font-bold text-slate-800 font-ui">{item.name}</p>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400 truncate">{item.category || "Peripheral"}{item.vendor ? ` • ${item.vendor}` : ""}</p>
                   </div>
-                  <span className={`w-fit rounded-md px-2 py-1 text-[10px] font-bold uppercase ${item.status === "missing" ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}>
+                  <span className={`w-fit whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight border ${item.status === "missing" ? "bg-rose-50 border-rose-100 text-rose-600" : "bg-emerald-50 border-emerald-100 text-emerald-600"}`}>
                     {item.status === "missing" ? "Missing" : "Connected"}
                   </span>
                 </div>
-                <p className="mt-2 text-[10px] text-slate-400">
-                  Last seen {item.lastSeenAt ? new Date(Number(item.lastSeenAt)).toLocaleString() : "Unknown"}
+                <p className="mt-3 text-[10px] font-bold text-slate-400 font-data">
+                  Reported {item.lastSeenAt ? new Date(Number(item.lastSeenAt)).toLocaleString() : "Unknown"}
                 </p>
               </div>
             )) : (
-              <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-center text-xs text-slate-400">
-                No peripheral inventory recorded yet.
-              </p>
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 font-ui">No Inventory Samples</p>
+              </div>
             )}
           </div>
         </div>
 
         <div className="min-w-0">
-          <p className="mb-2 text-[10px] font-bold uppercase text-slate-400">Recent Changes</p>
-          <div className="custom-scrollbar grid max-h-64 gap-2 overflow-auto pr-1">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui px-1">Audit Log</p>
+          <div className="custom-scrollbar grid gap-3 overflow-auto pr-1" style={{ maxHeight: '400px' }}>
             {events.length ? events.map((event) => (
-              <div className="rounded-lg border border-slate-100 bg-white px-3 py-2.5 shadow-sm" key={event.id}>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="break-words text-sm font-bold text-slate-800">{event.name}</p>
-                  <span className={`w-fit rounded-md px-2 py-1 text-[10px] font-bold uppercase ${
-                    event.eventType === "connected" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-700"
+              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm transition hover:bg-white hover:border-slate-200 min-w-0" key={event.id}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="break-all text-sm font-bold text-slate-800 font-ui">{event.name}</p>
+                  <span className={`w-fit whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight border ${
+                    event.eventType === "connected" ? "bg-emerald-50 border-emerald-100 text-emerald-600" : "bg-amber-50 border-amber-100 text-amber-700"
                   }`}>
                     {event.eventType === "missing_after_offline" ? "Missing after offline" : event.eventType}
                   </span>
                 </div>
-                <p className="mt-2 text-[10px] text-slate-400">
+                <p className="mt-3 text-[10px] font-bold text-slate-400 font-data">
                   {event.observedAt ? new Date(Number(event.observedAt)).toLocaleString() : "No time recorded"}
                 </p>
               </div>
             )) : (
-              <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-center text-xs text-slate-400">
-                No plug in/out history yet.
-              </p>
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 font-ui">Logs Empty</p>
+              </div>
             )}
           </div>
         </div>
@@ -922,8 +959,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
       {activeView === "specification" ? (
         <div className="device-detail-view">
           <div className="grid gap-4 xl:grid-cols-3">
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition hover:border-slate-300">
+          <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
             <Monitor size={15} strokeWidth={2.5} />
             Device Info
           </h4>
@@ -938,8 +975,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
           </dl>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition hover:border-slate-300">
+          <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
             <Cpu size={15} strokeWidth={2.5} />
             Important Specs
           </h4>
@@ -959,8 +996,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
           </dl>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition hover:border-slate-300">
+          <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
             <Usb size={15} strokeWidth={2.5} />
             Peripherals
           </h4>
@@ -988,8 +1025,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition hover:border-slate-300">
+          <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
             <Thermometer size={15} strokeWidth={2.5} />
             Temperature
           </h4>
@@ -1006,8 +1043,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
           </dl>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase text-slate-600">
+        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition hover:border-slate-300">
+          <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
             <Network size={15} strokeWidth={2.5} />
             Network Metrics
           </h4>
@@ -1027,7 +1064,7 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
 
       <div className="mt-4 grid gap-4 xl:grid-cols-3">
         <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
+          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-600">
             Graphics
           </h4>
           <div className="grid gap-2">
@@ -1046,7 +1083,7 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
+          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-600">
             Disks
           </h4>
           <div className="grid gap-2">
@@ -1065,7 +1102,7 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
+          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-600">
             USB Devices
           </h4>
           <div className="custom-scrollbar grid max-h-56 gap-2 overflow-auto pr-1">
@@ -1086,7 +1123,7 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
+          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-600">
             Network Adapters
           </h4>
           <div className="custom-scrollbar grid max-h-56 gap-2 overflow-auto pr-1">
@@ -1105,7 +1142,7 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 text-sm font-bold uppercase text-slate-600">
+          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-600">
             Displays
           </h4>
           <div className="custom-scrollbar grid max-h-56 gap-2 overflow-auto pr-1">
@@ -1241,14 +1278,14 @@ export function DeviceTable({
         onConfirm={confirmArchive}
       />
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-200/30 ring-1 ring-slate-100">
-        <div className="hidden bg-slate-50/90 px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 xl:grid xl:grid-cols-[48px_minmax(170px,1.1fr)_minmax(140px,0.8fr)_minmax(250px,1.35fr)_minmax(150px,0.7fr)_auto_auto] xl:items-center xl:gap-4">
+      <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+        <div className="hidden border-b border-slate-200/60 bg-slate-50/50 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 xl:grid xl:grid-cols-[48px_minmax(160px,1fr)_minmax(130px,0.8fr)_minmax(240px,1.3fr)_minmax(180px,0.9fr)_100px_auto] xl:items-center xl:gap-8">
           <div />
           <div>Device</div>
           <div>Network</div>
           <div>Metrics</div>
           <div>Group</div>
-          <div>Status</div>
+          <div className="text-center">Status</div>
           <div className="text-right">Actions</div>
         </div>
 
@@ -1260,76 +1297,93 @@ export function DeviceTable({
 
             return (
               <article className={`bg-white transition ${expanded ? "bg-slate-50/30" : "hover:bg-slate-50/50"}`} key={device.id}>
-                <div className="grid gap-4 px-4 py-5 text-sm text-slate-700 transition sm:px-5 lg:grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-x-5 lg:gap-y-4 xl:grid-cols-[48px_minmax(170px,1.1fr)_minmax(140px,0.8fr)_minmax(250px,1.35fr)_minmax(150px,0.7fr)_auto_auto] xl:gap-4">
-                  <button
-                    className={`grid h-10 w-10 place-items-center rounded-xl border shadow-sm transition-all duration-300 active:scale-95 ${
-                      expanded
-                        ? "rotate-180 border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/20"
-                        : "border-slate-200 bg-white text-slate-400 hover:border-slate-400 hover:text-slate-900"
-                    }`}
-                    onClick={() =>
-                      setExpandedId(expanded ? null : device.id)
-                    }
-                    title={expanded ? "Collapse details" : "Expand details"}
-                    type="button"
-                  >
-                    <ChevronDown size={17} strokeWidth={2.5} />
-                  </button>
+                <div className="flex flex-col gap-5 px-4 py-6 sm:px-6 lg:grid lg:grid-cols-[48px_1fr_1fr] lg:items-start lg:gap-x-6 xl:grid-cols-[48px_minmax(160px,1fr)_minmax(130px,0.8fr)_minmax(240px,1.3fr)_minmax(180px,0.9fr)_100px_auto] xl:gap-8 xl:py-5">
+                  <div className="flex items-center justify-between lg:block">
+                    <button
+                      className={`grid h-11 w-11 place-items-center rounded-xl border shadow-sm transition-all duration-300 active:scale-95 sm:h-10 sm:w-10 ${
+                        expanded
+                          ? "rotate-180 border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/20"
+                          : "border-slate-200 bg-white text-slate-400 hover:border-slate-400 hover:text-slate-900"
+                      }`}
+                      onClick={() =>
+                        setExpandedId(expanded ? null : device.id)
+                      }
+                      title={expanded ? "Collapse details" : "Expand details"}
+                      type="button"
+                    >
+                      <ChevronDown size={18} strokeWidth={2.5} />
+                    </button>
+
+                    <div className="flex items-center gap-3 lg:hidden">
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest ${
+                          device.status === "online"
+                            ? "border-emerald-100 bg-emerald-50 text-emerald-600"
+                            : "border-rose-100 bg-rose-50 text-rose-600"
+                        }`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${device.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                        {device.status}
+                      </span>
+                    </div>
+                  </div>
 
                   <div className="min-w-0">
-                    <strong className="block break-words text-base font-bold text-slate-900 lg:text-sm">
-                      {device.hostname}
-                    </strong>
-                    <span className="mt-1 block break-words text-xs leading-5 text-slate-500">
+                    <div className="flex items-center gap-2">
+                      <strong className="block truncate text-lg font-bold text-slate-900 tracking-tight lg:text-sm">
+                        {device.hostname}
+                      </strong>
+                    </div>
+                    <span className="mt-1 block truncate text-xs font-medium text-slate-500">
                       {device.os}
                     </span>
                   </div>
 
-                  <div className="min-w-0 rounded-md bg-slate-50 p-3 xl:bg-transparent xl:p-0">
-                    <span className="mb-1 block text-xs font-bold uppercase text-slate-400 xl:hidden">
-                      Network
+                  <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/50 p-4 lg:border-0 lg:bg-transparent lg:p-0">
+                    <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-400 xl:hidden">
+                      Network Identity
                     </span>
-                    <span className="block break-words font-medium">{device.ip}</span>
-                    <span className="mt-1 block break-words text-xs text-slate-500">
-                      {device.mac}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className="block font-data font-bold text-slate-700">{device.ip}</span>
+                      <span className="block font-data text-xs text-slate-400">
+                        {device.mac}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 lg:col-span-3 lg:grid-cols-4 xl:col-span-1 xl:grid-cols-2">
+                  <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 lg:col-span-2 xl:col-span-1 xl:grid-cols-2">
                     <MetricPill
                       icon={Cpu}
                       label="CPU"
                       value={formatPercent(metrics.cpu)}
                     />
                     <MetricPill
-                      icon={MemoryStick}
+                      icon={CircuitBoard}
                       label="RAM"
                       value={formatPercent(metrics.ram)}
                     />
                     <MetricPill
-                      icon={HardDrive}
+                      icon={Database}
                       label="Disk"
                       value={formatPercent(metrics.disk)}
                     />
                     <MetricPill
-                      icon={Timer}
-                      label="Up"
+                      icon={Hourglass}
+                      label="Uptime"
                       value={formatUptimeVerbose(metrics.uptime)}
                     />
                   </div>
 
                   <div className="min-w-0 lg:col-start-2 xl:col-start-auto">
-                    <span className="mb-1 block text-xs font-bold uppercase text-slate-400 xl:hidden">
-                      Group
+                    <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-400 xl:hidden">
+                      Assigned Group
                     </span>
                     <select
-                      className="h-10 w-full min-w-0 cursor-pointer rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none shadow-sm transition hover:border-slate-300 focus:border-slate-900 focus:ring-4 focus:ring-slate-100 lg:w-40"
+                      className="h-11 w-full min-w-0 cursor-pointer rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none shadow-sm transition hover:border-slate-300 focus:border-slate-900 focus:ring-4 focus:ring-slate-100/50 lg:h-10 lg:w-44 lg:px-3 lg:text-xs"
                       onChange={async (event) => {
                         try {
                           await onUpdateGroup(device.id, event.target.value);
-                        } catch (error) {
-                          // The shared toast handles the visible error message.
-                        }
+                        } catch (error) {}
                       }}
                       value={groupValue}
                     >
@@ -1347,29 +1401,35 @@ export function DeviceTable({
                     </select>
                   </div>
 
-                  <span
-                    className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                      device.status === "online"
-                        ? "border-emerald-100 bg-white text-emerald-600 shadow-sm"
-                        : "border-rose-100 bg-white text-rose-600 shadow-sm"
-                    }`}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${device.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-                    {device.status}
-                  </span>
-
-                  <div className="group relative flex justify-start lg:justify-end">
-                    <button
-                      className="grid h-9 w-9 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition hover:border-rose-200 hover:bg-rose-100 active:scale-95"
-                      onClick={() => setPendingArchive(device)}
-                      title="Archive device"
-                      type="button"
+                  <div className="hidden items-center xl:flex">
+                    <span
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${
+                        device.status === "online"
+                          ? "border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm"
+                          : "border-rose-100 bg-rose-50 text-rose-600 shadow-sm"
+                      }`}
                     >
-                      <Archive size={16} />
-                    </button>
-                    <span className="pointer-events-none absolute right-0 top-11 z-10 hidden w-44 rounded-md border border-line bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-lg group-hover:block">
-                      Archive this device from the registered list
+                      <span className={`h-1.5 w-1.5 rounded-full ${device.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                      {device.status}
                     </span>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-5 lg:justify-end lg:border-0 lg:pt-0">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">Management</span>
+                    <div className="group relative">
+                      <button
+                        className="grid h-10 w-10 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-100 active:scale-95 lg:h-9 lg:w-9"
+                        onClick={() => setPendingArchive(device)}
+                        title="Archive device"
+                        type="button"
+                      >
+                        <Archive size={18} strokeWidth={2.5} />
+                      </button>
+                      <span className="pointer-events-none absolute bottom-full right-0 z-20 mb-3 hidden w-48 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl lg:group-hover:block">
+                        Archive this device from the registered list
+                        <div className="absolute right-3 top-full border-[6px] border-transparent border-t-slate-900" />
+                      </span>
+                    </div>
                   </div>
                 </div>
 
