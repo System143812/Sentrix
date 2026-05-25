@@ -7,6 +7,7 @@ import {
   getAgentProfile,
   getDeviceDetails,
   getMetrics,
+  setGlobalMetricInterval,
 } from "./services/metrics.service.js";
 import { connectToCore } from "./services/socket.service.js";
 
@@ -73,8 +74,8 @@ if (serverUrl && !serverUrl.startsWith("http://") && !serverUrl.startsWith("http
 
 log(`Server URL: ${serverUrl}`);
 
-const metricsIntervalMs = Number(process.env.METRICS_INTERVAL_MS || 1000);
-const detailsIntervalMs = Number(process.env.DETAILS_INTERVAL_MS || 60000);
+let metricsIntervalMs = Number(process.env.METRICS_INTERVAL_MS || 5000);
+let detailsIntervalMs = metricsIntervalMs;
 const heartbeatIntervalMs = Number(process.env.HEARTBEAT_INTERVAL_MS || 10000);
 
 let socketClient;
@@ -85,6 +86,8 @@ let lastDetails = null;
 let lastDetailsAt = 0;
 let collectingMetrics = false;
 let collectingDetails = false;
+let metricsTimer = null;
+let detailsTimer = null;
 
 async function refreshDetails(force = false) {
   if (collectingDetails) return;
@@ -127,6 +130,16 @@ async function start() {
   socketClient = connectToCore({
     serverUrl,
     profile,
+    onTelemetrySettings(settings = {}) {
+      metricsIntervalMs = Math.min(Math.max(Number(settings.intervalMs) || metricsIntervalMs, 1000), 60000);
+      detailsIntervalMs = metricsIntervalMs;
+      setGlobalMetricInterval(metricsIntervalMs);
+      if (metricsTimer) clearInterval(metricsTimer);
+      metricsTimer = setInterval(collectAndSendMetrics, metricsIntervalMs);
+      if (detailsTimer) clearInterval(detailsTimer);
+      detailsTimer = setInterval(() => refreshDetails(), detailsIntervalMs);
+      log(`Telemetry interval set to ${metricsIntervalMs}ms`);
+    },
     onStatus(status) {
       log(`Connection ${status.connection}`, status.serverUrl || "");
     },
@@ -134,13 +147,13 @@ async function start() {
 
   await collectAndSendMetrics();
 
-  setInterval(collectAndSendMetrics, metricsIntervalMs);
+  metricsTimer = setInterval(collectAndSendMetrics, metricsIntervalMs);
+  detailsTimer = setInterval(() => refreshDetails(), detailsIntervalMs);
   setInterval(() => {
     if (Date.now() - lastMetricsSentAt >= heartbeatIntervalMs) {
       socketClient.sendHeartbeat(lastMetrics);
     }
   }, heartbeatIntervalMs);
-  setInterval(() => refreshDetails(), detailsIntervalMs);
 }
 
 process.on("SIGINT", () => {
