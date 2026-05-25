@@ -2,7 +2,8 @@ import { MonitorCog } from "lucide-react";
 import { useMemo, useState } from "react";
 import { DeviceTable } from "../components/DeviceTable.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
-import { SearchFilterBar, matchesSearch } from "../components/SearchFilterBar.jsx";
+import { SearchFilterBar } from "../components/SearchFilterBar.jsx";
+import { matchesSearch } from "../shared/utils.js";
 
 export function DevicesPage({
   dashboardData,

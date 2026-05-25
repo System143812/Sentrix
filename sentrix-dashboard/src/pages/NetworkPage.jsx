@@ -297,9 +297,9 @@ export function NetworkPage({
         </div>
 
         <div className="mt-5">
-          <ProgressBar value={snapshot?.progress || 0} color="ocean" height="h-2" />
-          <p className="mt-2 text-sm font-semibold text-white/85">
-            {snapshot?.message || "Waiting for discovery updates."}
+          <ProgressBar value={snapshot?.progress || 0} color="ocean" height="h-1.5" />
+          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-white/70">
+            {snapshot?.message || "Discovery stream active"}
           </p>
         </div>
       </PageHeader>
