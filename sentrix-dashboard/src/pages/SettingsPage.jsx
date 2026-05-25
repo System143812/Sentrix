@@ -133,7 +133,7 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
               <Info size={16} className="shrink-0 text-blue-500" />
               Local mode keeps dashboard actions inside this lab network.
             </div>
-            <div className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50/80 p-4 text-xs font-medium leading-5 text-slate-600">
+            <div className="flex gap-3 rounded-xl border border-slate-200/60 bg-slate-50/80 p-4 text-xs font-medium leading-5 text-slate-600">
               <Info size={16} className="shrink-0 text-slate-500" />
               Online mode is reserved for future remote sync controls.
             </div>
@@ -166,7 +166,7 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
               </button>
             ))}
           </div>
-          <div className="mt-4 flex gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4 text-xs font-medium leading-5 text-slate-500">
+          <div className="mt-4 flex gap-3 rounded-xl border border-slate-200/60 bg-slate-50/70 p-4 text-xs font-medium leading-5 text-slate-500">
             <Info size={16} className="shrink-0 text-blue-500" />
             This schedule is saved globally and sent to connected devices for metrics and activity collection.
           </div>
@@ -401,7 +401,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
               .filter((admin) => admin.role === "admin")
               .map((admin) => (
                 <div
-                  className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 transition hover:border-blue-200 hover:bg-white"
+                  className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200/60 bg-slate-50/60 px-4 py-3 transition hover:border-blue-200 hover:bg-white"
                   key={admin.id}
                 >
                   <div className="min-w-0">
@@ -471,7 +471,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
           <div className="mt-5 grid gap-2">
             {groups.map((group) => (
               <div
-                className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 transition hover:border-teal-200 hover:bg-white"
+                className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200/60 bg-slate-50/60 px-4 py-3 transition hover:border-teal-200 hover:bg-white"
                 key={group.id}
               >
                 <div className="min-w-0">
