@@ -24,6 +24,7 @@ import {
   Search,
   ShieldAlert,
   LoaderCircle,
+  CircleHelp,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useEffect, useMemo, useState } from "react";
 import { MetricPill } from "./MetricPill.jsx";
@@ -356,19 +357,42 @@ function ActivityMonitor({ connections, history, error }) {
           <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
             <Globe2 size={18} strokeWidth={2.5} />
           </span>
-          <h4 className="text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
-            Activity Monitor
-          </h4>
+          <div className="flex items-center gap-2">
+            <h4 className="text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
+              Activity Monitor
+            </h4>
+            <div className="group relative">
+              <CircleHelp size={14} strokeWidth={2.5} className="cursor-help text-slate-300 hover:text-slate-500 transition-colors" />
+              <div className="pointer-events-none absolute top-full left-1/2 z-20 mt-3 hidden w-64 -translate-x-1/2 rounded-xl bg-slate-900 p-4 text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
+                <p className="font-bold text-blue-400 mb-1">Network Visibility</p>
+                Tracks real-time and historical network interactions. It maps outbound connections to hostnames (DNS) and identifies which applications (processes) are communicating with external services.
+                <div className="absolute bottom-full left-1/2 -ml-1.5 border-[6px] border-transparent border-b-slate-900" />
+              </div>
+            </div>
+          </div>
         </div>
-        <button
-          className={`btn-minimal h-10 px-4 text-xs font-bold uppercase tracking-wider ${showHistory ? "!border-slate-900 !bg-slate-900 !text-white" : ""}`}
-          onClick={() => setShowHistory((current) => !current)}
-          title={showHistory ? "Show active sites and connections" : "Show recent activity history"}
-          type="button"
-        >
-          <History size={16} strokeWidth={2.5} />
-          <span>{showHistory ? "Active" : "History"}</span>
-        </button>
+
+        <div className="relative flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/50 p-1">
+          <div 
+            className={`absolute h-9 w-9 rounded-md bg-white shadow-sm ring-1 ring-slate-200 transition-all duration-300 ease-in-out ${showHistory ? "translate-x-10" : "translate-x-0"}`}
+          />
+          <button
+            onClick={() => setShowHistory(false)}
+            className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-md transition-colors duration-300 ${!showHistory ? "text-slate-900" : "text-slate-400 hover:text-slate-600"}`}
+            title="Show active sites and connections"
+            type="button"
+          >
+            <Globe2 size={16} strokeWidth={2.5} />
+          </button>
+          <button
+            onClick={() => setShowHistory(true)}
+            className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-md transition-colors duration-300 ${showHistory ? "text-slate-900" : "text-slate-400 hover:text-slate-600"}`}
+            title="Show recent activity history"
+            type="button"
+          >
+            <History size={16} strokeWidth={2.5} />
+          </button>
+        </div>
       </div>
 
       <SearchFilterBar
@@ -390,10 +414,11 @@ function ActivityMonitor({ connections, history, error }) {
           {showHistory ? "Recent Activity History" : "Active Sites & Connections"}
         </p>
         <div 
-          className="custom-scrollbar grid gap-3 overflow-auto pr-1 flex-1"
+          className={`custom-scrollbar grid gap-3 overflow-auto pr-1 flex-1 transition-opacity duration-300 ${visibleItems.length === 0 ? "opacity-50" : "opacity-100"}`}
           style={{ minHeight: '300px' }}
           onScroll={handleScroll(showHistory ? "history" : "active")}
           ref={showHistory ? historyListRef : activeListRef}
+          key={showHistory ? "history-list" : "active-list"}
         >
           {!showHistory && visibleItems.length > 0 ? visibleItems.map((item) => (
             <div
