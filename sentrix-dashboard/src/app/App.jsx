@@ -204,7 +204,7 @@ function DashboardShell({
               <span className="hidden sm:inline">{connected ? "Live" : "Offline"}</span>
             </span>
 
-            <span className="inline-flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200/60 bg-slate-50 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-sm">
               <UserCircle size={14} strokeWidth={2.5} />
               {user.role === "network_admin" ? "Network Admin" : "Admin"}
             </span>

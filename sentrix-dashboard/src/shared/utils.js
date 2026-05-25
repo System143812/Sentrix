@@ -133,6 +133,26 @@ export function getDeviceIssues(device) {
   return issues;
 }
 
+// Search Functions
+
+export function matchesSearch(item, query, fields = []) {
+  const normalizedQuery = String(query || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedQuery) return true;
+
+  const values = fields.length
+    ? fields.map((field) =>
+        typeof field === "function" ? field(item) : item?.[field],
+      )
+    : Object.values(item || {});
+
+  return values
+    .flatMap((value) => (Array.isArray(value) ? value : [value]))
+    .filter((value) => value != null)
+    .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+}
+
 // SVG Path Functions
 
 export function buildSmoothSvgPath(coordinates, step) {
