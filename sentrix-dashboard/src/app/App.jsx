@@ -9,6 +9,7 @@ import {
   Network,
   RefreshCcw,
   Settings,
+  ClipboardList,
   UserCircle,
   Wifi,
   WifiOff,
@@ -24,6 +25,7 @@ import { DevicesPage } from "../pages/DevicesPage.jsx";
 import { NetworkPage } from "../pages/NetworkPage.jsx";
 import { AnalyticsPage } from "../pages/AnalyticsPage.jsx";
 import { SettingsPage } from "../pages/SettingsPage.jsx";
+import { AuditPage } from "../pages/AuditPage.jsx";
 import * as authApi from "../services/authApi.js";
 import * as groupApi from "../services/groupApi.js";
 
@@ -32,6 +34,7 @@ const tabs = [
   { id: "network", label: "Network", icon: Network },
   { id: "devices", label: "Devices", icon: MonitorCog },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
+  { id: "audit", label: "Logs", icon: ClipboardList },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -181,7 +184,7 @@ function DashboardShell({
             <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
               <SentrixLogo />
               <TabNav
-                tabs={tabs}
+                tabs={tabs.filter((tab) => tab.id !== "audit" || user.role === "network_admin")}
                 activeTab={activeTab}
                 onSelect={setActiveTab}
               />
@@ -246,9 +249,11 @@ function DashboardShell({
             onUpdateGroup={handleUpdateGroup}
             groups={groups}
             onArchive={handleArchiveDevice}
+            canControl={user.role === "network_admin"}
           />
         ) : activeTab === "network" ? (
           <NetworkPage
+            user={user}
             snapshot={discovery.snapshot}
             onScan={discovery.rescan}
             onDeploy={discovery.deploy}
@@ -262,9 +267,12 @@ function DashboardShell({
             onUpdateGroup={handleUpdateGroup}
             groups={groups}
             onArchive={handleArchiveDevice}
+            canControl={user.role === "network_admin"}
           />
         ) : activeTab === "analytics" ? (
           <AnalyticsPage dashboardData={dashboardData} loading={loading} />
+        ) : activeTab === "audit" ? (
+          <AuditPage />
         ) : (
           <SettingsPage
             user={user}

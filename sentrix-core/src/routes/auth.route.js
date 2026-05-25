@@ -5,8 +5,9 @@ import { authenticate } from "../middlewares/auth.middleware.js";
 const router = express.Router();
 
 router.post("/login", authController.login);
-router.post("/logout", authController.logout);
+router.post("/logout", authenticate, authController.logout);
 router.post("/register", authController.register);
 router.get("/me", authenticate, authController.me);
+router.patch("/password", authenticate, authController.updatePassword);
 
 export default router;

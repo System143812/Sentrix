@@ -39,6 +39,11 @@ export async function getClientActivityHistory(id) {
   return result.data;
 }
 
+export async function getClientPeripheralHistory(id) {
+  const result = await fetchJson(`/api/clients/${id}/peripherals/history`);
+  return result.data;
+}
+
 export async function updateClientGroup(id, group) {
   const result = await fetchJson(`/api/clients/${id}/group`, {
     method: "PATCH",

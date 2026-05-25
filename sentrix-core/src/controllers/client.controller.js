@@ -1,5 +1,6 @@
 import * as clientService from "../services/client.services.js";
 import { AppError } from "../utils/appError.utils.js";
+import { logAuditEvent } from "../services/audit.service.js";
 
 const ALLOWED_DEVICE_COMMANDS = new Set([
   "shutdown",
@@ -35,6 +36,7 @@ async function emitAgentCommand(req, clientId, command, args = {}) {
 export async function killClientProcess(req, res, next) {
   try {
     const { id, pid } = req.params;
+    const client = await clientService.getClientById(id);
     
     try {
       const result = await emitAgentCommand(req, id, "kill-process", {
@@ -44,6 +46,16 @@ export async function killClientProcess(req, res, next) {
       console.log(`[CORE] Agent result for kill-process (PID ${pid}):`, result);
 
       if (result.success) {
+        await logAuditEvent({
+          req,
+          action: "process_ended",
+          targetType: "client_process",
+          targetId: `${id}:${pid}`,
+          targetLabel: `${client?.hostname || "Device"} PID ${pid}`,
+          macAddress: client?.mac,
+          details: { clientId: id, pid: parseInt(pid, 10) },
+        });
+
         res.status(200).json({
           success: true,
           message: "Process terminated successfully.",
@@ -76,11 +88,22 @@ export async function sendClientCommand(req, res, next) {
       throw new AppError(400, "Unsupported remote command.");
     }
 
+    const client = await clientService.getClientById(id);
     const result = await emitAgentCommand(req, id, command, payload);
 
     if (!result?.success) {
       throw new AppError(400, result?.message || "Remote command failed.");
     }
+
+    await logAuditEvent({
+      req,
+      action: `remote_${command}`,
+      targetType: "client",
+      targetId: id,
+      targetLabel: client?.hostname,
+      macAddress: client?.mac,
+      details: { command, payload },
+    });
 
     return res.status(200).json({
       success: true,
@@ -178,6 +201,16 @@ export async function updateClientGroup(req, res, next) {
       });
     }
 
+    await logAuditEvent({
+      req,
+      action: "device_group_updated",
+      targetType: "client",
+      targetId: req.params.id,
+      targetLabel: client.hostname,
+      macAddress: client.mac,
+      details: { group: client.group },
+    });
+
     const io = req.app.get("io");
     io.to("dashboards").emit(
       "devices:update",
@@ -195,6 +228,7 @@ export async function updateClientGroup(req, res, next) {
 
 export async function archiveClient(req, res, next) {
   try {
+    const client = await clientService.getClientById(req.params.id);
     const success = await clientService.archiveClient(req.params.id);
 
     if (!success) {
@@ -203,6 +237,15 @@ export async function archiveClient(req, res, next) {
         message: "Client not found.",
       });
     }
+
+    await logAuditEvent({
+      req,
+      action: "device_archived",
+      targetType: "client",
+      targetId: req.params.id,
+      targetLabel: client?.hostname,
+      macAddress: client?.mac,
+    });
 
     const io = req.app.get("io");
     io.to("dashboards").emit(
@@ -240,6 +283,16 @@ export async function getClientActivityHistory(req, res, next) {
   try {
     const { id } = req.params;
     const history = await clientService.getClientActivityHistory(id);
+    res.json({ success: true, data: history });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getClientPeripheralHistory(req, res, next) {
+  try {
+    const { id } = req.params;
+    const history = await clientService.getClientPeripheralHistory(id);
     res.json({ success: true, data: history });
   } catch (error) {
     next(error);

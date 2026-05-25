@@ -32,6 +32,7 @@ import { Card } from "../components/Card.jsx";
 import { StatusBadge } from "../components/StatusBadge.jsx";
 import { ProgressBar } from "../components/ProgressBar.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
+import { useTelemetryInterval } from "../hooks/useTelemetryInterval.js";
 import * as analyticsApi from "../services/analyticsApi.js";
 import {
   formatUptime,
@@ -54,7 +55,6 @@ const timeRanges = [
   { key: "7d", label: "7d", points: ["Mon", "Tue", "Wed", "Thu", "Fri", "Now"] },
   { key: "30d", label: "30d", points: ["W1", "W2", "W3", "W4", "W5", "Now"] },
 ];
-const ANALYTICS_REFRESH_MS = 5000;
 const GLASS_TONES = {
   emerald: "border-emerald-100/70 bg-emerald-50/45 shadow-emerald-900/5",
   blue: "border-blue-100/70 bg-blue-50/45 shadow-blue-900/5",
@@ -497,8 +497,8 @@ function AgentMetricsPanel({ analytics, loading }) {
     <Panel
       icon={Activity}
       loading={loading}
-      title="Agent Metrics"
-      subtitle="Temperature and network values from normalized agent telemetry"
+      title="Live Metrics"
+      subtitle="Temperature and network readings reported by devices"
       tone="blue"
     >
       <div className="grid gap-5">
@@ -529,7 +529,7 @@ function AgentMetricsPanel({ analytics, loading }) {
         <div className="max-h-[520px] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 custom-scrollbar">
             <div>
               <div className="hidden grid-cols-[1.8fr_repeat(6,1fr)] bg-slate-50 border-b border-slate-200 px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-ui md:grid">
-                <span>Client Terminal</span>
+                <span>Device</span>
                 <span className="text-right">CPU Temp</span>
                 <span className="text-right">GPU Temp</span>
                 <span className="text-right">Upload</span>
@@ -562,7 +562,10 @@ function AgentMetricsPanel({ analytics, loading }) {
                         <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">Download</span>
                         {formatBytesPerSecond(cm.downloadBytesPerSec)}
                       </span>
-                      <span className="text-right tabular-nums text-slate-600 font-bold">{cm.latencyMs == null ? "—" : `${Math.round(Number(cm.latencyMs))}ms`}</span>
+                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">Latency</span>
+                        {cm.latencyMs == null ? "Unknown" : `${Math.round(Number(cm.latencyMs))}ms`}
+                      </span>
                       <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
                         <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">Loss</span>
                         {formatPercent(cm.packetLoss)}
@@ -571,7 +574,7 @@ function AgentMetricsPanel({ analytics, loading }) {
                   );
                 }) : (
                   <div className="p-20 text-center text-xs font-bold text-slate-300 uppercase tracking-widest font-ui">
-                    Waiting for agent telemetry...
+                    Waiting for device data...
                   </div>
                 )}
               </div>
@@ -596,7 +599,7 @@ function HealthScorePanel({ analytics, loading }) {
       icon={ShieldCheck}
       loading={loading}
       title="Health Performance"
-      subtitle="Aggregated terminal health and availability"
+      subtitle="Overall device health and availability"
       tone="emerald"
     >
       <div className="grid gap-8 md:grid-cols-[200px_minmax(0,1fr)]">
@@ -613,7 +616,7 @@ function HealthScorePanel({ analytics, loading }) {
           >
             <div className="text-center font-ui">
               <strong className={`block text-4xl font-bold tracking-tight ${STATUS_TONES[tone].split(' ')[0]}`}>{analytics.health}%</strong>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fleet Index</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Device Health</span>
             </div>
           </div>
         </div>
@@ -644,7 +647,7 @@ function AlertTrendsPanel({ analytics, loading }) {
     <Panel
       icon={BadgeAlert}
       loading={loading}
-      title="Fleet Warnings"
+      title="Device Warnings"
       subtitle="Critical alert trends and incident logs"
       tone="rose"
     >
@@ -687,8 +690,8 @@ function DeviceComparisonPanel({ devices, loading, rangeKey }) {
     <Panel
       icon={Laptop}
       loading={loading}
-      title="Terminal Comparison"
-      subtitle="Selected nodes ranked by operational health"
+      title="Device Comparison"
+      subtitle="Selected devices ranked by health"
       tone="blue"
     >
       <MultiLineChart devices={devices} rangeKey={rangeKey} />
@@ -697,7 +700,7 @@ function DeviceComparisonPanel({ devices, loading, rangeKey }) {
           <span>Hostname</span>
           <span className="text-center">Health</span>
           <span className="text-center">Load</span>
-          <span className="text-right">Audit</span>
+          <span className="text-right">Status</span>
         </div>
         <div className="divide-y divide-slate-100 font-data">
           {devices.length ? devices.map((device) => {
@@ -725,7 +728,7 @@ function DeviceComparisonPanel({ devices, loading, rangeKey }) {
               </div>
             );
           }) : (
-            <p className="p-12 text-center text-xs font-bold text-slate-300 uppercase tracking-widest font-ui">No Nodes Selected</p>
+            <p className="p-12 text-center text-xs font-bold text-slate-300 uppercase tracking-widest font-ui">No devices selected</p>
           )}
         </div>
       </div>
@@ -738,8 +741,8 @@ function HeatmapPanel({ devices, loading }) {
     <Panel
       icon={BarChart3}
       loading={loading}
-      title="Cluster Heatmap"
-      subtitle="Fleet-wide terminal status visualization"
+      title="Group Heatmap"
+      subtitle="Device status by group"
       tone="teal"
     >
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
@@ -775,7 +778,7 @@ function DistributionPanel({ analytics, loading }) {
       icon={LineChart}
       loading={loading}
       title="Resource Distribution"
-      subtitle="Relative consumption across active terminals"
+      subtitle="Resource use across active devices"
       tone="amber"
     >
       <div className="space-y-8 flex flex-col justify-center flex-1">
@@ -811,7 +814,7 @@ function EventTimelinePanel({ analytics, loading }) {
       offline: false,
     })),
     ...analytics.recentDevices.slice(0, 3).map((device) => ({
-      title: device.status === "online" ? "Heartbeat Logged" : "Node Offline",
+      title: device.status === "online" ? "Device checked in" : "Device offline",
       detail: device.hostname,
       time: formatTimeAgo(getLastSeenAt(device)),
       warning: false,
@@ -824,7 +827,7 @@ function EventTimelinePanel({ analytics, loading }) {
       icon={Activity}
       loading={loading}
       title="Incident History"
-      subtitle="Chronological log of cluster alerts"
+      subtitle="Chronological log of device alerts"
       tone="blue"
     >
       <div className="space-y-4 flex max-h-[380px] flex-col overflow-auto pr-1 custom-scrollbar">
@@ -862,7 +865,7 @@ function TopIssuesPanel({ analytics, loading }) {
     <Panel
       icon={AlertTriangle}
       loading={loading}
-      title="Incident Registry"
+      title="Issue Summary"
       subtitle="Consolidated failure and warning metrics"
       tone="rose"
     >
@@ -895,7 +898,7 @@ function StatusTransitionsPanel({ analytics, loading }) {
     <Panel
       icon={Radio}
       loading={loading}
-      title="Terminal Activity"
+      title="Device Activity"
       subtitle="Recent heartbeat and connection deltas"
       tone="emerald"
     >
@@ -943,7 +946,7 @@ function GroupPerformancePanel({ analytics, loading }) {
     <Panel
       icon={Gauge}
       loading={loading}
-      title="Cluster Performance"
+      title="Group Performance"
       subtitle="Metrics breakdown by logical grouping"
       tone="teal"
       action={
@@ -985,7 +988,7 @@ function GroupPerformancePanel({ analytics, loading }) {
                 <span className="text-base font-bold text-slate-800 tracking-tight truncate">{group.name}</span>
               </div>
               <span className="badge-minimal bg-slate-50 border-slate-100 font-ui">
-                {group.count} Nodes
+                {group.count} Devices
               </span>
             </div>
             <div className="grid gap-5">
@@ -1011,7 +1014,7 @@ function GroupPerformancePanel({ analytics, loading }) {
                   { label: "Disk", value: `${group.disk}%`, tone: "amber" },
                   { label: "CPU Temp", value: formatTemperature(group.cpuTemperature), tone: "rose" },
                   { label: "Latency", value: group.latencyMs == null ? "Unknown" : `${Math.round(Number(group.latencyMs))}ms`, tone: "teal" },
-                  { label: "Nodes", value: group.count, tone: "slate" },
+                  { label: "Devices", value: group.count, tone: "slate" },
                 ].map((item) => (
                   <div className={`rounded-lg border p-3 shadow-sm ${GLASS_TONES[item.tone] || GLASS_TONES.slate}`} key={item.label}>
                     <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-slate-400 font-ui">{item.label}</p>
@@ -1036,7 +1039,7 @@ function GroupPerformancePanel({ analytics, loading }) {
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-600 font-data tabular-nums truncate">
                     <span>{formatTemperature(group.cpuTemperature)}</span>
                     <span className="text-slate-200">|</span>
-                    <span>{group.latencyMs == null ? "—" : `${Math.round(Number(group.latencyMs))}ms`}</span>
+                    <span>{group.latencyMs == null ? "Unknown" : `${Math.round(Number(group.latencyMs))}ms`}</span>
                   </div>
                 </div>
               </div>
@@ -1064,7 +1067,7 @@ function GroupPerformancePanel({ analytics, loading }) {
           </>
         ) : (
           <div className="flex-1 grid place-items-center rounded-xl bg-slate-50/50 border border-dashed border-slate-200 font-ui">
-             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Provisioned Clusters</p>
+             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No groups available</p>
           </div>
         )}
       </div>
@@ -1077,8 +1080,8 @@ function ExportPanel({ analytics, loading, onExportCsv, exporting }) {
     <Panel
       icon={Download}
       loading={loading}
-      title="Technical Audit"
-      subtitle="Fleet-wide reporting and compliance data engine"
+      title="Export Data"
+      subtitle="Download organized device and group reports"
       tone="indigo"
     >
       <div className="flex flex-col flex-1 pt-4">
@@ -1097,8 +1100,8 @@ function ExportPanel({ analytics, loading, onExportCsv, exporting }) {
                     <Download size={22} strokeWidth={2.5} />
                  </div>
                  <div className="min-w-0 text-left font-ui">
-                    <p className="truncate text-lg font-bold leading-none text-white tracking-tight">{exporting ? "Finalizing Package..." : "Export Fleet Analytics"}</p>
-                    <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-white/60">Production Technical .CSV Registry</p>
+                    <p className="truncate text-lg font-bold leading-none text-white tracking-tight">{exporting ? "Preparing CSV..." : "Export CSV"}</p>
+                    <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-white/60">Device and group report</p>
                  </div>
               </div>
               <ChevronRight className="shrink-0 text-white/40 group-hover:translate-x-2 transition-transform relative z-10" size={26} />
@@ -1111,8 +1114,8 @@ function ExportPanel({ analytics, loading, onExportCsv, exporting }) {
                 <BadgeAlert size={20} strokeWidth={2.5} />
               </div>
               <div className="min-w-0 font-ui">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-rose-500/70 leading-none">Critical Registry</p>
-                <p className="text-base font-bold text-rose-700 tracking-tight leading-none">{analytics.criticalAlerts} Flagged Items Found</p>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-rose-500/70 leading-none">Critical issues</p>
+                <p className="text-base font-bold text-rose-700 tracking-tight leading-none">{analytics.criticalAlerts} items need attention</p>
               </div>
             </div>
           </div>
@@ -1129,6 +1132,7 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState("");
   const [exporting, setExporting] = useState(false);
+  const refreshIntervalMs = useTelemetryInterval();
   const groupOptions = useMemo(
     () => [
       ...new Set([
@@ -1180,13 +1184,13 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
     loadAnalytics();
     refreshTimer = setInterval(() => {
       loadAnalytics({ background: true });
-    }, ANALYTICS_REFRESH_MS);
+    }, refreshIntervalMs);
 
     return () => {
       active = false;
       clearInterval(refreshTimer);
     };
-  }, [rangeKey, selectedGroup]);
+  }, [rangeKey, selectedGroup, refreshIntervalMs]);
 
   async function handleExportCsv() {
     setExporting(true);
@@ -1210,7 +1214,7 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
         <PageHeader
           icon={Activity}
           title="Lab health and device performance"
-          subtitle="Backend analytics for real agent metrics, alert trends, device comparisons, and export-ready summaries."
+          subtitle="Live analytics for metrics, warning trends, device comparison, and export-ready summaries."
           backgroundImage="/analytics_header.jpg"
           action={
             <div className="hidden sm:flex items-center gap-3 font-ui">
@@ -1248,10 +1252,10 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
         </PageHeader>
 
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-          <MetricCard icon={ShieldCheck} label="Health Score" value={`${analytics.health}%`} detail="Backend calculated score" loading={pageLoading} tone="emerald" />
+          <MetricCard icon={ShieldCheck} label="Health Score" value={`${analytics.health}%`} detail="Calculated from live signals" loading={pageLoading} tone="emerald" />
           <MetricCard icon={Cpu} label="Average CPU" value={`${analytics.cpu}%`} detail={`${analytics.pressure}% fleet pressure`} loading={pageLoading} tone="rose" />
           <MetricCard icon={MemoryStick} label="Average RAM" value={`${analytics.ram}%`} detail={`${formatUptime(analytics.uptime)} avg uptime`} loading={pageLoading} tone="blue" />
-          <MetricCard icon={HardDrive} label="Average Disk" value={`${analytics.disk}%`} detail={`${analytics.offline} offline agents`} loading={pageLoading} tone="amber" />
+          <MetricCard icon={HardDrive} label="Average Disk" value={`${analytics.disk}%`} detail={`${analytics.offline} offline devices`} loading={pageLoading} tone="amber" />
         </div>
 
         <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)]">
