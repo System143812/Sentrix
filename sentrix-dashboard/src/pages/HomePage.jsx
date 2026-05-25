@@ -1,32 +1,34 @@
-import { AlertCircle, Laptop, Radio } from "lucide-react";
+import { Boxes, Laptop, Wifi, WifiOff } from "lucide-react";
 import { useMemo, useState } from "react";
 import { DeviceTable } from "../components/DeviceTable.jsx";
 import { GroupPanel } from "../components/GroupPanel.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { Card } from "../components/Card.jsx";
-import { SearchFilterBar, matchesSearch } from "../components/SearchFilterBar.jsx";
+import { SearchFilterBar } from "../components/SearchFilterBar.jsx";
+import { matchesSearch } from "../shared/utils.js";
+import { ICON_TONES } from "../styles/tones.js";
 
 function SummaryCard({ label, value, icon: Icon, tone = "blue" }) {
-  const tones = {
-    blue: "border-blue-100 bg-blue-50 text-blue-600",
-    emerald: "border-emerald-100 bg-emerald-50 text-emerald-600",
-    rose: "border-rose-100 bg-rose-50 text-rose-600",
-  };
-
   return (
-    <Card padding="0" className="group overflow-hidden border-slate-200/70 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md">
-      <div className="p-6">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-            {label}
-          </p>
-          <span className={`grid h-10 w-10 place-items-center rounded-xl border shadow-sm transition group-hover:scale-105 ${tones[tone]}`}>
-            <Icon size={18} strokeWidth={2.5} />
-          </span>
+    <Card padding="0" className="group relative overflow-hidden border-slate-200/60 bg-white transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/50">
+      <div className="flex items-center min-h-[100px]">
+        <div className="flex flex-1 items-center justify-between p-5">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
+              {label}
+            </p>
+            <div className="flex items-baseline gap-1.5">
+              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                {value}
+              </p>
+              <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider">units</span>
+            </div>
+          </div>
+          
+          <div className={`rounded-xl border p-3 transition-all duration-300 group-hover:scale-110 shadow-sm ${ICON_TONES[tone] || ICON_TONES.blue}`}>
+            <Icon size={24} strokeWidth={2.5} />
+          </div>
         </div>
-        <p className="text-3xl font-bold tracking-tight text-slate-900">
-          {value}
-        </p>
       </div>
     </Card>
   );
@@ -66,10 +68,16 @@ export function HomePage({
         backgroundImage="/home_header.jpg"
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <SummaryCard label="Total registered" value={dashboardData.total} icon={Laptop} />
-        <SummaryCard label="Online" value={dashboardData.online} icon={Radio} tone="emerald" />
-        <SummaryCard label="Offline" value={dashboardData.offline} icon={AlertCircle} tone="rose" />
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap">
+        <div className="w-full sm:flex-1 lg:max-w-[280px]">
+          <SummaryCard label="Total registered" value={dashboardData.total} icon={Boxes} />
+        </div>
+        <div className="w-full sm:flex-1 lg:max-w-[280px]">
+          <SummaryCard label="Online" value={dashboardData.online} icon={Wifi} tone="emerald" />
+        </div>
+        <div className="w-full sm:flex-1 lg:max-w-[280px]">
+          <SummaryCard label="Offline" value={dashboardData.offline} icon={WifiOff} tone="rose" />
+        </div>
       </div>
 
       <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">

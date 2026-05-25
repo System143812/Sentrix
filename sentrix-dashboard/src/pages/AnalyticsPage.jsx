@@ -3,29 +3,36 @@ import {
   Activity,
   AlertTriangle,
   BadgeAlert,
-  BarChart3,
+  AreaChart,
   CalendarDays,
   CheckCircle2,
   Clock3,
   Cpu,
   Download,
   Filter,
-  Gauge,
-  HardDrive,
-  Laptop,
+  Zap,
+  Database,
+  MonitorDot,
   LineChart,
-  MemoryStick,
-  Radio,
+  CircuitBoard,
+  History,
   RefreshCcw,
   ShieldCheck,
   Thermometer,
-  Timer,
+  Hourglass,
   Upload,
   Wifi,
   WifiOff,
   ChevronLeft,
   ChevronRight,
+  Boxes,
+  MemoryStick,
+  Radio,
+  BarChart3,
   Users,
+  Gauge,
+  HardDrive,
+  Laptop,
 } from "lucide-react";
 import { SentrixLogoLoader } from "../components/SentrixLogo.jsx";
 import { Card } from "../components/Card.jsx";
@@ -279,7 +286,7 @@ function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
   const areaPath = path ? `${path} L ${width} ${height} L 0 ${height} Z` : "";
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
+    <div className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm sm:p-6">
       <svg
         className="h-56 w-full sm:h-64"
         preserveAspectRatio="none"
@@ -346,28 +353,48 @@ function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
 
 function MultiLineChart({ devices = [] }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-6 shadow-inner">
+    <div className="rounded-xl border border-slate-200/60 bg-white p-6">
       {!devices.length ? (
         <div className="grid min-h-64 place-items-center rounded-lg bg-slate-50 text-xs font-bold uppercase tracking-widest text-slate-400 font-ui">
           Syncing Device Metrics...
         </div>
       ) : (
-        <div className="space-y-6">
-          {devices.slice(0, 5).map((device) => {
+        <div className="grid gap-6 sm:grid-cols-2">
+          {devices.slice(0, 6).map((device) => {
             const health = getHealthScore(device);
             const load = getDeviceLoad(device);
 
             return (
-              <div key={device.id}>
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm font-ui">
-                  <span className="font-bold text-slate-800 tracking-tight">{device.hostname}</span>
-                  <span className="shrink-0 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-data">
-                    Health {health}% <span className="text-slate-200">/</span> Load {load}%
-                  </span>
+              <div key={device.id} className="group rounded-xl border border-slate-200/60 bg-slate-50/30 p-4 transition-all hover:border-slate-200 hover:bg-white hover:shadow-sm">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <span className="truncate text-sm font-bold text-slate-800 tracking-tight font-ui">{device.hostname}</span>
+                  <div className="flex shrink-0 gap-1">
+                    <div className={`h-1.5 w-1.5 rounded-full ${health >= 80 ? 'bg-emerald-400' : health >= 60 ? 'bg-amber-400' : 'bg-rose-400'}`} />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <ProgressBar value={clamp(health)} color="emerald" height="h-1.5" />
-                  <ProgressBar value={clamp(load)} color="blue" height="h-1.5" />
+                
+                <div className="space-y-4">
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between px-0.5">
+                      <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-ui">
+                        <ShieldCheck size={12} className="text-emerald-500/70" />
+                        Health
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-600 font-data">{health}%</span>
+                    </div>
+                    <ProgressBar value={clamp(health)} color="emerald" height="h-1.5" />
+                  </div>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between px-0.5">
+                      <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-ui">
+                        <Zap size={12} className="text-blue-500/70" />
+                        Workload
+                      </span>
+                      <span className="text-[10px] font-bold text-blue-600 font-data">{load}%</span>
+                    </div>
+                    <ProgressBar value={clamp(load)} color="blue" height="h-1.5" />
+                  </div>
                 </div>
               </div>
             );
@@ -408,11 +435,11 @@ function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, select
       </div>
 
       <div className="flex flex-wrap items-center gap-2 font-ui">
-        <span className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/25 bg-white/20 text-white backdrop-blur-md' : 'border-slate-100 bg-white text-slate-500'}`}>
+        <span className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/25 bg-white/20 text-white backdrop-blur-md' : 'border-slate-200/60 bg-white text-slate-500'}`}>
           <RefreshCcw className={loading ? "animate-spin" : ""} size={14} strokeWidth={2.5} />
           {loading ? "Syncing..." : "Data Live"}
         </span>
-        <label className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25' : 'border-slate-100 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200'}`}>
+        <label className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? 'border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25' : 'border-slate-200/60 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200'}`}>
           <Filter size={14} strokeWidth={2.5} />
           <select
             className="bg-transparent outline-none cursor-pointer"
@@ -506,19 +533,19 @@ function AgentMetricsPanel({ analytics, loading }) {
           {metrics.map((metric) => {
             const Icon = metric.icon;
             return (
-              <div className={`rounded-xl border p-5 shadow-sm backdrop-blur-md transition-all hover:shadow-md ${GLASS_TONES[metric.tone] || GLASS_TONES.slate}`} key={metric.label}>
+              <div className="group relative overflow-hidden rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition-all duration-300 hover:border-slate-300 hover:shadow-md" key={metric.label}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 font-ui">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{metric.label}</p>
                     <strong className="mt-1.5 block break-words text-2xl font-bold text-slate-900 font-data tabular-nums">
                       {metric.value}
                     </strong>
-                    <span className="mt-1 block text-[11px] font-medium text-slate-500 italic">
+                    <span className="mt-1 block text-[11px] font-medium text-slate-400 italic">
                       {metric.detail}
                     </span>
                   </div>
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform hover:scale-110 ${ICON_TONES[metric.tone]}`}>
-                    <Icon size={18} strokeWidth={2.4} />
+                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-all duration-300 group-hover:scale-110 ${ICON_TONES[metric.tone] || ICON_TONES.blue}`}>
+                    <Icon size={20} strokeWidth={2.5} />
                   </span>
                 </div>
               </div>
@@ -588,7 +615,7 @@ function AgentMetricsPanel({ analytics, loading }) {
 function HealthScorePanel({ analytics, loading }) {
   const tone = getStatusTone(analytics.health);
   const factors = [
-    { label: "Utilization", value: 100 - analytics.pressure, icon: Gauge, color: "blue" },
+    { label: "Utilization", value: 100 - analytics.pressure, icon: Zap, color: "blue" },
     { label: "CPU Health", value: 100 - analytics.cpu, icon: Cpu, color: "emerald" },
     { label: "Memory State", value: 100 - analytics.ram, icon: MemoryStick, color: "indigo" },
     { label: "Uptime Sync", value: analytics.total ? Math.round((analytics.online / analytics.total) * 100) : 0, icon: Radio, color: "teal" },
@@ -624,13 +651,15 @@ function HealthScorePanel({ analytics, loading }) {
           {factors.map((factor) => {
             const Icon = factor.icon;
             return (
-              <div className={`rounded-xl border p-4 shadow-sm backdrop-blur-md transition-all hover:shadow-md font-ui ${GLASS_TONES[factor.color] || GLASS_TONES.slate}`} key={factor.label}>
+              <div className="group rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm transition-all duration-300 hover:border-slate-300 hover:shadow-md font-ui" key={factor.label}>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="inline-flex min-w-0 items-center gap-2.5 text-sm font-bold text-slate-700">
-                    <Icon className="text-slate-400" size={15} />
+                  <span className="inline-flex min-w-0 items-center gap-2.5 text-xs font-bold text-slate-700 uppercase tracking-tight">
+                    <span className={`p-1.5 rounded-lg border shadow-sm transition-transform group-hover:scale-110 ${ICON_TONES[factor.color] || ICON_TONES.blue}`}>
+                      <Icon size={14} strokeWidth={2.5} />
+                    </span>
                     <span>{factor.label}</span>
                   </span>
-                  <span className="shrink-0 text-xs font-bold font-data text-slate-500 tabular-nums">{clamp(factor.value)}%</span>
+                  <span className="shrink-0 text-xs font-bold font-data text-slate-400 tabular-nums">{clamp(factor.value)}%</span>
                 </div>
                 <ProgressBar value={clamp(factor.value)} color={factor.color} height="h-1.5" className="mt-4" />
               </div>
@@ -781,19 +810,19 @@ function DistributionPanel({ analytics, loading }) {
       subtitle="Resource use across active devices"
       tone="amber"
     >
-      <div className="space-y-8 flex flex-col justify-center flex-1">
+      <div className="space-y-6 flex flex-col justify-center flex-1">
         {bars.map((bar) => {
           const Icon = bar.icon;
           return (
-            <div key={bar.label} className="font-ui">
+            <div key={bar.label} className="group font-ui">
               <div className="mb-3 flex items-center justify-between gap-4">
                 <span className="inline-flex min-w-0 items-center gap-3">
-                  <span className={`p-2 rounded-lg bg-slate-50 border border-slate-100 text-slate-400`}>
-                    <Icon size={16} />
+                  <span className={`p-1.5 rounded-lg border shadow-sm transition-transform group-hover:scale-110 ${ICON_TONES[bar.color] || ICON_TONES.blue}`}>
+                    <Icon size={14} strokeWidth={2.5} />
                   </span>
-                  <span className="text-sm font-bold text-slate-700">{bar.label}</span>
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-tight">{bar.label}</span>
                 </span>
-                <span className="shrink-0 text-sm font-bold text-slate-900 font-data tabular-nums">{bar.value}% <span className="text-[10px] text-slate-300 uppercase ml-1">avg</span></span>
+                <span className="shrink-0 text-xs font-bold text-slate-900 font-data tabular-nums">{bar.value}% <span className="text-[10px] text-slate-400 uppercase ml-1">avg</span></span>
               </div>
               <ProgressBar value={bar.value} color={bar.color} height="h-1.5" />
             </div>
@@ -832,7 +861,7 @@ function EventTimelinePanel({ analytics, loading }) {
     >
       <div className="space-y-4 flex max-h-[380px] flex-col overflow-auto pr-1 custom-scrollbar">
         {events.length ? events.map((event, index) => (
-          <div className="flex gap-4 rounded-xl bg-white border border-slate-100 p-4 transition hover:bg-slate-50/50 hover:shadow-sm" key={`${event.title}-${index}`}>
+          <div className="flex gap-4 rounded-xl bg-white border border-slate-200/60 p-4 transition hover:bg-slate-50/50 hover:shadow-sm" key={`${event.title}-${index}`}>
             <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${
               event.warning
                 ? "bg-rose-50 border-rose-100 text-rose-500"
@@ -872,13 +901,13 @@ function TopIssuesPanel({ analytics, loading }) {
       <div className="grid max-h-[380px] grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 overflow-auto pr-1 custom-scrollbar">
         {(analytics.topAlerts.length ? analytics.topAlerts : [{ name: "Standard", count: 0 }]).map((issue) => (
           <button
-            className="group flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white p-4 text-left transition hover:border-slate-300 hover:shadow-md ring-1 ring-slate-100"
+            className="group flex items-center justify-between gap-4 rounded-xl border border-slate-200/60 bg-white p-4 text-left transition hover:border-slate-300 hover:shadow-md ring-1 ring-slate-100"
             key={issue.name}
             title={`Drill-down: ${issue.name}`}
             type="button"
           >
             <div className="flex items-center gap-3 font-ui">
-              <div className="p-2 rounded-lg bg-slate-50 text-slate-400 border border-slate-100 transition group-hover:bg-rose-500 group-hover:text-white group-hover:border-rose-500 shadow-sm">
+              <div className="p-2 rounded-lg bg-slate-50 text-slate-400 border border-slate-200/60 transition group-hover:bg-rose-500 group-hover:text-white group-hover:border-rose-500 shadow-sm">
                 <AlertTriangle size={14} />
               </div>
               <span className="text-sm font-bold text-slate-700 tracking-tight truncate">{issue.name}</span>
@@ -904,7 +933,7 @@ function StatusTransitionsPanel({ analytics, loading }) {
     >
       <div className="space-y-3 flex flex-col flex-1">
         {analytics.statusChanges.length ? analytics.statusChanges.map((device) => (
-          <div className="flex items-center justify-between gap-4 rounded-xl bg-white border border-slate-100 p-4 shadow-sm transition hover:bg-slate-50/50 hover:border-slate-200" key={device.id}>
+          <div className="flex items-center justify-between gap-4 rounded-xl bg-white border border-slate-200/60 p-4 shadow-sm transition hover:bg-slate-50/50 hover:border-slate-200" key={device.id}>
             <div className="min-w-0 font-ui">
               <span className="block text-sm font-bold text-slate-800 tracking-tight truncate">{device.hostname}</span>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-data">{formatTimeAgo(getLastSeenAt(device))}</span>
@@ -980,31 +1009,37 @@ function GroupPerformancePanel({ analytics, loading }) {
             className={`rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-500 hover:shadow-md ${index === activeIndex ? "block opacity-100 translate-x-0" : "hidden opacity-0 translate-x-4"}`}
             key={group.name}
           >
-            <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-5">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200/60 pb-4 mb-5">
               <div className="flex items-center gap-3 font-ui">
                 <span className="p-2 rounded-lg bg-teal-50 text-teal-600 border border-teal-100">
                   <Users size={15} />
                 </span>
                 <span className="text-base font-bold text-slate-800 tracking-tight truncate">{group.name}</span>
               </div>
-              <span className="badge-minimal bg-slate-50 border-slate-100 font-ui">
+              <span className="badge-minimal bg-slate-50 border-slate-200/60 font-ui">
                 {group.count} Devices
               </span>
             </div>
             <div className="grid gap-5">
               <div>
-                <div className="mb-2 flex justify-between items-end font-ui">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Health Index</span>
+                <div className="mb-2 flex justify-between items-center px-0.5 font-ui">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <ShieldCheck size={12} className="text-emerald-500/70" />
+                    Health Index
+                  </span>
                   <span className="text-sm font-bold text-emerald-600 font-data tabular-nums">{group.health}%</span>
                 </div>
-                <ProgressBar value={group.health} color="emerald" height="h-1" />
+                <ProgressBar value={group.health} color="emerald" height="h-1.5" />
               </div>
               <div>
-                <div className="mb-2 flex justify-between items-end font-ui">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Current Load</span>
+                <div className="mb-2 flex justify-between items-center px-0.5 font-ui">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <Zap size={12} className="text-blue-500/70" />
+                    Current Load
+                  </span>
                   <span className="text-sm font-bold text-blue-600 font-data tabular-nums">{group.load}%</span>
                 </div>
-                <ProgressBar value={group.load} color="blue" height="h-1" />
+                <ProgressBar value={group.load} color="blue" height="h-1.5" />
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -1024,8 +1059,8 @@ function GroupPerformancePanel({ analytics, loading }) {
               </div>
               
               <div className="hidden">
-                <div className="rounded-lg bg-slate-50/80 p-3 border border-slate-100">
-                  <p className="text-[9px] font-bold uppercase text-slate-400 tracking-widest mb-1.5 border-b border-slate-100/50 pb-1 font-ui">Resources</p>
+                <div className="rounded-lg bg-slate-50/80 p-3 border border-slate-200/60">
+                  <p className="text-[9px] font-bold uppercase text-slate-400 tracking-widest mb-1.5 border-b border-slate-200/60/50 pb-1 font-ui">Resources</p>
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-600 font-data tabular-nums">
                     <span>C:{group.cpu}%</span>
                     <span className="text-slate-200">|</span>
@@ -1034,8 +1069,8 @@ function GroupPerformancePanel({ analytics, loading }) {
                     <span>D:{group.disk}%</span>
                   </div>
                 </div>
-                <div className="rounded-lg bg-slate-50/80 p-3 border border-slate-100">
-                  <p className="text-[9px] font-bold uppercase text-slate-400 tracking-widest mb-1.5 border-b border-slate-100/50 pb-1 font-ui">Environment</p>
+                <div className="rounded-lg bg-slate-50/80 p-3 border border-slate-200/60">
+                  <p className="text-[9px] font-bold uppercase text-slate-400 tracking-widest mb-1.5 border-b border-slate-200/60/50 pb-1 font-ui">Environment</p>
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-600 font-data tabular-nums truncate">
                     <span>{formatTemperature(group.cpuTemperature)}</span>
                     <span className="text-slate-200">|</span>
@@ -1227,7 +1262,7 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
                 {analytics.criticalAlerts} critical
               </span>
               <span className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-400 shadow-xl shadow-black/20 backdrop-blur-md">
-                <Laptop size={14} />
+                <Boxes size={14} />
                 {pageLoading ? "Refreshing" : `${analytics.total} devices`}
               </span>
             </div>
@@ -1254,8 +1289,8 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
           <MetricCard icon={ShieldCheck} label="Health Score" value={`${analytics.health}%`} detail="Calculated from live signals" loading={pageLoading} tone="emerald" />
           <MetricCard icon={Cpu} label="Average CPU" value={`${analytics.cpu}%`} detail={`${analytics.pressure}% fleet pressure`} loading={pageLoading} tone="rose" />
-          <MetricCard icon={MemoryStick} label="Average RAM" value={`${analytics.ram}%`} detail={`${formatUptime(analytics.uptime)} avg uptime`} loading={pageLoading} tone="blue" />
-          <MetricCard icon={HardDrive} label="Average Disk" value={`${analytics.disk}%`} detail={`${analytics.offline} offline devices`} loading={pageLoading} tone="amber" />
+          <MetricCard icon={CircuitBoard} label="Average RAM" value={`${analytics.ram}%`} detail={`${formatUptime(analytics.uptime)} avg uptime`} loading={pageLoading} tone="blue" />
+          <MetricCard icon={Database} label="Average Disk" value={`${analytics.disk}%`} detail={`${analytics.offline} offline devices`} loading={pageLoading} tone="amber" />
         </div>
 
         <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)]">
