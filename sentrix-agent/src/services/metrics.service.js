@@ -10,15 +10,13 @@ import { collectProcessMetrics } from "./metrics/processes.service.js";
 import { collectNetworkActivity } from "./metrics/network-activity.service.js";
 import { safeString, toNumber } from "./metrics/helpers.js";
 
-const DEFAULT_METRIC_INTERVALS_MS = {
-  cpu: Number(process.env.METRICS_CPU_INTERVAL_MS || 2000),
-  memory: Number(process.env.METRICS_MEMORY_INTERVAL_MS || 2000),
-  network: Number(process.env.METRICS_NETWORK_INTERVAL_MS || 1000),
-  temperature: Number(process.env.METRICS_TEMPERATURE_INTERVAL_MS || 10000),
-  disk: Number(process.env.METRICS_DISK_INTERVAL_MS || 30000),
-  processes: Number(process.env.METRICS_PROCESSES_INTERVAL_MS || 5000),
-  activity: Number(process.env.METRICS_ACTIVITY_INTERVAL_MS || 5000),
-};
+const DEFAULT_METRIC_INTERVAL_MS = Number(process.env.METRICS_INTERVAL_MS || 5000);
+
+let globalMetricIntervalMs = DEFAULT_METRIC_INTERVAL_MS;
+
+export function setGlobalMetricInterval(intervalMs) {
+  globalMetricIntervalMs = Math.min(Math.max(Number(intervalMs) || DEFAULT_METRIC_INTERVAL_MS, 1000), 60000);
+}
 
 const cachedMetricSections = {
   cpu: createCachedSection({ usage: null }),
@@ -103,13 +101,13 @@ async function refreshMetricSection(sectionName, collector, intervalMs) {
 
 async function refreshMetricsCache() {
   await Promise.all([
-    refreshMetricSection("cpu", collectCpuMetrics, DEFAULT_METRIC_INTERVALS_MS.cpu),
-    refreshMetricSection("memory", collectMemoryMetrics, DEFAULT_METRIC_INTERVALS_MS.memory),
-    refreshMetricSection("disk", collectDiskMetrics, DEFAULT_METRIC_INTERVALS_MS.disk),
-    refreshMetricSection("network", collectNetworkMetrics, DEFAULT_METRIC_INTERVALS_MS.network),
-    refreshMetricSection("temperature", collectTemperatureMetrics, DEFAULT_METRIC_INTERVALS_MS.temperature),
-    refreshMetricSection("processes", collectProcessMetrics, DEFAULT_METRIC_INTERVALS_MS.processes),
-    refreshMetricSection("activity", collectNetworkActivity, DEFAULT_METRIC_INTERVALS_MS.activity),
+    refreshMetricSection("cpu", collectCpuMetrics, globalMetricIntervalMs),
+    refreshMetricSection("memory", collectMemoryMetrics, globalMetricIntervalMs),
+    refreshMetricSection("disk", collectDiskMetrics, globalMetricIntervalMs),
+    refreshMetricSection("network", collectNetworkMetrics, globalMetricIntervalMs),
+    refreshMetricSection("temperature", collectTemperatureMetrics, globalMetricIntervalMs),
+    refreshMetricSection("processes", collectProcessMetrics, globalMetricIntervalMs),
+    refreshMetricSection("activity", collectNetworkActivity, globalMetricIntervalMs),
   ]);
 }
 
