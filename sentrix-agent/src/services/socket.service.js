@@ -38,7 +38,7 @@ async function runRemotePowerCommand(command) {
   }
 }
 
-export function connectToCore({ serverUrl, profile, onStatus }) {
+export function connectToCore({ serverUrl, profile, onStatus, onTelemetrySettings }) {
   let lastMetricsPacket = null;
   let lastHeartbeatPacket = null;
 
@@ -84,6 +84,10 @@ export function connectToCore({ serverUrl, profile, onStatus }) {
       profile,
       serverUrl,
     });
+  });
+
+  socket.on("settings:telemetry", (settings = {}) => {
+    onTelemetrySettings?.(settings);
   });
 
   // Handle remote commands from the core

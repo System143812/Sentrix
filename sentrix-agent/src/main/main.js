@@ -8,6 +8,7 @@ import {
   getLiveProfileSnapshot,
   getMetrics,
   getDeviceDetails,
+  setGlobalMetricInterval,
 } from "../services/metrics.service.js";
 import { connectToCore } from "../services/socket.service.js";
 
@@ -61,9 +62,9 @@ function sendStatusToWindow(status) {
 
 async function startAgent() {
   const serverUrl = process.env.SENTRIX_SERVER_URL || "http://localhost:4000";
-  const intervalMs = Number(process.env.METRICS_INTERVAL_MS || 1000);
-  const profileIntervalMs = Number(process.env.PROFILE_INTERVAL_MS || 10000);
-  const detailsIntervalMs = Number(process.env.DETAILS_INTERVAL_MS || 60000);
+  let intervalMs = Number(process.env.METRICS_INTERVAL_MS || 5000);
+  let profileIntervalMs = intervalMs;
+  let detailsIntervalMs = intervalMs;
   let profile = await getAgentProfile();
   let lastDetails = profile.details;
   let lastProfileAt = Date.now();
@@ -71,6 +72,7 @@ async function startAgent() {
   let lastMetrics = null;
   let lastMetricsSentAt = 0;
   let sending = false;
+  let metricsTimer = null;
 
   sendStatusToWindow({
     connection: "connecting",
@@ -81,6 +83,15 @@ async function startAgent() {
   socketClient = connectToCore({
     serverUrl,
     profile,
+    onTelemetrySettings(settings = {}) {
+      intervalMs = Math.min(Math.max(Number(settings.intervalMs) || intervalMs, 1000), 60000);
+      profileIntervalMs = intervalMs;
+      detailsIntervalMs = intervalMs;
+      setGlobalMetricInterval(intervalMs);
+      if (metricsTimer) clearInterval(metricsTimer);
+      metricsTimer = setInterval(sendMetrics, intervalMs);
+      sendStatusToWindow({ telemetryIntervalMs: intervalMs });
+    },
     onStatus: sendStatusToWindow,
   });
 
@@ -146,7 +157,7 @@ async function startAgent() {
   };
 
   await sendMetrics();
-  setInterval(sendMetrics, intervalMs);
+  metricsTimer = setInterval(sendMetrics, intervalMs);
   setInterval(() => {
     if (Date.now() - lastMetricsSentAt >= intervalMs) {
       socketClient.sendHeartbeat(lastMetrics);
