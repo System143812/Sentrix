@@ -31,7 +31,7 @@ export function StatusBadge({ status, alert, showIcon = true, size = "md" }) {
     const Icon = alertIcons[alert] || CheckCircle2;
 
     return (
-      <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border font-bold backdrop-blur ${sizeClasses[size]} ${alertStyles[alert] || alertStyles.normal}`}>
+      <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border font-semibold backdrop-blur ${sizeClasses[size]} ${alertStyles[alert] || alertStyles.normal}`}>
         {showIcon && <Icon size={iconSize[size]} />}
         {alert === "critical" && "Critical"}
         {alert === "warning" && "Review"}
@@ -45,7 +45,7 @@ export function StatusBadge({ status, alert, showIcon = true, size = "md" }) {
     const Icon = status === "online" ? Wifi : WifiOff;
 
     return (
-      <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border font-bold capitalize backdrop-blur ${sizeClasses[size]} ${statusStyle}`}>
+      <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border font-semibold capitalize backdrop-blur ${sizeClasses[size]} ${statusStyle}`}>
         {showIcon && <Icon size={iconSize[size]} />}
         {status}
       </span>

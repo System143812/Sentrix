@@ -34,12 +34,12 @@ export function PageHeader({
               {Icon ? (
                 <Icon
                   size={20}
-                  strokeWidth={2.25}
+                  strokeWidth={2}
                   className={isDark ? "text-blue-300" : "text-blue-600"}
                 />
               ) : null}
               <h2
-                className={`text-xl font-bold tracking-tight ${
+                className={`text-xl font-semibold tracking-tight ${
                   isDark ? "text-white" : "text-slate-900"
                 }`}
               >
@@ -48,8 +48,8 @@ export function PageHeader({
             </div>
             {subtitle ? (
               <p
-                className={`mt-2 max-w-3xl text-sm leading-6 ${
-                  isDark ? "font-medium text-slate-300" : "text-slate-500"
+                className={`mt-1.5 max-w-3xl text-sm leading-6 ${
+                  isDark ? "font-medium text-slate-300/90" : "text-slate-500"
                 }`}
               >
                 {subtitle}
@@ -63,7 +63,7 @@ export function PageHeader({
             className={`mt-5 ${
               isDark
                 ? "border-t border-white/10 pt-5"
-                : "border-t border-slate-100 pt-5"
+                : "border-t border-slate-200/60 pt-5"
             }`}
           >
             {children}

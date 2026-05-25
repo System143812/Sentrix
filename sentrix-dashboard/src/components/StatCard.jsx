@@ -10,7 +10,7 @@ export function StatCard({ icon: Icon, label, value = 0, tone = "default" }) {
           <Icon size={18} />
         </span>
       </div>
-      <strong className="mt-3 block text-3xl">{value}</strong>
+      <strong className="mt-3 block text-3xl font-semibold tracking-tight text-slate-900">{value}</strong>
     </Card>
   );
 }
