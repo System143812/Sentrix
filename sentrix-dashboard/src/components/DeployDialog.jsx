@@ -58,7 +58,7 @@ export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading
           ) : null}
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase text-slate-500">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Admin Username
             </label>
             <input
@@ -76,7 +76,7 @@ export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase text-slate-500">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Password
             </label>
             <input
