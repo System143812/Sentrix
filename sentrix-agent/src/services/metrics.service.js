@@ -8,6 +8,7 @@ import { collectNetworkMetrics } from "./metrics/network.service.js";
 import { collectTemperatureMetrics } from "./metrics/temperature.service.js";
 import { collectProcessMetrics } from "./metrics/processes.service.js";
 import { collectNetworkActivity } from "./metrics/network-activity.service.js";
+import { collectUsbDevices } from "./metrics/peripherals.service.js";
 import { safeString, toNumber } from "./metrics/helpers.js";
 
 const DEFAULT_METRIC_INTERVAL_MS = Number(process.env.METRICS_INTERVAL_MS || 5000);
@@ -229,18 +230,20 @@ export async function getMetrics() {
 }
 
 function simplifyUsbDevice(device) {
-  const name = [
-    device.manufacturer,
-    device.name || device.deviceName,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
+  // If the collector already provided a clean name, use it.
+  // Otherwise, fallback to manufacturer + name.
+  const rawName = device.name || device.deviceName || "";
+  const manufacturer = device.manufacturer || device.vendor || "";
+  
+  let name = rawName;
+  if (manufacturer && rawName && !rawName.includes(manufacturer)) {
+    name = `${manufacturer} ${rawName}`.trim();
+  }
 
   return {
-    name: name || device.id || "USB Device",
+    name: name || device.id || device.deviceId || "USB Device",
     type: device.type || "USB",
-    vendor: device.manufacturer || device.vendor || "Unknown",
+    vendor: manufacturer || "Unknown",
     id: device.id || device.deviceId || "Unknown",
   };
 }
@@ -350,7 +353,7 @@ export async function getDeviceDetails() {
     si.baseboard().catch(() => ({})),
     si.graphics().catch(() => ({ controllers: [], displays: [] })),
     si.diskLayout().catch(() => []),
-    si.usb().catch(() => []),
+    collectUsbDevices().catch(() => []),
     si.networkInterfaces().catch(() => []),
   ]);
 

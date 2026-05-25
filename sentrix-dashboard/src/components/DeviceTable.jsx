@@ -869,6 +869,7 @@ function NetworkActivityDetails({ device }) {
 }
 
 function PeripheralHistoryPanel({ history }) {
+  console.log("[DEBUG] PeripheralHistoryPanel history:", history);
   const inventory = history?.inventory || [];
   const events = history?.events || [];
   const missing = inventory.filter((item) => item.status === "missing");
@@ -1214,57 +1215,80 @@ export function DeviceTable({
   const [detailCache, setDetailCache] = useState({});
 
   useEffect(() => {
-    if (!expandedId || detailCache[expandedId]?.loaded || detailCache[expandedId]?.loading) {
-      return;
-    }
+    if (!expandedId) return;
+    
+    // Check cache without using detailCache as a dependency to avoid loops
+    // Functional update or ref would be better, but we can just use expandedId
+    // and let the state update handle the re-render.
+  }, [expandedId]);
 
+  // Use a separate effect for fetching to keep logic clean
+  useEffect(() => {
+    if (!expandedId) return;
+
+    // Use a ref to track if this specific fetch is still active
     let active = true;
 
-    setDetailCache((current) => ({
-      ...current,
-      [expandedId]: {
-        ...current[expandedId],
-        loading: true,
-        error: "",
-      },
-    }));
+    // We check if it's already loaded or loading in the state
+    // But we need the current state value. 
+    // To avoid dependency loops, we check it inside the effect ONE TIME.
+    setDetailCache((current) => {
+      const cached = current[expandedId];
+      const now = Date.now();
+      const isExpired = cached && now - (cached.timestamp || 0) > 60000;
 
-    Promise.all([
-      clientApi.getClientHardware(expandedId),
-      clientApi.getClientMetrics(expandedId, { range: "24h", limit: 1440 }),
-      clientApi.getClientPeripheralHistory(expandedId),
-    ])
-      .then(([hardware, metricHistory, peripheralHistory]) => {
+      if (cached?.loading || (cached?.loaded && !isExpired)) {
+        return current;
+      }
+
+      // Trigger fetch
+      console.log(`[Cache] Fetching details for device: ${expandedId}`);
+      
+      Promise.all([
+        clientApi.getClientHardware(expandedId).catch(err => { console.error("Hardware fetch failed:", err); return null; }),
+        clientApi.getClientMetrics(expandedId, { range: "24h", limit: 1440 }).catch(err => { console.error("Metrics fetch failed:", err); return null; }),
+        clientApi.getClientPeripheralHistory(expandedId).catch(err => { console.error("Peripheral History fetch failed:", err); return null; }),
+      ]).then(([hardware, metricHistory, peripheralHistory]) => {
         if (!active) return;
-        setDetailCache((current) => ({
-          ...current,
+        
+        console.log(`[Cache] Results for ${expandedId}:`, { 
+          hasHardware: !!hardware, 
+          hasMetrics: !!metricHistory, 
+          hasPeripherals: !!peripheralHistory 
+        });
+
+        if (peripheralHistory) {
+          console.log(`[Cache] Peripheral History Data:`, peripheralHistory);
+        }
+
+        setDetailCache((prev) => ({
+          ...prev,
           [expandedId]: {
-            hardware,
-            metricHistory,
-            peripheralHistory,
+            hardware: hardware || prev[expandedId]?.hardware,
+            metricHistory: metricHistory || prev[expandedId]?.metricHistory,
+            peripheralHistory: peripheralHistory || { inventory: [], events: [] },
             loading: false,
             loaded: true,
-            error: "",
-          },
-        }));
-      })
-      .catch((error) => {
-        if (!active) return;
-        setDetailCache((current) => ({
-          ...current,
-          [expandedId]: {
-            ...current[expandedId],
-            loading: false,
-            loaded: true,
-            error: error.message || "Unable to load device details.",
+            error: (!hardware && !metricHistory && !peripheralHistory) ? "Failed to load device details." : "",
+            timestamp: Date.now(),
           },
         }));
       });
 
+      return {
+        ...current,
+        [expandedId]: {
+          ...current[expandedId],
+          loading: true,
+          error: "",
+        },
+      };
+    });
+
     return () => {
       active = false;
     };
-  }, [detailCache, expandedId]);
+  }, [expandedId]);
 
   if (loading) {
     return (
