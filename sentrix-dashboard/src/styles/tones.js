@@ -38,12 +38,12 @@ export const ALERT_LEVEL_COLORS = {
 };
 
 export const PROGRESS_BAR_COLORS = {
-  emerald: "bg-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.2)]",
-  blue: "bg-blue-500/80 shadow-[0_0_8px_rgba(59,130,246,0.2)]",
-  amber: "bg-amber-500/80 shadow-[0_0_8px_rgba(245,158,11,0.2)]",
-  rose: "bg-rose-500/80 shadow-[0_0_8px_rgba(244,63,94,0.2)]",
-  ocean: "bg-blue-600/80 shadow-[0_0_8px_rgba(37,99,235,0.2)]",
-  teal: "bg-teal-500/80 shadow-[0_0_8px_rgba(20,184,166,0.2)]",
+  emerald: "bg-emerald-500/80",
+  blue: "bg-blue-500/80",
+  amber: "bg-amber-500/80",
+  rose: "bg-rose-500/80",
+  ocean: "bg-blue-600/80",
+  teal: "bg-teal-500/80",
 };
 
 export function getStatusTone(score) {
