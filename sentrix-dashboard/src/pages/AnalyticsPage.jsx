@@ -626,7 +626,7 @@ function AgentMetricsPanel({ analytics, loading }) {
           
           <Pagination
             currentPage={currentPage}
-            totalItems={analytics.allDevices.length}
+            totalItems={analytics.allDevices?.length || 0}
             pageSize={pageSize}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
