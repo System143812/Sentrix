@@ -1,4 +1,5 @@
 import pool from "../lib/database.js";
+import { blockAuditSubject } from "./security.service.js";
 
 function getRequestIp(req) {
   return (
@@ -54,7 +55,7 @@ export async function logAuditEvent({
   );
 }
 
-export async function getAuditLogs({ limit = 200, action = "", actor = "" } = {}) {
+export async function getAuditLogs({ limit = 200, action = "", actor = "", startDate = "", endDate = "" } = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || 200, 25), 500);
   const filters = [];
   const params = [];
@@ -69,13 +70,37 @@ export async function getAuditLogs({ limit = 200, action = "", actor = "" } = {}
     params.push(`%${actor}%`, `%${actor}%`);
   }
 
+  if (startDate) {
+    filters.push("audit_logs.created_at >= ?");
+    params.push(Number(startDate));
+  }
+
+  if (endDate) {
+    filters.push("audit_logs.created_at <= ?");
+    params.push(Number(endDate));
+  }
+
   const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
   const [rows] = await pool.query(
     `
-    SELECT *
+    SELECT
+      audit_logs.*,
+      users.id AS registered_user_id,
+      users.role AS registered_user_role,
+      blocked_mac.id AS blocked_mac_id,
+      blocked_user.id AS blocked_user_id
     FROM audit_logs
+    LEFT JOIN users ON users.email = audit_logs.actor_email
+    LEFT JOIN blocked_subjects blocked_mac
+      ON blocked_mac.subject_type = 'mac'
+      AND blocked_mac.identifier = UPPER(REPLACE(REPLACE(audit_logs.mac_address, ':', ''), '-', ''))
+      AND blocked_mac.active = 1
+    LEFT JOIN blocked_subjects blocked_user
+      ON blocked_user.subject_type = 'user'
+      AND blocked_user.identifier IN (users.id, audit_logs.actor_email)
+      AND blocked_user.active = 1
     ${where}
-    ORDER BY created_at DESC
+    ORDER BY audit_logs.created_at DESC
     LIMIT ${safeLimit}
     `,
     params,
@@ -92,7 +117,14 @@ export async function getAuditLogs({ limit = 200, action = "", actor = "" } = {}
     targetLabel: row.target_label,
     ipAddress: row.ip_address,
     macAddress: row.mac_address,
+    registeredUserId: row.registered_user_id,
+    registeredUserRole: row.registered_user_role,
+    blocked: Boolean(row.blocked_mac_id || row.blocked_user_id),
     details: typeof row.details === "string" ? JSON.parse(row.details || "{}") : row.details,
     createdAt: row.created_at,
   }));
+}
+
+export async function blockLogSubject(logId, { reason = "", blockedBy = null } = {}) {
+  return blockAuditSubject(logId, { reason, blockedBy });
 }
