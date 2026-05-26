@@ -81,6 +81,9 @@ async function savePeripheralTracking(connection, clientId, details, now) {
   // Mark everything in snapshot as connected
   for (const item of snapshot) {
     const existing = existingByKey.get(item.key);
+    if (existing?.status === "archived") {
+      continue;
+    }
 
     await connection.query(
       `
@@ -95,6 +98,7 @@ async function savePeripheralTracking(connection, clientId, details, now) {
         status = 'connected',
         last_seen_at = VALUES(last_seen_at),
         missing_since = NULL,
+        resolved_at = NULL,
         missing_detected_offline = 0,
         updated_at = VALUES(updated_at)
       `,
@@ -116,7 +120,10 @@ async function savePeripheralTracking(connection, clientId, details, now) {
   // Graceful missing detection (120s)
   const GRACE_PERIOD_MS = 120_000;
   for (const row of existingRows) {
-    if (snapshotByKey.has(row.peripheral_key) || row.status === "missing") continue;
+    if (
+      snapshotByKey.has(row.peripheral_key) ||
+      ["missing", "resolved", "archived"].includes(row.status)
+    ) continue;
     if (Number(row.last_seen_at || 0) > now - GRACE_PERIOD_MS) continue;
 
     const missingOffline = Number(row.last_seen_at || 0) < now - 300_000;
@@ -274,7 +281,18 @@ export async function saveHardwareDetails(clientId, details = {}) {
   });
 }
 
-export async function getClientPeripheralHistory(clientId) {
+export async function getClientPeripheralHistory(clientId, options = {}) {
+  const filters = ["client_id = ?"];
+  const params = [clientId];
+  if (options.startDate) {
+    filters.push("observed_at >= ?");
+    params.push(Number(options.startDate));
+  }
+  if (options.endDate) {
+    filters.push("observed_at <= ?");
+    params.push(Number(options.endDate));
+  }
+
   const [inventoryRows] = await pool.query(
     `
     SELECT *
@@ -288,11 +306,11 @@ export async function getClientPeripheralHistory(clientId) {
     `
     SELECT *
     FROM client_peripheral_events
-    WHERE client_id = ?
+    WHERE ${filters.join(" AND ")}
     ORDER BY observed_at DESC
     LIMIT 100
     `,
-    [clientId],
+    params,
   );
 
   return {
@@ -306,6 +324,9 @@ export async function getClientPeripheralHistory(clientId) {
       firstSeenAt: row.first_seen_at,
       lastSeenAt: row.last_seen_at,
       missingSince: row.missing_since,
+      resolvedAt: row.resolved_at,
+      archivedAt: row.archived_at,
+      lifecycleNote: row.lifecycle_note,
       missingDetectedOffline: Boolean(row.missing_detected_offline),
       updatedAt: row.updated_at,
     })),
@@ -324,6 +345,77 @@ export async function getClientPeripheralHistory(clientId) {
           : row.details,
     })),
   };
+}
+
+async function setPeripheralLifecycle(clientId, key, status, eventType, note = "") {
+  const now = Date.now();
+  const [[row]] = await pool.query(
+    `
+    SELECT *
+    FROM client_peripheral_inventory
+    WHERE client_id = ? AND peripheral_key = ?
+    LIMIT 1
+    `,
+    [clientId, key],
+  );
+
+  if (!row) return null;
+
+  const resolvedAt = status === "resolved" ? now : null;
+  const archivedAt = status === "archived" ? now : null;
+  await pool.query(
+    `
+    UPDATE client_peripheral_inventory
+    SET status = ?,
+        missing_since = CASE WHEN ? = 'missing' THEN missing_since ELSE NULL END,
+        resolved_at = ?,
+        archived_at = ?,
+        lifecycle_note = ?,
+        updated_at = ?
+    WHERE client_id = ? AND peripheral_key = ?
+    `,
+    [status, status, resolvedAt, archivedAt, note || null, now, clientId, key],
+  );
+
+  await pool.query(
+    `
+    INSERT INTO client_peripheral_events
+      (client_id, peripheral_key, name, category, vendor, event_type, observed_at, last_seen_at, details)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      clientId,
+      row.peripheral_key,
+      row.name,
+      row.category,
+      row.vendor,
+      eventType,
+      now,
+      row.last_seen_at,
+      toJson({ note, previousStatus: row.status }),
+    ],
+  );
+
+  return {
+    key: row.peripheral_key,
+    name: row.name,
+    category: row.category,
+    vendor: row.vendor,
+    status,
+    updatedAt: now,
+  };
+}
+
+export async function resolvePeripheral(clientId, key, note = "") {
+  return setPeripheralLifecycle(clientId, key, "resolved", "resolved", note);
+}
+
+export async function archivePeripheral(clientId, key, note = "") {
+  return setPeripheralLifecycle(clientId, key, "archived", "archived", note);
+}
+
+export async function recoverPeripheral(clientId, key, note = "") {
+  return setPeripheralLifecycle(clientId, key, "connected", "recovered", note);
 }
 
 export async function getClientHardware(clientId) {
