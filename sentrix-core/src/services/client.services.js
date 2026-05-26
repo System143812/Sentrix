@@ -10,6 +10,19 @@ import {
   getClientMetricHistory,
   normalizeMetrics,
 } from "./metrics/index.js";
+import {
+  getAnomalyAlerts,
+  getDeviceEvents,
+  getDomainSummaries,
+  getHealthSummary,
+  getSoftwareInventory,
+  recordUptimeStatus,
+} from "./behavior.service.js";
+import {
+  archivePeripheral,
+  recoverPeripheral,
+  resolvePeripheral,
+} from "./metrics/hardware.service.js";
 
 export async function getAllClients() {
   return await ClientRepository.findAll();
@@ -41,6 +54,7 @@ export async function registerClient(clientData) {
   // 2. Now that the client exists, we can process detailed metrics (Child Tables)
   // This handles processes, network activity, etc. which have FK constraints.
   await processIncomingMetrics(id, metrics, now);
+  await recordUptimeStatus(id, "online", now);
 
   await saveHardwareDetails(id, details);
   console.log(`[CORE] Agent ${id} registered successfully.`);
@@ -59,6 +73,7 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
 
   console.log(`[CORE] Updating metrics for agent: ${id} (${currentClient.hostname})`);
   const normalizedMetrics = await processIncomingMetrics(id, metrics, now);
+  await recordUptimeStatus(id, "online", now);
   
   if (details) {
     try {
@@ -86,6 +101,7 @@ export async function touchClientHeartbeat(id, metrics = null) {
 
   const success = await ClientRepository.updateStatus(id, "online", now, normalizedMetrics);
   if (!success) return null;
+  await recordUptimeStatus(id, "online", now);
 
   return getClientById(id);
 }
@@ -102,8 +118,40 @@ export async function getClientActivityHistory(id) {
   return await getClientActivityHistoryFromRepo(id);
 }
 
-export async function getClientPeripheralHistory(id) {
-  return await getClientPeripheralHistoryFromRepo(id);
+export async function getClientPeripheralHistory(id, options = {}) {
+  return await getClientPeripheralHistoryFromRepo(id, options);
+}
+
+export async function resolveClientPeripheral(id, key, note = "") {
+  return resolvePeripheral(id, key, note);
+}
+
+export async function archiveClientPeripheral(id, key, note = "") {
+  return archivePeripheral(id, key, note);
+}
+
+export async function recoverClientPeripheral(id, key, note = "") {
+  return recoverPeripheral(id, key, note);
+}
+
+export async function getClientEvents(id, options = {}) {
+  return getDeviceEvents(id, options);
+}
+
+export async function getClientDomains(id, options = {}) {
+  return getDomainSummaries(id, options);
+}
+
+export async function getClientSoftware(id) {
+  return getSoftwareInventory(id);
+}
+
+export async function getClientHealth(id, options = {}) {
+  return getHealthSummary(id, options);
+}
+
+export async function getClientAnomalies(id, options = {}) {
+  return getAnomalyAlerts(id, options);
 }
 
 export async function updateClientGroup(id, group) {
@@ -123,6 +171,7 @@ export async function markClientOffline(id) {
   const now = Date.now();
   const success = await ClientRepository.updateStatus(id, "offline", now);
   if (!success) return null;
+  await recordUptimeStatus(id, "offline", now);
 
   return getClientById(id);
 }

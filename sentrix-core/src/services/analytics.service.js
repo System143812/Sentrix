@@ -234,7 +234,9 @@ function buildDeviceRows(clients) {
 
 export function buildPeripheralSummary(clients, inventory) {
   const clientIds = new Set(clients.map(c => c.id));
-  const relevantInventory = inventory.filter(i => clientIds.has(i.client_id));
+  const relevantInventory = inventory.filter(
+    i => clientIds.has(i.client_id) && !["archived", "resolved"].includes(i.status),
+  );
   
   const byClient = relevantInventory.reduce((acc, item) => {
     if (!acc[item.client_id]) {
