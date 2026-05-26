@@ -9,6 +9,11 @@ import {
   saveNetworkActivity,
 } from "./repository.js";
 import { getSnapshotPersistencePlan } from "./snapshot-buffer.js";
+import {
+  analyzeMetrics,
+  saveDomainSummaries,
+  saveHealthSnapshot,
+} from "../behavior.service.js";
 
 const HISTORY_SAMPLE_INTERVAL_MS = Number(
   process.env.METRICS_HISTORY_SAMPLE_INTERVAL_MS || 60000,
@@ -75,6 +80,20 @@ export async function processIncomingMetrics(clientId, metrics = {}, timestamp =
   if (await shouldStoreSample(clientId, timestamp)) {
     await saveMetricSample(clientId, normalized, metrics, timestamp);
   }
+
+  const domainSummaries = (normalized.networkActivity?.activeConnections || [])
+    .filter((connection) => connection.domain || connection.peerAddress)
+    .map((connection) => ({
+      domain: connection.domain || connection.peerAddress,
+      process: connection.process || "System",
+      hits: connection.count || 1,
+    }));
+
+  await Promise.allSettled([
+    saveDomainSummaries(clientId, domainSummaries, timestamp),
+    saveHealthSnapshot(clientId, normalized, "online", timestamp),
+    analyzeMetrics(clientId, normalized, timestamp),
+  ]);
 
   return normalized;
 }

@@ -9,6 +9,12 @@ import {
   runDiscoveryScan,
 } from "../services/discovery/index.js";
 import { getTelemetrySettings } from "../services/settings.service.js";
+import {
+  saveDeviceEvents,
+  saveDomainSummaries,
+  saveSoftwareInventory,
+} from "../services/behavior.service.js";
+import { isMacBlocked } from "../services/security.service.js";
 
 async function broadcastUpdate(io) {
   io.to("dashboards").emit("devices:update", await getClientSummary());
@@ -27,6 +33,11 @@ export function registerDeviceSocket(io) {
 
     socket.on("agent:register", async (payload = {}, callback) => {
       try {
+        if (await isMacBlocked(payload.mac)) {
+          callback?.({ success: false, message: "Failed" });
+          socket.disconnect(true);
+          return;
+        }
         agentId = payload.agentId || payload.id;
         console.log(`[SOCKET] Received agent:register for ID: ${agentId}`);
         const client = await registerClient(payload);
@@ -85,6 +96,55 @@ export function registerDeviceSocket(io) {
 
       await broadcastUpdate(io);
       callback?.({ success: true });
+    });
+
+    socket.on("agent:events", async (payload = {}, callback) => {
+      try {
+        const id = payload.agentId || agentId;
+        if (!id) {
+          callback?.({ success: false, message: "Agent is not registered." });
+          return;
+        }
+
+        await saveDeviceEvents(id, payload.events || []);
+        callback?.({ success: true });
+      } catch (error) {
+        callback?.({ success: false, message: error.message });
+      }
+    });
+
+    socket.on("agent:domains", async (payload = {}, callback) => {
+      try {
+        const id = payload.agentId || agentId;
+        if (!id) {
+          callback?.({ success: false, message: "Agent is not registered." });
+          return;
+        }
+
+        await saveDomainSummaries(id, payload.domains || [], payload.timestamp || Date.now());
+        callback?.({ success: true });
+      } catch (error) {
+        callback?.({ success: false, message: error.message });
+      }
+    });
+
+    socket.on("agent:software", async (payload = {}, callback) => {
+      try {
+        const id = payload.agentId || agentId;
+        if (!id) {
+          callback?.({ success: false, message: "Agent is not registered." });
+          return;
+        }
+
+        const result = await saveSoftwareInventory(
+          id,
+          payload.software || payload.inventory || [],
+          payload.timestamp || Date.now(),
+        );
+        callback?.({ success: true, data: result });
+      } catch (error) {
+        callback?.({ success: false, message: error.message });
+      }
     });
 
     socket.on("disconnect", async () => {
