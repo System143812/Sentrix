@@ -289,8 +289,114 @@ export async function getClientActivityHistory(req, res, next) {
 export async function getClientPeripheralHistory(req, res, next) {
   try {
     const { id } = req.params;
-    const history = await clientService.getClientPeripheralHistory(id);
+    const history = await clientService.getClientPeripheralHistory(id, {
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+    });
     res.json({ success: true, data: history });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updatePeripheralLifecycle(req, res, next, action) {
+  try {
+    const { id, key } = req.params;
+    const note = req.body?.note || "";
+    const decodedKey = decodeURIComponent(key);
+    const handlers = {
+      resolve: clientService.resolveClientPeripheral,
+      archive: clientService.archiveClientPeripheral,
+      recover: clientService.recoverClientPeripheral,
+    };
+    const result = await handlers[action](id, decodedKey, note);
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Peripheral not found.",
+      });
+    }
+
+    const client = await clientService.getClientById(id);
+    const auditActions = {
+      resolve: "peripheral_resolved",
+      archive: "peripheral_archived",
+      recover: "peripheral_recovered",
+    };
+    await logAuditEvent({
+      req,
+      action: auditActions[action],
+      targetType: "client_peripheral",
+      targetId: `${id}:${decodedKey}`,
+      targetLabel: result.name,
+      macAddress: client?.mac,
+      details: { clientId: id, peripheralKey: decodedKey, note },
+    });
+
+    req.app.get("io")?.to("dashboards").emit(
+      "devices:update",
+      await clientService.getClientSummary(),
+    );
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function resolvePeripheral(req, res, next) {
+  return updatePeripheralLifecycle(req, res, next, "resolve");
+}
+
+export function archivePeripheral(req, res, next) {
+  return updatePeripheralLifecycle(req, res, next, "archive");
+}
+
+export function recoverPeripheral(req, res, next) {
+  return updatePeripheralLifecycle(req, res, next, "recover");
+}
+
+export async function getClientEvents(req, res, next) {
+  try {
+    const events = await clientService.getClientEvents(req.params.id, req.query);
+    res.json({ success: true, data: events });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getClientDomains(req, res, next) {
+  try {
+    const domains = await clientService.getClientDomains(req.params.id, req.query);
+    res.json({ success: true, data: domains });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getClientSoftware(req, res, next) {
+  try {
+    const software = await clientService.getClientSoftware(req.params.id);
+    res.json({ success: true, data: software });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getClientHealth(req, res, next) {
+  try {
+    const health = await clientService.getClientHealth(req.params.id, req.query);
+    res.json({ success: true, data: health });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getClientAnomalies(req, res, next) {
+  try {
+    const anomalies = await clientService.getClientAnomalies(req.params.id, req.query);
+    res.json({ success: true, data: anomalies });
   } catch (error) {
     next(error);
   }
