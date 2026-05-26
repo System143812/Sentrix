@@ -38,3 +38,53 @@ export async function downloadAnalyticsCsv({ range = "24h", group = "all" } = {}
   link.remove();
   URL.revokeObjectURL(url);
 }
+
+export async function downloadAnalyticsPdf({ range = "24h", group = "all" } = {}) {
+  const response = await fetch(
+    `${getApiUrl()}/api/analytics/export.pdf?${buildQuery({ range, group })}`,
+    {
+      credentials: "include",
+      headers: getHeaders(),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to export analytics PDF.");
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `sentrix-report-${range}-${group}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadAnalyticsDocx({ range = "24h", group = "all" } = {}) {
+  const response = await fetch(
+    `${getApiUrl()}/api/analytics/export.docx?${buildQuery({ range, group })}`,
+    {
+      credentials: "include",
+      headers: getHeaders(),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to export analytics DOCX.");
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `sentrix-report-${range}-${group}.docx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}

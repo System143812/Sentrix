@@ -33,6 +33,11 @@ import {
   Gauge,
   HardDrive,
   Laptop,
+  FileSpreadsheet,
+  FileText,
+  FileBarChart,
+  Plug,
+  Unplug,
 } from "lucide-react";
 import { SentrixLogoLoader } from "../components/SentrixLogo.jsx";
 import { Card } from "../components/Card.jsx";
@@ -181,6 +186,7 @@ function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
     statusChanges: devices.recent || [],
     allDevices: deviceRows,
     groupStats: safeData.groups || [],
+    peripherals: safeData.peripherals || { totalMissing: 0, devicesWithMissing: 0, groups: [], byDevice: [] },
     exportUrls: safeData.exportUrls || {},
     dataQuality,
   };
@@ -1110,7 +1116,162 @@ function GroupPerformancePanel({ analytics, loading }) {
   );
 }
 
-function ExportPanel({ analytics, loading, onExportCsv, exporting }) {
+function PeripheralSummaryPanel({ analytics, loading }) {
+  const p = analytics.peripherals || { totalMissing: 0, devicesWithMissing: 0, groups: [], byDevice: [] };
+  const [activeGroupIndex, setActiveGroupIndex] = useState(0);
+  const groups = p.groups || [];
+  const activeIndex = groups.length ? Math.min(activeGroupIndex, groups.length - 1) : 0;
+
+  function showPrevious() {
+    if (!groups.length) return;
+    setActiveGroupIndex((i) => (i === 0 ? groups.length - 1 : i - 1));
+  }
+
+  function showNext() {
+    if (!groups.length) return;
+    setActiveGroupIndex((i) => (i + 1) % groups.length);
+  }
+
+  return (
+    <Panel
+      icon={Plug}
+      loading={loading}
+      title="Peripheral Status"
+      subtitle="Inventory tracking and missing hardware detection"
+      tone="teal"
+      action={
+        groups.length > 1 ? (
+          <div className="flex items-center gap-2">
+            <button
+              className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-600"
+              onClick={showPrevious}
+              type="button"
+            >
+              <ChevronLeft size={16} strokeWidth={2.5} />
+            </button>
+            <button
+              className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-600"
+              onClick={showNext}
+              type="button"
+            >
+              <ChevronRight size={16} strokeWidth={2.5} />
+            </button>
+          </div>
+        ) : null
+      }
+    >
+      <div className="space-y-5 flex flex-col flex-1">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-4 shadow-sm">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-rose-500 mb-1 font-ui">Missing Total</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-rose-700 font-data tabular-nums">{p.totalMissing}</span>
+              <Unplug size={14} className="text-rose-400" />
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 shadow-sm">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1 font-ui">Affected Units</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-700 font-data tabular-nums">{p.devicesWithMissing}</span>
+              <Laptop size={14} className="text-slate-400" />
+            </div>
+          </div>
+        </div>
+
+        {groups.length ? (
+          <div className="flex-1">
+            {groups.map((group, index) => (
+              <div key={group.name} className={`${index === activeIndex ? "block animate-in fade-in slide-in-from-right-2" : "hidden"}`}>
+                <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-100 pb-3 font-ui">
+                   <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Current Group</p>
+                      <h4 className="text-sm font-bold text-slate-800 truncate">{group.name}</h4>
+                   </div>
+                   <div className="text-right">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Verified</p>
+                      <p className="text-xs font-bold text-emerald-600 font-data">
+                        {group.totalPeripherals - group.missingPeripherals} / {group.totalPeripherals}
+                      </p>
+                   </div>
+                </div>
+                
+                <div className="space-y-2 max-h-[220px] overflow-auto custom-scrollbar pr-1">
+                  {p.byDevice.filter(d => d.group === group.name).map(device => (
+                    <div key={device.id} className={`flex items-center justify-between rounded-lg border p-3 transition-colors ${device.missing > 0 ? "border-rose-100 bg-rose-50/30 hover:bg-rose-50/60" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
+                      <span className="text-xs font-bold text-slate-700 truncate mr-2 font-ui">{device.hostname}</span>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <div className="flex -space-x-1.5">
+                          {Array.from({ length: Math.min(5, device.connected) }).map((_, i) => (
+                            <div key={i} className="h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-white" />
+                          ))}
+                          {Array.from({ length: Math.min(5, device.missing) }).map((_, i) => (
+                            <div key={i} className="h-2 w-2 rounded-full bg-rose-400 ring-2 ring-white animate-pulse" />
+                          ))}
+                        </div>
+                        <span className={`text-[10px] font-bold uppercase font-data ${device.missing > 0 ? "text-rose-500" : "text-emerald-500"}`}>
+                          {device.missing > 0 ? `${device.missing} missing` : "Verified"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex-1 grid place-items-center rounded-xl bg-slate-50/50 border border-dashed border-slate-200 font-ui text-center p-8">
+             <Plug size={24} className="text-slate-300 mb-2 opacity-50" />
+             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-relaxed">Collecting inventory data<br/>across all groups...</p>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+function ExportPanel({ analytics, loading, onExport, exportingType }) {
+  const exportMethods = [
+    {
+      id: "csv",
+      label: "Export CSV",
+      subtitle: "Excel spreadsheet report",
+      icon: FileSpreadsheet,
+      color: "bg-emerald-600",
+      shadow: "shadow-emerald-200",
+      hover: "hover:bg-emerald-700 hover:shadow-emerald-300",
+      activeShadow: "shadow-emerald-900/20",
+      iconBg: "bg-white/20",
+      text: "text-emerald-50/70",
+      chevron: "text-emerald-100/40",
+    },
+    {
+      id: "pdf",
+      label: "Export PDF",
+      subtitle: "Visual summary report",
+      icon: FileBarChart,
+      color: "bg-rose-600",
+      shadow: "shadow-rose-200",
+      hover: "hover:bg-rose-700 hover:shadow-rose-300",
+      activeShadow: "shadow-rose-900/20",
+      iconBg: "bg-white/20",
+      text: "text-rose-50/70",
+      chevron: "text-rose-100/40",
+    },
+    {
+      id: "docx",
+      label: "Export DOCX",
+      subtitle: "Word document format",
+      icon: FileText,
+      color: "bg-blue-600",
+      shadow: "shadow-blue-200",
+      hover: "hover:bg-blue-700 hover:shadow-blue-300",
+      activeShadow: "shadow-blue-900/20",
+      iconBg: "bg-white/20",
+      text: "text-blue-50/70",
+      chevron: "text-blue-100/40",
+    },
+  ];
+
   return (
     <Panel
       icon={Download}
@@ -1120,37 +1281,59 @@ function ExportPanel({ analytics, loading, onExportCsv, exporting }) {
       tone="indigo"
     >
       <div className="flex flex-col flex-1 pt-4">
-        <div className="space-y-5">
-          <div>
-            <button
-              className="btn-minimal-primary w-full justify-between overflow-hidden rounded-xl px-6 py-6 text-sm tracking-tight shadow-lg shadow-indigo-900/15 active:scale-[0.98] group relative"
-              disabled={loading || exporting}
-              onClick={onExportCsv}
-              title="Download Telemetry Report"
-              type="button"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-              <div className="flex min-w-0 items-center gap-5 relative z-10">
-                 <div className="p-3 rounded-xl bg-white/10 text-white shadow-inner border border-white/10">
-                    <Download size={22} strokeWidth={2.5} />
-                 </div>
-                 <div className="min-w-0 text-left font-ui">
-                    <p className="truncate text-lg font-bold leading-none text-white tracking-tight">{exporting ? "Preparing CSV..." : "Export CSV"}</p>
-                    <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-white/60">Device and group report</p>
-                 </div>
-              </div>
-              <ChevronRight className="shrink-0 text-white/40 group-hover:translate-x-2 transition-transform relative z-10" size={26} />
-            </button>
+        <div className="space-y-4">
+          <div className="grid gap-3">
+            {exportMethods.map((method) => {
+              const isExporting = exportingType === method.id;
+              const Icon = method.icon;
+
+              return (
+                <button
+                  key={method.id}
+                  className={`group relative w-full overflow-hidden rounded-xl ${method.color} px-5 py-4 text-white shadow-lg ${method.shadow} transition-all duration-300 ${method.hover} active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed`}
+                  disabled={loading || (exportingType && !isExporting)}
+                  onClick={() => onExport(method.id)}
+                  title={method.label}
+                  type="button"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                  <div className="relative z-10 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`rounded-lg ${method.iconBg} p-2 text-white shadow-inner border border-white/10`}>
+                        {isExporting ? (
+                          <RefreshCcw size={18} className="animate-spin" />
+                        ) : (
+                          <Icon size={18} strokeWidth={2.5} />
+                        )}
+                      </div>
+                      <div className="min-w-0 text-left font-ui">
+                        <p className="text-sm font-bold leading-tight tracking-tight">
+                          {isExporting ? `Preparing ${method.id.toUpperCase()}...` : method.label}
+                        </p>
+                        <p className={`mt-0.5 text-[9px] font-medium uppercase tracking-[0.15em] ${method.text}`}>
+                          {method.subtitle}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className={`shrink-0 ${method.chevron} transition-transform duration-300 group-hover:translate-x-1 group-hover:text-white`} size={18} />
+                  </div>
+                </button>
+              );
+            })}
           </div>
-          
-          <div className="flex items-center justify-between rounded-xl bg-rose-500/10 border border-rose-500/20 p-5 shadow-sm backdrop-blur-md ring-1 ring-rose-500/5 transition-all hover:bg-rose-500/20">
-            <div className="flex min-w-0 items-center gap-4">
-              <div className="p-3 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20 shadow-inner">
-                <BadgeAlert size={20} strokeWidth={2.5} />
+
+          <div className="flex items-center justify-between rounded-xl border border-slate-200/60 bg-slate-50/50 p-4 transition-all duration-300 hover:border-slate-300 hover:bg-white hover:shadow-sm group">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-500 border border-rose-100 shadow-sm transition-transform duration-300 group-hover:scale-105">
+                <BadgeAlert size={18} strokeWidth={2.5} />
               </div>
               <div className="min-w-0 font-ui">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-rose-500/70 leading-none">Critical issues</p>
-                <p className="text-base font-bold text-rose-700 tracking-tight leading-none">{analytics.criticalAlerts} items need attention</p>
+                <p className="mb-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                  Attention Required
+                </p>
+                <p className="truncate text-sm font-bold text-slate-700">
+                  {analytics.criticalAlerts} critical issues found
+                </p>
               </div>
             </div>
           </div>
@@ -1166,7 +1349,7 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
   const [analyticsData, setAnalyticsData] = useState(EMPTY_ANALYTICS);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState("");
-  const [exporting, setExporting] = useState(false);
+  const [exportingType, setExportingType] = useState(null);
   const refreshIntervalMs = useTelemetryInterval();
   const groupOptions = useMemo(
     () => [
@@ -1227,19 +1410,31 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
     };
   }, [rangeKey, selectedGroup, refreshIntervalMs]);
 
-  async function handleExportCsv() {
-    setExporting(true);
+  async function handleExport(type) {
+    setExportingType(type);
     setAnalyticsError("");
 
     try {
-      await analyticsApi.downloadAnalyticsCsv({
-        range: rangeKey,
-        group: selectedGroup,
-      });
+      if (type === "csv") {
+        await analyticsApi.downloadAnalyticsCsv({
+          range: rangeKey,
+          group: selectedGroup,
+        });
+      } else if (type === "pdf") {
+        await analyticsApi.downloadAnalyticsPdf({
+          range: rangeKey,
+          group: selectedGroup,
+        });
+      } else if (type === "docx") {
+        await analyticsApi.downloadAnalyticsDocx({
+          range: rangeKey,
+          group: selectedGroup,
+        });
+      }
     } catch (error) {
-      setAnalyticsError(error.message || "Unable to export analytics CSV.");
+      setAnalyticsError(error.message || `Unable to export ${type.toUpperCase()}.`);
     } finally {
-      setExporting(false);
+      setExportingType(null);
     }
   }
 
@@ -1313,10 +1508,11 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
           <TopIssuesPanel analytics={analytics} loading={pageLoading} />
         </div>
 
-        <div className="grid min-w-0 gap-6 xl:grid-cols-3">
+        <div className="grid min-w-0 gap-6 xl:grid-cols-3 2xl:grid-cols-4">
           <StatusTransitionsPanel analytics={analytics} loading={pageLoading} />
           <GroupPerformancePanel analytics={analytics} loading={pageLoading} />
-          <ExportPanel analytics={analytics} exporting={exporting} loading={pageLoading} onExportCsv={handleExportCsv} />
+          <PeripheralSummaryPanel analytics={analytics} loading={pageLoading} />
+          <ExportPanel analytics={analytics} exportingType={exportingType} loading={pageLoading} onExport={handleExport} />
         </div>
       </div>
     </div>
