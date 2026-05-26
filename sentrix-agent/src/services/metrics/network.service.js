@@ -4,8 +4,12 @@ import { promisify } from "util";
 import { collectSafely, safeString, toNumber } from "./helpers.js";
 
 const execFileAsync = promisify(execFile);
-const PING_TARGET = process.env.NETWORK_PING_TARGET || "1.1.1.1";
+const PING_TARGETS = (process.env.NETWORK_PING_TARGETS || process.env.NETWORK_PING_TARGET || "1.1.1.1,8.8.8.8,9.9.9.9")
+  .split(",")
+  .map((target) => target.trim())
+  .filter(Boolean);
 let previousTotals = null;
+let lastGoodPingMetrics = { latencyMs: null, packetLoss: null };
 
 async function getNetworkStats() {
   const defaultInterface = await si.networkInterfaceDefault().catch(() => "");
@@ -99,33 +103,56 @@ function parsePingOutput(output = "") {
     output.match(/(\d+(?:\.\d+)?)%\s*packet\s*loss/i) ||
     output.match(/Lost\s*=\s*\d+\s*\((\d+(?:\.\d+)?)%\s*loss\)/i);
   const packetMatch = output.match(/Sent\s*=\s*(\d+),\s*Received\s*=\s*(\d+),\s*Lost\s*=\s*(\d+)/i);
-  const windowsAverageMatch = output.match(/Average\s*=\s*(\d+(?:\.\d+)?)ms/i);
+  const windowsAverageMatch =
+    output.match(/Average\s*=\s*(\d+(?:\.\d+)?)ms/i) ||
+    output.match(/Average\s*=\s*<\s*(\d+(?:\.\d+)?)ms/i);
+  const windowsTimeMatch =
+    output.match(/time[=<]\s*(\d+(?:\.\d+)?)ms/i) ||
+    output.match(/time\s*<\s*(\d+(?:\.\d+)?)ms/i);
   const unixAverageMatch = output.match(/=\s*[\d.]+\/([\d.]+)\/[\d.]+\/[\d.]+\s*ms/i);
   const calculatedLoss = packetMatch
     ? (Number(packetMatch[3]) / Math.max(Number(packetMatch[1]), 1)) * 100
     : null;
 
   return {
-    latencyMs: toNumber(windowsAverageMatch?.[1] ?? unixAverageMatch?.[1]),
+    latencyMs: toNumber(windowsAverageMatch?.[1] ?? unixAverageMatch?.[1] ?? windowsTimeMatch?.[1]),
     packetLoss: toNumber(lossMatch?.[1] ?? calculatedLoss),
   };
 }
 
 async function collectPingMetrics() {
-  const args = process.platform === "win32"
-    ? ["-n", "4", "-w", "1000", PING_TARGET]
-    : ["-c", "4", "-W", "1", PING_TARGET];
+  for (const target of PING_TARGETS) {
+    const args = process.platform === "win32"
+      ? ["-n", "3", "-w", "1000", target]
+      : ["-c", "3", "-W", "1", target];
 
-  try {
-    const { stdout } = await execFileAsync("ping", args, {
-      timeout: 5000,
-      windowsHide: true,
-    });
+    try {
+      const { stdout } = await execFileAsync("ping", args, {
+        timeout: 5000,
+        windowsHide: true,
+      });
 
-    return parsePingOutput(stdout);
-  } catch (error) {
-    return parsePingOutput(`${error.stdout || ""}\n${error.stderr || ""}`);
+      const parsed = parsePingOutput(stdout);
+      if (parsed.latencyMs != null || parsed.packetLoss != null) {
+        lastGoodPingMetrics = {
+          latencyMs: parsed.latencyMs ?? lastGoodPingMetrics.latencyMs,
+          packetLoss: parsed.packetLoss ?? lastGoodPingMetrics.packetLoss,
+        };
+        return lastGoodPingMetrics;
+      }
+    } catch (error) {
+      const parsed = parsePingOutput(`${error.stdout || ""}\n${error.stderr || ""}`);
+      if (parsed.latencyMs != null || parsed.packetLoss != null) {
+        lastGoodPingMetrics = {
+          latencyMs: parsed.latencyMs ?? lastGoodPingMetrics.latencyMs,
+          packetLoss: parsed.packetLoss ?? lastGoodPingMetrics.packetLoss,
+        };
+        return lastGoodPingMetrics;
+      }
+    }
   }
+
+  return lastGoodPingMetrics;
 }
 
 export async function collectNetworkMetrics() {
