@@ -26,6 +26,7 @@ import {
   LoaderCircle,
   CircleHelp,
 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { useLayoutEffect, useRef, useEffect, useMemo, useState } from "react";
 import { MetricPill } from "./MetricPill.jsx";
 import { SearchFilterBar } from "./SearchFilterBar.jsx";
@@ -212,6 +213,7 @@ function DetailViewSwitch({ activeView, onChange, canControl }) {
   const buttons = [
     { id: "specification", label: "Specification", icon: Monitor },
     { id: "networkActivity", label: "Network Activity", icon: RadioTower },
+    { id: "behavior", label: "Timeline & Assets", icon: History },
     ...(canControl ? [{ id: "remoteControl", label: "Remote Controls", icon: Terminal }] : []),
   ];
 
@@ -694,8 +696,8 @@ function ProcessMonitor({ processes, actionLoading, actionMessage, selectedProce
 function ProcessEndConfirmDialog({ count, loading, onCancel, onConfirm }) {
   if (!count) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/55 px-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="flex items-start gap-4">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600">
@@ -723,7 +725,8 @@ function ProcessEndConfirmDialog({ count, loading, onCancel, onConfirm }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -871,11 +874,52 @@ function NetworkActivityDetails({ device }) {
   );
 }
 
-function PeripheralHistoryPanel({ history }) {
-  console.log("[DEBUG] PeripheralHistoryPanel history:", history);
-  const inventory = history?.inventory || [];
-  const events = history?.events || [];
-  const missing = inventory.filter((item) => item.status === "missing");
+function dateToMs(value, endOfDay = false) {
+  if (!value) return "";
+  const date = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
+  return Number.isNaN(date.getTime()) ? "" : String(date.getTime());
+}
+
+function PeripheralHistoryPanel({ deviceId, history, canControl }) {
+  const [localHistory, setLocalHistory] = useState(history || { inventory: [], events: [] });
+  const [statusView, setStatusView] = useState("active");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [pendingKey, setPendingKey] = useState("");
+  const [message, setMessage] = useState("");
+  const inventory = localHistory?.inventory || [];
+  const events = localHistory?.events || [];
+  const activeInventory = inventory.filter((item) => item.status !== "archived");
+  const archivedInventory = inventory.filter((item) => item.status === "archived");
+  const visibleInventory = statusView === "archived" ? archivedInventory : activeInventory;
+  const missing = activeInventory.filter((item) => item.status === "missing");
+
+  useEffect(() => {
+    setLocalHistory(history || { inventory: [], events: [] });
+  }, [history]);
+
+  async function reloadHistory() {
+    if (!deviceId) return;
+    const nextHistory = await clientApi.getClientPeripheralHistoryFiltered(deviceId, {
+      startDate: dateToMs(startDate),
+      endDate: dateToMs(endDate, true),
+    });
+    setLocalHistory(nextHistory || { inventory: [], events: [] });
+  }
+
+  async function handlePeripheralAction(item, action) {
+    setPendingKey(`${action}:${item.key}`);
+    setMessage("");
+    try {
+      await clientApi.updatePeripheralStatus(deviceId, item.key, action);
+      await reloadHistory();
+      setMessage(`${item.name || "Peripheral"} ${action === "resolve" ? "resolved" : action === "archive" ? "archived" : "recovered"}.`);
+    } catch (error) {
+      setMessage(error.message || "Unable to update peripheral.");
+    } finally {
+      setPendingKey("");
+    }
+  }
 
   return (
     <section className="mt-6 rounded-xl border border-slate-200/60 bg-white p-5 sm:p-6 shadow-sm">
@@ -899,24 +943,115 @@ function PeripheralHistoryPanel({ history }) {
         )}
       </div>
 
+      <div className="mb-6 grid gap-3 rounded-xl border border-slate-200/60 bg-slate-50/60 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+          From
+          <input
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold normal-case tracking-normal text-slate-700 outline-none focus:border-slate-900"
+            onChange={(event) => setStartDate(event.target.value)}
+            type="date"
+            value={startDate}
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+          To
+          <input
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold normal-case tracking-normal text-slate-700 outline-none focus:border-slate-900"
+            onChange={(event) => setEndDate(event.target.value)}
+            type="date"
+            value={endDate}
+          />
+        </label>
+        <button className="btn-minimal h-10 px-4" onClick={reloadHistory} type="button">
+          Filter logs
+        </button>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {[
+          { id: "active", label: "Active peripherals", count: activeInventory.length },
+          { id: "archived", label: "Archived peripherals", count: archivedInventory.length },
+        ].map((item) => (
+          <button
+            className={`h-10 rounded-lg border px-4 text-xs font-bold uppercase tracking-wide transition ${
+              statusView === item.id
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+            }`}
+            key={item.id}
+            onClick={() => setStatusView(item.id)}
+            type="button"
+          >
+            {item.label} ({item.count})
+          </button>
+        ))}
+      </div>
+
+      {message ? (
+        <div className="mb-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-600">
+          {message}
+        </div>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-2 min-w-0">
         <div className="min-w-0">
           <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui px-1">Inventory State</p>
           <div className="custom-scrollbar grid gap-3 overflow-auto pr-1" style={{ maxHeight: '400px' }}>
-            {inventory.length ? inventory.map((item) => (
+            {visibleInventory.length ? visibleInventory.map((item) => (
               <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm transition hover:bg-white hover:border-slate-200 min-w-0" key={item.key}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <p className="break-all text-sm font-bold text-slate-800 font-ui">{item.name}</p>
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400 truncate">{item.category || "Peripheral"}{item.vendor ? ` • ${item.vendor}` : ""}</p>
+                    <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-wide text-slate-400">{item.category || "Peripheral"}{item.vendor ? ` - ${item.vendor}` : ""}</p>
                   </div>
-                  <span className={`w-fit whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight border ${item.status === "missing" ? "bg-rose-50 border-rose-100 text-rose-600" : "bg-emerald-50 border-emerald-100 text-emerald-600"}`}>
-                    {item.status === "missing" ? "Missing" : "Connected"}
+                  <span className={`w-fit whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight border ${
+                    item.status === "missing"
+                      ? "bg-rose-50 border-rose-100 text-rose-600"
+                      : item.status === "resolved"
+                        ? "bg-blue-50 border-blue-100 text-blue-600"
+                        : item.status === "archived"
+                          ? "bg-slate-100 border-slate-200 text-slate-500"
+                          : "bg-emerald-50 border-emerald-100 text-emerald-600"
+                  }`}>
+                    {item.status}
                   </span>
                 </div>
                 <p className="mt-3 text-[10px] font-bold text-slate-400 font-data">
                   Reported {item.lastSeenAt ? new Date(Number(item.lastSeenAt)).toLocaleString() : "Unknown"}
                 </p>
+                {canControl ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {item.status === "missing" ? (
+                      <button
+                        className="h-9 rounded-lg border border-blue-100 bg-blue-50 px-3 text-[10px] font-bold uppercase tracking-wide text-blue-700 disabled:opacity-60"
+                        disabled={pendingKey === `resolve:${item.key}`}
+                        onClick={() => handlePeripheralAction(item, "resolve")}
+                        type="button"
+                      >
+                        Resolve
+                      </button>
+                    ) : null}
+                    {item.status !== "archived" ? (
+                      <button
+                        className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-[10px] font-bold uppercase tracking-wide text-slate-600 disabled:opacity-60"
+                        disabled={pendingKey === `archive:${item.key}`}
+                        onClick={() => handlePeripheralAction(item, "archive")}
+                        type="button"
+                      >
+                        Archive
+                      </button>
+                    ) : (
+                      <button
+                        className="h-9 rounded-lg border border-emerald-100 bg-emerald-50 px-3 text-[10px] font-bold uppercase tracking-wide text-emerald-700 disabled:opacity-60"
+                        disabled={pendingKey === `recover:${item.key}`}
+                        onClick={() => handlePeripheralAction(item, "recover")}
+                        type="button"
+                      >
+                        Recover
+                      </button>
+                    )}
+                  </div>
+                ) : null}
               </div>
             )) : (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
@@ -955,7 +1090,134 @@ function PeripheralHistoryPanel({ history }) {
   );
 }
 
-function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loading, error, canControl }) {
+function BehaviorAnalyticsDetails({ device }) {
+  const [data, setData] = useState({
+    events: [],
+    domains: [],
+    software: { inventory: [], events: [] },
+    health: { snapshots: [], uptimeLogs: [] },
+    anomalies: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  async function loadBehaviorData() {
+    setLoading(true);
+    const params = {
+      startDate: dateToMs(startDate),
+      endDate: dateToMs(endDate, true),
+    };
+    const [events, domains, software, health, anomalies] = await Promise.all([
+      clientApi.getClientEvents(device.id, params).catch(() => []),
+      clientApi.getClientDomains(device.id).catch(() => []),
+      clientApi.getClientSoftware(device.id).catch(() => ({ inventory: [], events: [] })),
+      clientApi.getClientHealth(device.id).catch(() => ({ snapshots: [], uptimeLogs: [] })),
+      clientApi.getClientAnomalies(device.id).catch(() => []),
+    ]);
+
+    setData({ events, domains, software, health, anomalies });
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadBehaviorData();
+  }, [device.id]);
+
+  const riskySoftware = (data.software.inventory || []).filter((item) => item.riskLevel !== "normal");
+
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-3 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+          From
+          <input className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold normal-case tracking-normal" onChange={(event) => setStartDate(event.target.value)} type="date" value={startDate} />
+        </label>
+        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+          To
+          <input className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold normal-case tracking-normal" onChange={(event) => setEndDate(event.target.value)} type="date" value={endDate} />
+        </label>
+        <button className="btn-minimal h-10 px-4" disabled={loading} onClick={loadBehaviorData} type="button">
+          {loading ? "Loading" : "Filter"}
+        </button>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-4">
+        <DetailItem label="Tracked Domains" value={data.domains.length} />
+        <DetailItem label="Installed Apps" value={data.software.inventory?.length || 0} />
+        <DetailItem label="Anomalies" value={data.anomalies.length} />
+        <DetailItem label="Uptime" value={data.health.uptimePercent == null ? "Learning" : `${data.health.uptimePercent}%`} />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm">
+          <h4 className="mb-4 text-sm font-bold uppercase tracking-widest text-slate-800">Historical Timeline</h4>
+          <div className="custom-scrollbar grid max-h-80 gap-3 overflow-auto pr-1">
+            {data.events.length ? data.events.map((event) => (
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3" key={event.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-bold text-slate-800">{event.title}</p>
+                  <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase ${
+                    event.severity === "critical" ? "border-rose-100 bg-rose-50 text-rose-600" : event.severity === "warning" ? "border-amber-100 bg-amber-50 text-amber-700" : "border-slate-200 bg-white text-slate-500"
+                  }`}>{event.severity}</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">{event.description}</p>
+                <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">{new Date(Number(event.createdAt)).toLocaleString()}</p>
+              </div>
+            )) : <p className="py-8 text-center text-xs font-bold uppercase tracking-widest text-slate-300">No timeline events yet.</p>}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm">
+          <h4 className="mb-4 text-sm font-bold uppercase tracking-widest text-slate-800">Domain Monitoring</h4>
+          <div className="custom-scrollbar grid max-h-80 gap-3 overflow-auto pr-1">
+            {data.domains.length ? data.domains.slice(0, 60).map((domain) => (
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-100 bg-slate-50/60 p-3" key={`${domain.domain}-${domain.process}`}>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-slate-800">{domain.domain}</p>
+                  <p className="truncate text-xs text-slate-500">{domain.process || "System"} - {domain.category}</p>
+                </div>
+                <span className="shrink-0 rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">{domain.hits} hits</span>
+              </div>
+            )) : <p className="py-8 text-center text-xs font-bold uppercase tracking-widest text-slate-300">No domain summaries yet.</p>}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm">
+          <h4 className="mb-4 text-sm font-bold uppercase tracking-widest text-slate-800">Software Inventory</h4>
+          <div className="custom-scrollbar grid max-h-80 gap-3 overflow-auto pr-1">
+            {riskySoftware.length ? riskySoftware.map((software) => (
+              <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-3" key={software.key}>
+                <p className="text-sm font-bold text-slate-800">{software.name}</p>
+                <p className="text-xs text-amber-700">{software.publisher || "Unknown publisher"} {software.version ? `- ${software.version}` : ""}</p>
+              </div>
+            )) : (data.software.inventory || []).slice(0, 40).map((software) => (
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3" key={software.key}>
+                <p className="text-sm font-bold text-slate-800">{software.name}</p>
+                <p className="text-xs text-slate-500">{software.publisher || "Unknown publisher"} {software.version ? `- ${software.version}` : ""}</p>
+              </div>
+            ))}
+            {!data.software.inventory?.length ? <p className="py-8 text-center text-xs font-bold uppercase tracking-widest text-slate-300">No inventory received yet.</p> : null}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm">
+          <h4 className="mb-4 text-sm font-bold uppercase tracking-widest text-slate-800">Health and Anomalies</h4>
+          <div className="grid gap-3">
+            {data.anomalies.length ? data.anomalies.slice(0, 20).map((alert) => (
+              <div className="rounded-lg border border-rose-100 bg-rose-50/40 p-3" key={alert.id}>
+                <p className="text-sm font-bold text-slate-800">{alert.title}</p>
+                <p className="text-xs text-rose-700">{alert.description}</p>
+              </div>
+            )) : <p className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-xs font-bold uppercase tracking-widest text-emerald-700">No active anomalies in stored history.</p>}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loading, error, canControl, canManagePeripherals }) {
   const [activeView, setActiveView] = useState("specification");
   const details = device.details || {};
   const specs = hardware?.profile || details.specs || {};
@@ -1190,11 +1452,19 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
         </section>
       </div>
 
-      <PeripheralHistoryPanel history={peripheralHistory} />
+      <PeripheralHistoryPanel
+        canControl={canManagePeripherals}
+        deviceId={device.id}
+        history={peripheralHistory}
+      />
         </div>
       ) : activeView === "networkActivity" ? (
         <div className="device-detail-view">
           <NetworkActivityDetails device={device} />
+        </div>
+      ) : activeView === "behavior" ? (
+        <div className="device-detail-view">
+          <BehaviorAnalyticsDetails device={device} />
         </div>
       ) : (
         <div className="device-detail-view">
@@ -1212,6 +1482,7 @@ export function DeviceTable({
   groups = [],
   onArchive,
   canControl = false,
+  canManagePeripherals = false,
   currentPage,
   pageSize,
   onPageChange,
@@ -1499,6 +1770,7 @@ export function DeviceTable({
                     metricHistory={detailCache[device.id]?.metricHistory}
                     peripheralHistory={detailCache[device.id]?.peripheralHistory}
                     canControl={canControl}
+                    canManagePeripherals={canManagePeripherals}
                   />
                 ) : null}
               </article>
