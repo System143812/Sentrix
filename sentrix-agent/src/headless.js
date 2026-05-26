@@ -10,6 +10,8 @@ import {
   setGlobalMetricInterval,
 } from "./services/metrics.service.js";
 import { connectToCore } from "./services/socket.service.js";
+import { detectDeviceEvents, buildDomainSummaries } from "./services/event-detector.service.js";
+import { collectSoftwareInventory } from "./services/software-inventory.service.js";
 
 // Robust way to get the directory where the EXE (or script) is located
 const __filename_robust = typeof __filename !== "undefined" 
@@ -88,6 +90,8 @@ let collectingMetrics = false;
 let collectingDetails = false;
 let metricsTimer = null;
 let detailsTimer = null;
+let softwareTimer = null;
+const softwareInventoryIntervalMs = Number(process.env.SOFTWARE_INVENTORY_INTERVAL_MS || 6 * 60 * 60 * 1000);
 
 async function refreshDetails(force = false) {
   if (collectingDetails) return;
@@ -115,11 +119,23 @@ async function collectAndSendMetrics() {
     lastMetrics = await getMetrics();
     await refreshDetails();
     socketClient.sendMetrics(lastMetrics, lastDetails);
+    socketClient.sendDomains(buildDomainSummaries(lastMetrics));
+    socketClient.sendEvents(detectDeviceEvents(lastMetrics, lastDetails));
     lastMetricsSentAt = Date.now();
   } catch (error) {
     log("Failed to collect metrics:", error.message);
   } finally {
     collectingMetrics = false;
+  }
+}
+
+async function collectAndSendSoftwareInventory() {
+  try {
+    const software = await collectSoftwareInventory();
+    socketClient?.sendSoftwareInventory(software);
+    log(`Collected software inventory. Applications: ${software.length}.`);
+  } catch (error) {
+    log("Failed to collect software inventory:", error.message);
   }
 }
 
@@ -147,9 +163,11 @@ async function start() {
   });
 
   await collectAndSendMetrics();
+  await collectAndSendSoftwareInventory();
 
   metricsTimer = setInterval(collectAndSendMetrics, metricsIntervalMs);
   detailsTimer = setInterval(() => refreshDetails(), detailsIntervalMs);
+  softwareTimer = setInterval(collectAndSendSoftwareInventory, softwareInventoryIntervalMs);
   setInterval(() => {
     if (Date.now() - lastMetricsSentAt >= heartbeatIntervalMs) {
       socketClient.sendHeartbeat(lastMetrics);
@@ -158,11 +176,13 @@ async function start() {
 }
 
 process.on("SIGINT", () => {
+  if (softwareTimer) clearInterval(softwareTimer);
   socketClient?.close();
   process.exit(0);
 });
 
 process.on("SIGTERM", () => {
+  if (softwareTimer) clearInterval(softwareTimer);
   socketClient?.close();
   process.exit(0);
 });
