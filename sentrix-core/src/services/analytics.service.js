@@ -1,5 +1,10 @@
 import { getAllClients } from "./client.services.js";
 import { getGlobalTrendData } from "./metrics/index.js";
+import pool from "../lib/database.js";
+import PDFDocument from "pdfkit-table";
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, HeadingLevel, BorderStyle, VerticalAlign } from "docx";
+import { clamp, average, getDeviceLoad, getDeviceIssues, getHealthScore } from "../utils/health.utils.js";
+
 
 const ranges = {
   "24h": {
@@ -19,64 +24,8 @@ const ranges = {
   },
 };
 
-function clamp(value, min = 0, max = 100) {
-  return Math.min(max, Math.max(min, Number(value) || 0));
-}
-
-function average(values = []) {
-  const usableValues = values
-    .map((value) => (value == null || value === "" ? NaN : Number(value)))
-    .filter((value) => Number.isFinite(value));
-
-  if (!usableValues.length) return 0;
-
-  const total = usableValues.reduce((sum, value) => sum + value, 0);
-  return Math.round(total / usableValues.length);
-}
-
 function getRange(rangeKey = "24h") {
   return ranges[rangeKey] || ranges["24h"];
-}
-
-function getDeviceLoad(client) {
-  const metrics = client.metrics || {};
-  return Math.round(
-    (clamp(metrics.cpu) + clamp(metrics.ram) + clamp(metrics.disk)) / 3,
-  );
-}
-
-function getDeviceIssues(client) {
-  const metrics = client.metrics || {};
-  const cpuTemperature =
-    metrics.temperature?.cpu?.temperatureCelsius ?? metrics.cpuTemperature;
-  const gpuTemperature =
-    metrics.temperature?.gpu?.temperatureCelsius ?? metrics.gpuTemperature;
-  const latencyMs = metrics.network?.latencyMs ?? metrics.latencyMs;
-  const packetLoss = metrics.network?.packetLoss ?? metrics.packetLoss;
-  const issues = [];
-
-  if (client.status !== "online") issues.push("Offline");
-  if (clamp(metrics.cpu) >= 85) issues.push("High CPU");
-  if (clamp(metrics.ram) >= 85) issues.push("High RAM");
-  if (clamp(metrics.disk) >= 90) issues.push("Disk pressure");
-  if (Number(cpuTemperature) >= 85) issues.push("High CPU temperature");
-  if (Number(gpuTemperature) >= 85) issues.push("High GPU temperature");
-  if (Number(packetLoss) >= 5) issues.push("Packet loss");
-  if (Number(latencyMs) >= 150) issues.push("High latency");
-
-  return issues;
-}
-
-function getHealthScore(client) {
-  const metrics = client.metrics || {};
-  const statusPenalty = client.status === "online" ? 0 : 35;
-  const cpuPenalty = Math.max(0, clamp(metrics.cpu) - 70) * 0.5;
-  const ramPenalty = Math.max(0, clamp(metrics.ram) - 75) * 0.45;
-  const diskPenalty = Math.max(0, clamp(metrics.disk) - 85) * 0.7;
-
-  return clamp(
-    Math.round(100 - statusPenalty - cpuPenalty - ramPenalty - diskPenalty),
-  );
 }
 
 function createBuckets(rangeKey, now = Date.now()) {
@@ -283,6 +232,46 @@ function buildDeviceRows(clients) {
   }));
 }
 
+export function buildPeripheralSummary(clients, inventory) {
+  const clientIds = new Set(clients.map(c => c.id));
+  const relevantInventory = inventory.filter(i => clientIds.has(i.client_id));
+  
+  const byClient = relevantInventory.reduce((acc, item) => {
+    if (!acc[item.client_id]) {
+      acc[item.client_id] = { connected: 0, missing: 0, total: 0 };
+    }
+    acc[item.client_id].total++;
+    if (item.status === 'connected') acc[item.client_id].connected++;
+    else acc[item.client_id].missing++;
+    return acc;
+  }, {});
+
+  const summaryByGroup = clients.reduce((acc, client) => {
+    const group = client.group || "Unassigned";
+    if (!acc[group]) {
+      acc[group] = { totalDevices: 0, devicesWithMissing: 0, totalPeripherals: 0, missingPeripherals: 0 };
+    }
+    acc[group].totalDevices++;
+    const stats = byClient[client.id] || { connected: 0, missing: 0, total: 0 };
+    acc[group].totalPeripherals += stats.total;
+    acc[group].missingPeripherals += stats.missing;
+    if (stats.missing > 0) acc[group].devicesWithMissing++;
+    return acc;
+  }, {});
+
+  return {
+    totalMissing: relevantInventory.filter(i => i.status === 'missing').length,
+    devicesWithMissing: Object.values(byClient).filter(c => c.missing > 0).length,
+    groups: Object.entries(summaryByGroup).map(([name, stats]) => ({ name, ...stats })),
+    byDevice: clients.map(client => ({
+      id: client.id,
+      hostname: client.hostname,
+      group: client.group || "Unassigned",
+      ... (byClient[client.id] || { connected: 0, missing: 0, total: 0 })
+    })).filter(d => d.total > 0)
+  };
+}
+
 export async function getAnalyticsSummary(options = {}) {
   const rangeKey = options.range || "24h";
   const allClients = await getAllClients();
@@ -290,6 +279,9 @@ export async function getAnalyticsSummary(options = {}) {
   const deviceRows = buildDeviceRows(clients);
   const alerts = countAlerts(clients);
   
+  const [inventory] = await pool.query("SELECT * FROM client_peripheral_inventory");
+  const peripheralSummary = buildPeripheralSummary(clients, inventory);
+
   const range = getRange(rangeKey);
   const rangeStartMs = Date.now() - range.durationMs;
   const samples = await getGlobalTrendData(rangeStartMs);
@@ -342,6 +334,7 @@ export async function getAnalyticsSummary(options = {}) {
     alerts,
     trends,
     groups: buildGroupStats(clients),
+    peripherals: peripheralSummary,
     devices: {
       topLoad: [...deviceRows]
         .sort((first, second) => second.load - first.load)
@@ -356,6 +349,8 @@ export async function getAnalyticsSummary(options = {}) {
     },
     exportUrls: {
       csv: `/api/analytics/export.csv?range=${encodeURIComponent(rangeKey)}&group=${encodeURIComponent(options.group || "all")}`,
+      pdf: `/api/analytics/export.pdf?range=${encodeURIComponent(rangeKey)}&group=${encodeURIComponent(options.group || "all")}`,
+      docx: `/api/analytics/export.docx?range=${encodeURIComponent(rangeKey)}&group=${encodeURIComponent(options.group || "all")}`,
     },
     dataQuality: {
       realMetrics: [
@@ -490,4 +485,272 @@ export async function getAnalyticsCsv(options = {}) {
   return [header, ...rows, [], groupHeader, ...groupRows]
     .map((row) => row.map(escapeCsv).join(","))
     .join("\n");
+}
+
+export async function getAnalyticsPdf(options = {}) {
+  const summary = await getAnalyticsSummary(options);
+  const doc = new PDFDocument({ margin: 30, size: "A4" });
+  
+  const buffers = [];
+  doc.on("data", (chunk) => buffers.push(chunk));
+  
+  return new Promise((resolve) => {
+    doc.on("end", () => resolve(Buffer.concat(buffers)));
+
+    // Header
+    doc.fillColor("#1e293b").fontSize(20).text("Sentrix Lab Analytics Report", { align: "center" });
+    doc.moveDown(0.5);
+    doc.fontSize(10).fillColor("#64748b").text(`Generated on ${new Date(Number(summary.generatedAt)).toLocaleString()}`, { align: "center" });
+    doc.text(`Range: ${summary.range.label} | Group: ${summary.filters.group}`, { align: "center" });
+    doc.moveDown(2);
+
+    // Summary Cards
+    doc.fillColor("#0f172a").fontSize(14).text("System Overview", { underline: true });
+    doc.moveDown(1);
+    
+    const cardWidth = 160;
+    const startX = 30;
+    const startY = doc.y;
+
+    // Total Devices Card
+    doc.rect(startX, startY, cardWidth, 60).fillAndStroke("#f8fafc", "#e2e8f0");
+    doc.fillColor("#64748b").fontSize(8).text("TOTAL DEVICES", startX + 10, startY + 10);
+    doc.fillColor("#0f172a").fontSize(18).text(String(summary.totals.total), startX + 10, startY + 25);
+
+    // Health Card
+    doc.rect(startX + cardWidth + 15, startY, cardWidth, 60).fillAndStroke("#f0fdf4", "#dcfce7");
+    doc.fillColor("#166534").fontSize(8).text("AVG HEALTH SCORE", startX + cardWidth + 25, startY + 10);
+    doc.fillColor("#14532d").fontSize(18).text(`${summary.averages.health}%`, startX + cardWidth + 25, startY + 25);
+
+    // Alerts Card
+    doc.rect(startX + (cardWidth + 15) * 2, startY, cardWidth, 60).fillAndStroke("#fef2f2", "#fee2e2");
+    doc.fillColor("#991b1b").fontSize(8).text("CRITICAL ALERTS", startX + (cardWidth + 15) * 2 + 10, startY + 10);
+    doc.fillColor("#7f1d1d").fontSize(18).text(String(summary.alerts.critical), startX + (cardWidth + 15) * 2 + 10, startY + 25);
+
+    doc.moveDown(5);
+
+    // Device Table
+    const deviceTable = {
+      title: "Device Performance Details",
+      headers: ["Hostname", "Group", "Status", "Health", "Load", "CPU", "RAM"],
+      rows: summary.devices.rows.map(d => [
+        d.hostname,
+        d.group,
+        d.status,
+        `${d.health}%`,
+        `${d.load}%`,
+        `${d.metrics.cpu || 0}%`,
+        `${d.metrics.ram || 0}%`
+      ])
+    };
+
+    doc.table(deviceTable, {
+      prepareHeader: () => doc.font("Helvetica-Bold").fontSize(9).fillColor("#1e293b"),
+      prepareRow: (row, index, column, rect, rectRow, rectCell) => {
+        doc.font("Helvetica").fontSize(8).fillColor("#334155");
+      },
+      width: 535,
+    });
+
+    doc.moveDown(2);
+
+    // Group Summary Table
+    const groupTable = {
+      title: "Group Summary",
+      headers: ["Group Name", "Units", "Online", "Offline", "Avg Health", "Avg Load"],
+      rows: summary.groups.map(g => [
+        g.name,
+        String(g.count),
+        String(g.online),
+        String(g.offline),
+        `${g.health}%`,
+        `${g.load}%`
+      ])
+    };
+
+    doc.table(groupTable, {
+      prepareHeader: () => doc.font("Helvetica-Bold").fontSize(9).fillColor("#1e293b"),
+      prepareRow: () => doc.font("Helvetica").fontSize(8).fillColor("#334155"),
+      width: 535,
+    });
+
+    doc.addPage();
+    doc.fillColor("#0f172a").fontSize(14).text("Peripheral Inventory Status", { underline: true });
+    doc.moveDown(1);
+
+    const peripheralTable = {
+      title: "Device Peripheral Details",
+      headers: ["Hostname", "Group", "Total Items", "Connected", "Missing"],
+      rows: (summary.peripherals?.byDevice || []).map(d => [
+        d.hostname,
+        d.group,
+        String(d.total),
+        String(d.connected),
+        String(d.missing)
+      ])
+    };
+
+    doc.table(peripheralTable, {
+      prepareHeader: () => doc.font("Helvetica-Bold").fontSize(9).fillColor("#1e293b"),
+      prepareRow: () => doc.font("Helvetica").fontSize(8).fillColor("#334155"),
+      width: 535,
+    });
+
+    doc.end();
+  });
+}
+
+export async function getAnalyticsDocx(options = {}) {
+  const summary = await getAnalyticsSummary(options);
+  
+  const doc = new Document({
+    sections: [{
+      properties: {},
+      children: [
+        new Paragraph({
+          text: "Sentrix Lab Analytics Report",
+          heading: HeadingLevel.TITLE,
+          alignment: AlignmentType.CENTER,
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `Generated on: ${new Date(Number(summary.generatedAt)).toLocaleString()}`,
+              color: "64748b",
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `Range: ${summary.range.label} | Group: ${summary.filters.group}`,
+              color: "64748b",
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+        }),
+
+        new Paragraph({
+          text: "System Overview",
+          heading: HeadingLevel.HEADING_1,
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: `Total Registered Devices: `, bold: true }),
+            new TextRun(`${summary.totals.total}`),
+          ],
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: `Average Fleet Health: `, bold: true }),
+            new TextRun(`${summary.averages.health}%`),
+          ],
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: `Active Critical Alerts: `, bold: true }),
+            new TextRun(`${summary.alerts.critical}`),
+          ],
+          spacing: { after: 400 },
+        }),
+
+        new Paragraph({
+          text: "Device Performance Details",
+          heading: HeadingLevel.HEADING_2,
+        }),
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              children: ["Hostname", "Group", "Status", "Health", "Load", "CPU", "RAM"].map(text => 
+                new TableCell({
+                  children: [new Paragraph({ text, bold: true })],
+                  shading: { fill: "f8fafc" },
+                  verticalAlign: VerticalAlign.CENTER,
+                })
+              ),
+            }),
+            ...summary.devices.rows.map(d => 
+              new TableRow({
+                children: [
+                  d.hostname, d.group, d.status, 
+                  `${d.health}%`, `${d.load}%`, 
+                  `${d.metrics.cpu || 0}%`, `${d.metrics.ram || 0}%`
+                ].map(text => 
+                  new TableCell({
+                    children: [new Paragraph({ text: String(text) })],
+                  })
+                ),
+              })
+            ),
+          ],
+        }),
+
+        new Paragraph({
+          text: "Group Summary",
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 400 },
+        }),
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              children: ["Group Name", "Units", "Online", "Offline", "Avg Health", "Avg Load"].map(text => 
+                new TableCell({
+                  children: [new Paragraph({ text, bold: true })],
+                  shading: { fill: "f8fafc" },
+                })
+              ),
+            }),
+            ...summary.groups.map(g => 
+              new TableRow({
+                children: [
+                  g.name, String(g.count), String(g.online), String(g.offline), 
+                  `${g.health}%`, `${g.load}%`
+                ].map(text => 
+                  new TableCell({
+                    children: [new Paragraph({ text: String(text) })],
+                  })
+                ),
+              })
+            ),
+          ],
+        }),
+
+        new Paragraph({
+          text: "Peripheral Inventory Status",
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 400 },
+        }),
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              children: ["Hostname", "Group", "Total Items", "Connected", "Missing"].map(text => 
+                new TableCell({
+                  children: [new Paragraph({ text, bold: true })],
+                  shading: { fill: "f8fafc" },
+                })
+              ),
+            }),
+            ...(summary.peripherals?.byDevice || []).map(d => 
+              new TableRow({
+                children: [
+                  d.hostname, d.group, String(d.total), String(d.connected), String(d.missing)
+                ].map(text => 
+                  new TableCell({
+                    children: [new Paragraph({ text: String(text) })],
+                  })
+                ),
+              })
+            ),
+          ],
+        }),
+      ],
+    }],
+  });
+
+  return await Packer.toBuffer(doc);
 }
