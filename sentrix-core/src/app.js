@@ -5,6 +5,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import router from "./routes/main.route.js";
 import { notFound, errorHandler } from "./middlewares/error.middleware.js";
+import { assertRequestAllowed } from "./services/security.service.js";
 
 function getClientUrls() {
   const urls =
@@ -66,6 +67,15 @@ function createApp() {
   app.use(express.json({ limit: "10kb" }));
   app.use(express.urlencoded({ extended: false, limit: "10kb" }));
   app.use(cookieParser());
+
+  app.use(async (req, res, next) => {
+    try {
+      await assertRequestAllowed(req);
+      next();
+    } catch {
+      res.status(403).json({ success: false, message: "Failed" });
+    }
+  });
 
   if (process.env.NODE_ENV === "production") {
     app.set("trust proxy", 1);
