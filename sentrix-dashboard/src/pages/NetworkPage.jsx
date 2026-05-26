@@ -14,12 +14,14 @@ import {
   Smartphone,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "../components/Card.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { ProgressBar } from "../components/ProgressBar.jsx";
 import { DeployDialog } from "../components/DeployDialog.jsx";
 import { useToast } from "../components/ToastProvider.jsx";
+import { Pagination } from "../components/Pagination.jsx";
+import { usePaginationState } from "../hooks/usePaginationState.js";
 
 function formatTime(value) {
   if (!value) {
@@ -185,9 +187,22 @@ export function NetworkPage({
   const [deploymentFailure, setDeploymentFailure] = useState(null);
   const [retryRequest, setRetryRequest] = useState(null);
   const { notify } = useToast();
+  const { currentPage, pageSize, setCurrentPage, setPageSize } = usePaginationState("network", 5);
+
   const scanResults = snapshot?.devices || [];
+  
+  const paginatedResults = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return scanResults.slice(start, start + pageSize);
+  }, [scanResults, currentPage, pageSize]);
+
   const selectedHost = scanResults.find((host) => host.ip === selectedIp);
   const scanLoading = snapshot?.status === "scanning";
+
+  // Reset to page 1 when scan results change (e.g. new scan started)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [snapshot?.lastScanAt]);
 
   async function handleDeploy(credentials) {
     let action = "deploy";
@@ -346,7 +361,7 @@ export function NetworkPage({
               <div>Agent Status</div>
               <div className="text-right">Action</div>
             </div>
-            {scanResults.map((host) => (
+            {paginatedResults.map((host) => (
               <div
                 key={host.ip}
                 className="grid gap-4 border-t border-slate-200 bg-white px-4 py-4 text-sm text-slate-700 first:border-t-0 lg:grid-cols-[minmax(160px,1.1fr)_minmax(110px,0.65fr)_minmax(140px,0.9fr)_minmax(120px,0.8fr)_70px_110px_130px] lg:items-center"
@@ -447,6 +462,14 @@ export function NetworkPage({
             ))}
           </div>
         )}
+
+        <Pagination
+          currentPage={currentPage}
+          totalItems={scanResults.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </Card>
     </div>
   );

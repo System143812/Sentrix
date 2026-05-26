@@ -44,7 +44,9 @@ import { Card } from "../components/Card.jsx";
 import { StatusBadge } from "../components/StatusBadge.jsx";
 import { ProgressBar } from "../components/ProgressBar.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
+import { Pagination } from "../components/Pagination.jsx";
 import { useTelemetryInterval } from "../hooks/useTelemetryInterval.js";
+import { usePaginationState } from "../hooks/usePaginationState.js";
 import * as analyticsApi from "../services/analyticsApi.js";
 import {
   formatUptime,
@@ -467,6 +469,8 @@ function TimeRangeToolbar({ rangeKey, setRangeKey, loading, groupOptions, select
 }
 
 function AgentMetricsPanel({ analytics, loading }) {
+  const { currentPage, pageSize, setCurrentPage, setPageSize } = usePaginationState("metrics", 5);
+
   const getClientMetrics = (device) => {
     const metrics = device.metrics || {};
     const network = metrics.network || {};
@@ -481,6 +485,12 @@ function AgentMetricsPanel({ analytics, loading }) {
       packetLoss: network.packetLoss ?? metrics.packetLoss,
     };
   };
+
+  const paginatedDevices = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return (analytics.allDevices || []).slice(start, start + pageSize);
+  }, [analytics.allDevices, currentPage, pageSize]);
+
   const metrics = [
     {
       label: "CPU Temp",
@@ -559,7 +569,7 @@ function AgentMetricsPanel({ analytics, loading }) {
           })}
         </div>
 
-        <div className="max-h-[520px] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 custom-scrollbar">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
             <div>
               <div className="hidden grid-cols-[1.8fr_repeat(6,1fr)] bg-slate-50 border-b border-slate-200 px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-ui md:grid">
                 <span>Device</span>
@@ -571,7 +581,7 @@ function AgentMetricsPanel({ analytics, loading }) {
                 <span className="text-right">Loss</span>
               </div>
               <div className="divide-y divide-slate-100 font-data">
-                {analytics.allDevices.length ? analytics.allDevices.map((device) => {
+                {paginatedDevices.length ? paginatedDevices.map((device) => {
                   const cm = getClientMetrics(device);
 
                   return (
@@ -613,6 +623,14 @@ function AgentMetricsPanel({ analytics, loading }) {
               </div>
             </div>
           </div>
+          
+          <Pagination
+            currentPage={currentPage}
+            totalItems={analytics.allDevices.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
       </div>
     </Panel>
   );
