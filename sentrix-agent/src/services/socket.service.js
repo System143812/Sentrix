@@ -102,6 +102,39 @@ export function connectToCore({ serverUrl, profile, onStatus, onTelemetrySetting
       }
     },
 
+    sendEvents(events = []) {
+      if (!Array.isArray(events) || events.length === 0) return;
+      if (socket.connected) {
+        socket.emit("agent:events", {
+          agentId: profile.agentId,
+          events,
+          timestamp: Date.now(),
+        });
+      }
+    },
+
+    sendDomains(domains = []) {
+      if (!Array.isArray(domains) || domains.length === 0) return;
+      if (socket.connected) {
+        socket.emit("agent:domains", {
+          agentId: profile.agentId,
+          domains,
+          timestamp: Date.now(),
+        });
+      }
+    },
+
+    sendSoftwareInventory(software = []) {
+      if (!Array.isArray(software) || software.length === 0) return;
+      if (socket.connected) {
+        socket.emit("agent:software", {
+          agentId: profile.agentId,
+          software,
+          timestamp: Date.now(),
+        });
+      }
+    },
+
     isConnected() {
       return socket.connected;
     },

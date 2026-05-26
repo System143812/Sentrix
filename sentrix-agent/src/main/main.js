@@ -11,6 +11,8 @@ import {
   setGlobalMetricInterval,
 } from "../services/metrics.service.js";
 import { connectToCore } from "../services/socket.service.js";
+import { detectDeviceEvents, buildDomainSummaries } from "../services/event-detector.service.js";
+import { collectSoftwareInventory } from "../services/software-inventory.service.js";
 
 dotenv.config();
 
@@ -73,6 +75,8 @@ async function startAgent() {
   let lastMetricsSentAt = 0;
   let sending = false;
   let metricsTimer = null;
+  let softwareTimer = null;
+  const softwareInventoryIntervalMs = Number(process.env.SOFTWARE_INVENTORY_INTERVAL_MS || 6 * 60 * 60 * 1000);
 
   sendStatusToWindow({
     connection: "connecting",
@@ -130,6 +134,8 @@ async function startAgent() {
       }
 
       socketClient.sendMetrics(metrics, shouldRefreshDetails ? lastDetails : undefined);
+      socketClient.sendDomains(buildDomainSummaries(metrics));
+      socketClient.sendEvents(detectDeviceEvents(metrics, lastDetails));
       lastMetrics = metrics;
       lastMetricsSentAt = Date.now();
 
@@ -157,7 +163,14 @@ async function startAgent() {
   };
 
   await sendMetrics();
+  const sendSoftwareInventory = async () => {
+    const software = await collectSoftwareInventory();
+    socketClient.sendSoftwareInventory(software);
+    sendStatusToWindow({ softwareInventoryCount: software.length });
+  };
+  await sendSoftwareInventory().catch(() => {});
   metricsTimer = setInterval(sendMetrics, intervalMs);
+  softwareTimer = setInterval(() => sendSoftwareInventory().catch(() => {}), softwareInventoryIntervalMs);
   setInterval(() => {
     if (Date.now() - lastMetricsSentAt >= intervalMs) {
       socketClient.sendHeartbeat(lastMetrics);
