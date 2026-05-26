@@ -1,8 +1,9 @@
 import jwt from "jsonwebtoken";
+import { isUserBlocked } from "../services/security.service.js";
 
 const secret = process.env.JWT_SECRET || "sentrix-secret";
 
-export function authenticate(req, res, next) {
+export async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization || "";
   const headerToken = authHeader.startsWith("Bearer ")
     ? authHeader.slice(7)
@@ -18,6 +19,9 @@ export function authenticate(req, res, next) {
 
   try {
     const payload = jwt.verify(token, secret);
+    if (await isUserBlocked(payload)) {
+      return res.status(403).json({ success: false, message: "Failed" });
+    }
     req.user = payload;
     next();
   } catch (error) {
