@@ -1,91 +1,162 @@
 # Sentrix
 
-A real-time network monitoring and remote management system designed for computer laboratories. Sentrix allows administrators to discover, deploy, and monitor an entire fleet of Windows machines from a single centralized dashboard.
-
-## 🚀 Key Innovation: Zero-Touch Deployment
-Sentrix features an innovative **Dual-Transport Push Engine** that overcomes the default security barriers of standalone Windows environments (Workgroups). 
-
-- **Surgical Push:** Utilizing a one-time "Provisioning Handshake," Sentrix unlocks the built-in Administrator account and fixes Remote UAC filters.
-- **Admin Push (SMB/WMI):** Remotely pushes the agent binary via Administrative Shares and triggers high-privileged execution without any physical interaction with the client PC.
-- **Reverse-Tunnel Monitoring:** Once installed, the agent initiates an outbound Socket.io connection, allowing 100% remote control (restarts, monitoring) even behind firewalls and closed ports.
+Sentrix is a professional-grade, real-time network monitoring and remote management system (RMM) specifically engineered for Windows computer laboratories. It provides a centralized dashboard for administrators to discover network devices, deploy monitoring agents remotely, and oversee fleet health with high-granularity hardware metrics.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
-Sentrix is composed of three integrated applications:
+Sentrix operates as a distributed system comprising three primary modules:
 
-- **`sentrix-core`**: The Node.js (Express & Socket.IO) backbone. Manages the database, network discovery, and remote deployment logic.
-- **`sentrix-agent`**: A lightweight Electron/Node.js background process. Runs as a **SYSTEM** service on client PCs to report metrics and execute remote commands.
-- **`sentrix-dashboard`**: A modern React (Vite & Tailwind CSS) interface for real-time laboratory oversight.
-- **MySQL**: The persistence layer for device identities, historical metrics, and user management.
+### 1. Sentrix Core (Backend)
+The central management hub responsible for orchestration.
+*   **Role:** Handles database persistence, business logic, network discovery scans, and the remote deployment engine.
+*   **Technology:** Node.js, Express, Socket.io, MySQL.
+*   **Communication:** Serves a REST API for the dashboard and maintains persistent WebSocket connections with agents via Socket.io.
+
+### 2. Sentrix Agent (Client)
+A lightweight background process installed on each laboratory workstation.
+*   **Role:** Executes as a SYSTEM service to collect real-time hardware telemetry and receive remote management commands.
+*   **Technology:** Node.js, Electron (for optional UI), systeminformation.
+*   **Communication:** Initiates outbound "reverse-tunnel" connections to the Core to bypass client-side firewalls.
+
+### 3. Sentrix Dashboard (Frontend)
+The administrative user interface.
+*   **Role:** Provides a real-time visual overview of the laboratory, analytics, and management tools.
+*   **Technology:** React, Vite, Tailwind CSS, Lucide React.
+*   **Communication:** Consumes RESTful endpoints and listens for real-time telemetry updates via Socket.io.
 
 ---
 
-## 🛠️ Setup & Installation
+## Data Flow and Technology Stack
 
-### 1. Backend (Core)
+### Network Discovery
+*   **Flow:** Core -> Network Interface -> ARP/NetBIOS/Nmap -> Database.
+*   **Tools:** Nmap (optional), Node-arp.
+*   **Purpose:** Identifies active devices on the local subnet to prepare for agent deployment.
+
+### Dual-Transport Deployment Engine
+*   **Flow:** Dashboard -> Core -> SMB/WMI Handshake -> Agent Binary Transfer -> Execution.
+*   **Protocol:** SMB (Server Message Block) and WMI (Windows Management Instrumentation).
+*   **Purpose:** Allows "Zero-Touch" installation. Core pushes the agent to the client's administrative share and triggers the installer remotely.
+
+### Real-Time Telemetry
+*   **Flow:** Agent -> Socket.io -> Core -> Dashboard.
+*   **Metrics:** CPU (usage/temp), RAM (usage), Disk (usage/health), Network (throughput/latency), Peripherals.
+*   **Purpose:** Provides instant visibility into workstation performance and hardware failures.
+
+### Persistence Layer
+*   **Database:** MySQL.
+*   **Purpose:** Stores device metadata, historical performance trends, audit logs, and user credentials.
+
+---
+
+## Core Features
+
+### Laboratory Discovery
+*   Comprehensive subnet scanning to identify managed and unmanaged devices.
+*   Automated identification of hostnames, IP addresses, and MAC addresses.
+
+### Zero-Touch Deployment
+*   Remote installation of agents via Administrative Shares (SMB).
+*   High-privilege execution using WMI without requiring physical access to the workstation.
+
+### Fleet Monitoring
+*   Live hardware telemetry (CPU, GPU, RAM, Disk, Temperature).
+*   Connection status tracking (Online/Offline) with automated heartbeat monitoring.
+*   Peripheral tracking to identify missing or disconnected hardware (Keyboards, Mice, etc.).
+
+### Remote Management
+*   Instant power commands: Shutdown, Restart, and Sleep.
+*   Group-based management for organized laboratory oversight.
+
+### Analytics and Reporting
+*   Historical performance trending for health scores and resource utilization.
+*   Exportable reports in CSV, PDF, and DOCX formats for administrative review.
+
+### Security
+*   Role-Based Access Control (RBAC) for Network Admins and Staff.
+*   Encrypted Socket.io communication.
+*   Agent execution as a protected SYSTEM service.
+
+---
+
+## Setup and Installation Guide
+
+This guide provides a step-by-step procedure for setting up the Sentrix environment on a Windows machine.
+
+### Prerequisites
+1.  **Node.js:** Download and install Node.js (v20 or higher) from [nodejs.org](https://nodejs.org/).
+2.  **MySQL Server:** Download and install MySQL Community Server (v8.0 or higher) from [dev.mysql.com](https://dev.mysql.com/downloads/mysql/).
+3.  **Git:** Download and install Git from [git-scm.com](https://git-scm.com/).
+
+### Step 1: Clone the Repository
+Open a terminal (PowerShell or Command Prompt) and run:
 ```bash
-cd sentrix-core
-npm install
-# Configure your .env (DB_HOST, DB_USER, DB_PASS, etc.)
-npm run dev
-```
-*Note: Ensure the database is initialized using `sentrix-core/src/database/migrations/001_initial_schema.sql`.*
-
-### 2. Dashboard
-```bash
-cd sentrix-dashboard
-npm install
-npm run dev
+git clone https://github.com/your-repo/sentrix.git
+cd sentrix
 ```
 
-### 3. Agent Deployment (The Laboratory)
+### Step 2: Database Configuration
+1.  Open your MySQL terminal or a GUI tool like MySQL Workbench.
+2.  Create a new database named `sentrix`:
+    ```sql
+    CREATE DATABASE sentrix;
+    ```
+3.  Navigate to `sentrix-core/src/database/migrations` and execute the SQL scripts in numerical order (001 to 015) against the `sentrix` database.
 
-To deploy to your lab, follow the **"Prep Once, Deploy Anywhere"** workflow:
+### Step 3: Backend Configuration (Core)
+1.  Navigate to the core directory:
+    ```bash
+    cd sentrix-core
+    npm install
+    ```
+2.  Create a `.env` file in the `sentrix-core` folder:
+    ```env
+    PORT=3000
+    DB_HOST=localhost
+    DB_USER=your_mysql_user
+    DB_PASS=your_mysql_password
+    DB_NAME=sentrix
+    JWT_SECRET=your_random_secret_string
+    ```
+3.  Start the backend:
+    ```bash
+    npm run dev
+    ```
 
-#### Step A: The Handshake (One-Time)
-Run the provisioner script as Administrator on your **Master Image** or each PC once:
-```powershell
-# Located in the scripts/ folder
-.\Sentrix-PC-Provisioner.ps1
-```
-This script "unlocks" the PC by enabling the built-in Administrator and opening the required WMI/SMB ports.
+### Step 4: Frontend Configuration (Dashboard)
+1.  Open a new terminal window and navigate to the dashboard directory:
+    ```bash
+    cd sentrix-dashboard
+    npm install
+    ```
+2.  Start the dashboard:
+    ```bash
+    npm run dev
+    ```
+3.  The dashboard should now be accessible at `http://localhost:5173`.
 
-#### Step B: The Push
-1. Open the Sentrix Dashboard -> **Network Discovery**.
-2. Click **Rescan** to find your lab PCs.
-3. Click **Deploy** on a discovered PC.
-4. Enter the `Administrator` credentials.
-5. **Success:** The agent is pushed, installed, and starts reporting automatically.
+### Step 5: Preparing Client PCs for Deployment
+To allow the Core to push the agent to other PCs, each client machine must be prepared once:
+1.  Navigate to the `scripts/` folder in the project root.
+2.  Copy `Sentrix-PC-Provisioner.ps1` to the client PC.
+3.  Run the script as Administrator in PowerShell:
+    ```powershell
+    .\Sentrix-PC-Provisioner.ps1
+    ```
+    *This script enables the built-in Administrator account and opens the required firewall ports for SMB and WMI.*
+
+### Step 6: Deploying Agents
+1.  Log in to the Sentrix Dashboard.
+2.  Go to the **Discovery** page and click **Rescan**.
+3.  Locate a discovered PC and click **Deploy**.
+4.  Enter the client's `Administrator` credentials.
+5.  Once the status changes to "Success," the device will appear in the **Devices** list with live metrics.
 
 ---
 
-## 📊 Real-Time Features
-
-- **Laboratory Discovery:** Deep-scan subnets using Nmap, ARP, and NetBIOS to identify every device on your network.
-- **High-Privilege Monitoring:** Agent runs as **SYSTEM**, making it resilient to user termination while providing deep hardware access (CPU, RAM, Disk, Temperature).
-- **Remote Controls:** Restart, Shutdown, or Sleep machines directly from the dashboard.
-- **Security Hardening (Coming Soon):** Automatic post-deployment lockdown that disables the Admin account and closes firewall ports after a successful install.
-- **Analytics & Export:** View historical performance data and export metrics to CSV for laboratory reporting.
-
----
-
-## 🔐 Security & Roles
-
-Sentrix utilizes a strict role-based access control (RBAC) system:
-
-- **`network_admin`**: Full control over laboratory configuration, user management, and group definitions.
-- **`admin`**: Access to monitoring and remote control features for assigned groups.
-
-**Security Note:** All remote management commands are sent via an authenticated Socket.io tunnel. The legacy ports (SMB/WMI) are only used during the initial 60-second deployment phase.
-
----
-
-## 🤝 Team Collaboration
-
-- `CONTRIBUTING.md`: Guidelines for adding new features.
-- `docs/TEAM_WORKFLOW.md`: Documentation on splitting tasks and branch management.
-
----
-*Built for modern laboratory management. Secure, Scalable, and Innovative.*
+## Technical Maintenance
+*   **Logs:** Core logs are available in the terminal output.
+*   **Migrations:** When updating the system, check for new SQL files in `sentrix-core/src/database/migrations`.
+*   **Testing:** Run `npm test` in any module directory to execute the Vitest suite.
