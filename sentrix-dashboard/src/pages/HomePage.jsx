@@ -10,7 +10,7 @@ import { ICON_TONES } from "../styles/tones.js";
 
 function SummaryCard({ label, value, icon: Icon, tone = "blue", subValue }) {
   return (
-    <Card padding="0" className="group relative overflow-hidden border-slate-200/60 bg-white transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/50">
+    <Card padding="0" className="relative overflow-hidden border-slate-200/60 bg-white">
       <div className="flex items-center min-h-[100px]">
         <div className="flex flex-1 items-center justify-between p-5">
           <div className="min-w-0">
@@ -27,7 +27,7 @@ function SummaryCard({ label, value, icon: Icon, tone = "blue", subValue }) {
             </div>
           </div>
           
-          <div className={`rounded-xl border p-3 transition-all duration-300 group-hover:scale-110 shadow-sm ${ICON_TONES[tone] || ICON_TONES.blue}`}>
+          <div className={`rounded-xl border p-3 shadow-sm ${ICON_TONES[tone] || ICON_TONES.blue}`}>
             <Icon size={24} strokeWidth={2.5} />
           </div>
         </div>
@@ -44,6 +44,7 @@ export function HomePage({
   groups,
   onArchive,
   canControl = false,
+  canManagePeripherals = false,
 }) {
   const [query, setQuery] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("all");
@@ -124,6 +125,7 @@ export function HomePage({
             groups={groups}
             onArchive={onArchive}
             canControl={canControl}
+            canManagePeripherals={canManagePeripherals}
           />
         </div>
 

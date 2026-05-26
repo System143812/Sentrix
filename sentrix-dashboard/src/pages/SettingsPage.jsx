@@ -535,16 +535,6 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
           </div>
         </SettingsSection>
 
-        <SettingsSection
-          icon={ShieldCheck}
-          title="Logs"
-          subtitle="Activity history for system actions."
-          tone="indigo"
-        >
-          <div className="grid gap-3">
-            <ActionButton label="System logs" icon={Layers} description="Trace group, account, and device administration history." tone="teal" />
-          </div>
-        </SettingsSection>
       </div>
     </div>
   );
