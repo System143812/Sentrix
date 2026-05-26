@@ -252,10 +252,16 @@ export async function getClientSummary() {
     (client) => client.status === "offline",
   ).length;
 
+  // Calculate missing peripherals across all clients
+  const [[{ total_missing }]] = await pool.query(
+    "SELECT COUNT(*) as total_missing FROM client_peripheral_inventory WHERE status = 'missing'"
+  );
+
   return {
     total: clients.length,
     online,
     offline,
+    missingPeripherals: total_missing || 0,
     clients,
   };
 }
