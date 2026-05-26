@@ -4,6 +4,8 @@ import { PageHeader } from "../components/PageHeader.jsx";
 import { SearchFilterBar } from "../components/SearchFilterBar.jsx";
 import { matchesSearch } from "../shared/utils.js";
 import * as auditApi from "../services/auditApi.js";
+import { Pagination } from "../components/Pagination.jsx";
+import { usePaginationState } from "../hooks/usePaginationState.js";
 
 function labelAction(action = "") {
   return action
@@ -17,10 +19,17 @@ export function AuditPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const visibleLogs = useMemo(
+  const { currentPage, pageSize, setCurrentPage, setPageSize } = usePaginationState("audit", 5);
+
+  const filteredLogs = useMemo(
     () => logs.filter((log) => matchesSearch(log, query, ["actorEmail", "actorRole", "action", "targetLabel", "ipAddress", "macAddress"])),
     [logs, query],
   );
+
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredLogs.slice(start, start + pageSize);
+  }, [filteredLogs, currentPage, pageSize]);
 
   async function loadLogs() {
     setLoading(true);
@@ -37,6 +46,11 @@ export function AuditPage() {
   useEffect(() => {
     loadLogs();
   }, []);
+
+  // Reset to page 1 when query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query]);
 
   return (
     <div className="space-y-6">
@@ -63,7 +77,7 @@ export function AuditPage() {
       />
 
       <SearchFilterBar
-        count={visibleLogs.length}
+        count={filteredLogs.length}
         onQueryChange={setQuery}
         placeholder="Search by user, action, target, IP, or MAC"
         query={query}
@@ -80,7 +94,7 @@ export function AuditPage() {
           <div>Time</div>
         </div>
         <div className="divide-y divide-slate-100">
-          {visibleLogs.length ? visibleLogs.map((log) => (
+          {paginatedLogs.length ? paginatedLogs.map((log) => (
             <article className="grid gap-3 px-5 py-4 text-sm text-slate-700 lg:grid-cols-[1.1fr_1fr_1fr_110px_150px] lg:items-center lg:gap-4" key={log.id}>
               <div className="min-w-0">
                 <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">Action</span>
@@ -108,6 +122,14 @@ export function AuditPage() {
             <div className="p-8 text-center text-sm text-slate-500">{loading ? "Loading audit history..." : "No audit records found."}</div>
           )}
         </div>
+        
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredLogs.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
     </div>
   );

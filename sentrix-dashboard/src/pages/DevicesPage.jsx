@@ -1,9 +1,10 @@
 import { MonitorCog } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { DeviceTable } from "../components/DeviceTable.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { SearchFilterBar } from "../components/SearchFilterBar.jsx";
 import { matchesSearch } from "../shared/utils.js";
+import { usePaginationState } from "../hooks/usePaginationState.js";
 
 export function DevicesPage({
   dashboardData,
@@ -15,11 +16,14 @@ export function DevicesPage({
 }) {
   const [query, setQuery] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("all");
+  const { currentPage, pageSize, setCurrentPage, setPageSize } = usePaginationState("devices", 5);
+
   const devices = dashboardData.clients || [];
   const groupOptions = useMemo(
     () => ["all", ...new Set(devices.map((device) => device.group || "Unassigned"))],
     [devices],
   );
+
   const filteredDevices = useMemo(
     () =>
       devices.filter((device) => {
@@ -28,6 +32,16 @@ export function DevicesPage({
       }),
     [devices, query, selectedGroup],
   );
+
+  const paginatedDevices = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredDevices.slice(start, start + pageSize);
+  }, [filteredDevices, currentPage, pageSize]);
+
+  // Reset to page 1 when query or group changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, selectedGroup]);
 
   return (
     <div className="space-y-6">
@@ -58,12 +72,17 @@ export function DevicesPage({
       />
 
       <DeviceTable
-        devices={filteredDevices}
+        devices={paginatedDevices}
         loading={loading}
         onUpdateGroup={onUpdateGroup}
         groups={groups}
         onArchive={onArchive}
         canControl={canControl}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+        totalItems={filteredDevices.length}
       />
     </div>
   );

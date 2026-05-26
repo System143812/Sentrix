@@ -29,6 +29,7 @@ import {
 import { useLayoutEffect, useRef, useEffect, useMemo, useState } from "react";
 import { MetricPill } from "./MetricPill.jsx";
 import { SearchFilterBar } from "./SearchFilterBar.jsx";
+import { Pagination } from "./Pagination.jsx";
 import { useTelemetryInterval } from "../hooks/useTelemetryInterval.js";
 import * as clientApi from "../services/clientApi.js";
 import {
@@ -1209,6 +1210,11 @@ export function DeviceTable({
   groups = [],
   onArchive,
   canControl = false,
+  currentPage,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  totalItems,
 }) {
   const [expandedId, setExpandedId] = useState(null);
   const [pendingArchive, setPendingArchive] = useState(null);
@@ -1498,6 +1504,14 @@ export function DeviceTable({
           })}
         </div>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
     </>
   );
 }
