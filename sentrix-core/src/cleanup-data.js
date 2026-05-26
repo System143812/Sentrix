@@ -1,17 +1,20 @@
 import mysql from "mysql2/promise";
+import dotenv from "dotenv";
 
-// Using the credentials I found in your .env earlier
+dotenv.config();
+
 const pool = mysql.createPool({
-  host: "localhost",
-  port: 3306,
-  user: "root",
-  password: "9Slselc1o3ro.",
-  database: "sentrix",
+  host: process.env.DB_HOST || "localhost",
+  port: parseInt(process.env.DB_PORT || "3306"),
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME || "sentrix",
 });
 
 async function clearData() {
-  console.log("--- Sentrix Data Cleanup ---");
-  console.log("This will remove all clients, metrics, hardware history, and logs.");
+  console.log("\n--- 🧹 Sentrix Full Data Cleanup ---");
+  console.log("This will remove all clients, metrics, hardware inventory, and system logs.");
+  console.log("⚠️  User accounts and system settings will be preserved.\n");
   
   const tablesToTruncate = [
     "agent_deployment_records",
@@ -45,20 +48,31 @@ async function clearData() {
 
   const connection = await pool.getConnection();
   try {
+    // Disable FK checks to allow truncation of parent/child tables in any order
     await connection.query("SET FOREIGN_KEY_CHECKS = 0");
     
     for (const table of tablesToTruncate) {
-      process.stdout.write(`Clearing ${table}... `);
-      await connection.query(`TRUNCATE TABLE ${table}`);
-      console.log("OK");
+      try {
+        process.stdout.write(`Clearing ${table.padEnd(35)}... `);
+        await connection.query(`TRUNCATE TABLE ${table}`);
+        console.log("✅ OK");
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE') {
+          console.log("⏭️  Skipped (Table doesn't exist)");
+        } else {
+          console.log(`❌ Error: ${err.message}`);
+        }
+      }
     }
 
     await connection.query("SET FOREIGN_KEY_CHECKS = 1");
-    console.log("\nCleanup complete! Your database is now fresh (Users preserved).");
+    console.log("\n✨ Cleanup complete! The operational database is fresh.");
+    console.log("👤 Users table remains untouched.");
   } catch (err) {
-    console.error("\nCleanup Failed:", err.message);
+    console.error("\n💥 Critical Cleanup Failure:", err.message);
   } finally {
     connection.release();
+    await pool.end();
     process.exit(0);
   }
 }
