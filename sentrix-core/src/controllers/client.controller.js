@@ -43,8 +43,6 @@ export async function killClientProcess(req, res, next) {
         pid: parseInt(pid, 10),
       });
 
-      console.log(`[CORE] Agent result for kill-process (PID ${pid}):`, result);
-
       if (result.success) {
         await logAuditEvent({
           req,
@@ -65,7 +63,6 @@ export async function killClientProcess(req, res, next) {
           ? `${result.message} ${result.conclusion}` 
           : (result.message || "Failed to terminate process.");
           
-        console.error(`[CORE] Termination failed: ${fullMessage}`);
         throw new AppError(400, fullMessage);
       }
     } catch (err) {
