@@ -1,0 +1,10 @@
+{
+  "name": "sentrix-suite",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "powershell -ExecutionPolicy Bypass -File ./run-tests.ps1",
+    "test:agent": "npm test --prefix sentrix-agent",
+    "test:core": "npm test --prefix sentrix-core",
+    "test:dashboard": "npm test --prefix sentrix-dashboard"
+  }
+}
