@@ -8,6 +8,7 @@ import {
   updateUserPassword,
 } from "../services/user.services.js";
 import { logAuditEvent } from "../services/audit.service.js";
+import { isUserBlocked } from "../services/security.service.js";
 
 const secret = process.env.JWT_SECRET || "sentrix-secret";
 
@@ -43,6 +44,10 @@ export async function login(req, res, next) {
       return res
         .status(403)
         .json({ success: false, message: "Account disabled." });
+    }
+
+    if (await isUserBlocked(user)) {
+      return res.status(403).json({ success: false, message: "Failed" });
     }
 
     const token = jwt.sign(

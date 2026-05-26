@@ -8,6 +8,9 @@ import { errorHandler } from '../middlewares/error.middleware.js';
 
 vi.mock('../services/user.services.js');
 vi.mock('../services/audit.service.js');
+vi.mock('../services/security.service.js', () => ({
+  isUserBlocked: vi.fn().mockResolvedValue(false),
+}));
 vi.mock('../middlewares/auth.middleware.js', () => ({
   authenticate: (req, res, next) => {
     req.user = { id: 1, email: 'test@example.com', role: 'admin' };
