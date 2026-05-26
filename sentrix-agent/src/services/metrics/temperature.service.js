@@ -8,15 +8,10 @@ import { collectSafely, safeString, toNumber } from "./helpers.js";
 
 const execFileAsync = promisify(execFile);
 
-// Robust way to get __dirname in both ESM and CJS/bundled environments
-const __filename = typeof __filename !== "undefined" 
-  ? __filename 
-  : (import.meta && import.meta.url ? fileURLToPath(import.meta.url) : "");
-const __dirname = typeof __dirname !== "undefined" 
-  ? __dirname 
-  : (path && __filename ? path.dirname(__filename) : "");
+const currentFile = import.meta.url ? fileURLToPath(import.meta.url) : "";
+const currentDir = currentFile ? path.dirname(currentFile) : "";
 
-const TEMP_BRIDGE_PATH = path.resolve(__dirname, "temp-bridge.ps1");
+const TEMP_BRIDGE_PATH = path.resolve(currentDir, "temp-bridge.ps1");
 
 function normalizeTemperature(value) {
   const temperature = toNumber(value);
