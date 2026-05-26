@@ -423,37 +423,45 @@ function ActivityMonitor({ connections, history, error }) {
         >
           {!showHistory && visibleItems.length > 0 ? visibleItems.map((item) => (
             <div
-              className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md"
+              className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md"
               key={item.id ? `conn-${item.id}` : `conn-${item.process}-${item.domain}-${item.peerAddress}-${item.peerPort}`}
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 flex-1">
-                  <p className={`break-all text-sm font-bold font-ui ${item.domain?.includes('localhost') ? 'text-blue-600' : 'text-slate-900'}`}>
-                    {item.domain || item.peerAddress}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className={`truncate text-sm font-bold font-ui ${item.domain?.includes('localhost') ? 'text-blue-600' : 'text-slate-900'}`}>
+                      {item.domain || item.peerAddress}
+                    </p>
+                    {item.isCloud && (
+                      <span className="rounded bg-blue-50 px-1 py-0.5 text-[7px] font-bold text-blue-600 uppercase border border-blue-100">Cloud</span>
+                    )}
+                  </div>
                   {item.organization && item.organization !== item.domain && (
-                    <p className="mt-1 truncate text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+                    <p className="mt-0.5 truncate text-[10px] font-bold text-slate-400 uppercase tracking-tight">
                       {item.organization}
-                      {item.isCloud && (
-                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[8px] font-bold text-blue-600 uppercase border border-blue-100">Cloud</span>
-                      )}
                     </p>
                   )}
                 </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
+                <div className="flex shrink-0 flex-wrap gap-1.5">
                   {item.count > 1 && (
-                    <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-500 uppercase">
+                    <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 uppercase">
                       {item.count} hits
                     </span>
                   )}
-                  <span className="rounded-md border border-emerald-100 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-600 uppercase">
+                  <span className="rounded-md border border-emerald-100 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 uppercase">
                     Live
                   </span>
                 </div>
               </div>
-              <div className="mt-3 flex items-center gap-2 border-t border-slate-50 pt-3">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Via</span>
-                <span className="text-xs font-bold text-slate-700 font-data truncate">{item.process}</span>
+              <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-50 pt-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Via</span>
+                  <span className="text-[11px] font-bold text-slate-700 font-data truncate">{item.process}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">Port</span>
+                  <span className="text-[11px] font-bold text-slate-600 font-data tabular-nums">{item.peerPort}</span>
+                </div>
               </div>
             </div>
           )) : !showHistory ? (
@@ -463,28 +471,22 @@ function ActivityMonitor({ connections, history, error }) {
           ) : null}
           {showHistory && visibleItems.length > 0 ? visibleItems.map((item) => (
             <div
-              className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md opacity-90"
+              className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md opacity-90"
               key={`hist-${item.domain}-${item.process}`}
             >
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="break-all text-sm font-bold text-slate-700 font-ui">
+                <p className="truncate text-sm font-bold text-slate-700 font-ui">
                   {item.domain}
                 </p>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter font-data">
                   {new Date(item.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-50 pt-3">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-50 pt-2">
+                <div className="flex items-center gap-1.5 min-w-0">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Via</span>
-                  <span className="text-xs font-bold text-slate-600 font-data truncate">{item.process}</span>
+                  <span className="text-[11px] font-bold text-slate-600 font-data truncate">{item.process}</span>
                 </div>
-                <span 
-                  className="rounded-md bg-slate-50 border border-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-400 uppercase font-data whitespace-nowrap"
-                  title="Number of times this domain was detected as active"
-                >
-                  {item.hitCount} views
-                </span>
               </div>
             </div>
           )) : showHistory ? (

@@ -659,10 +659,14 @@ function HealthScorePanel({ analytics, loading }) {
             className="analytics-donut grid h-36 w-36 place-items-center rounded-full border-[10px] bg-white shadow-sm ring-4 ring-white/70"
             style={{
               borderColor:
-                tone === "emerald" ? "rgba(16, 185, 129, 0.55)" :
-                tone === "amber" ? "rgba(245, 158, 11, 0.55)" :
-                "rgba(244, 63, 94, 0.55)",
-              transition: "border-color 700ms ease, box-shadow 700ms ease",
+                tone === "emerald" ? "rgba(16, 185, 129, 0.45)" :
+                tone === "amber" ? "rgba(245, 158, 11, 0.45)" :
+                "rgba(244, 63, 94, 0.45)",
+              backgroundColor: 
+                tone === "emerald" ? "rgba(16, 185, 129, 0.05)" :
+                tone === "amber" ? "rgba(245, 158, 11, 0.05)" :
+                "rgba(244, 63, 94, 0.05)",
+              transition: "border-color 700ms ease, background-color 700ms ease, box-shadow 700ms ease",
             }}
           >
             <div className="text-center font-ui">
