@@ -12,7 +12,31 @@ import { ToastProvider } from '../components/ToastProvider.jsx';
 
 // Mocking dependencies
 vi.mock('../services/auditApi.js', () => ({
-  getLogs: vi.fn(() => Promise.resolve([])),
+  getAuditLogs: vi.fn(() => Promise.resolve([])),
+  blockAuditLogSubject: vi.fn(() => Promise.resolve({})),
+}));
+
+vi.mock('../services/clientApi.js', () => ({
+  getClientHardware: vi.fn(() => Promise.resolve({})),
+  getClientMetrics: vi.fn(() => Promise.resolve({ history: [], latest: null })),
+  getClientPeripheralHistory: vi.fn(() => Promise.resolve({ inventory: [], events: [] })),
+  getClientPeripheralHistoryFiltered: vi.fn(() => Promise.resolve({ inventory: [], events: [] })),
+  getClientProcesses: vi.fn(() => Promise.resolve([])),
+  getClientNetworkActivity: vi.fn(() => Promise.resolve({ connections: [], dnsLogs: [] })),
+  getClientActivityHistory: vi.fn(() => Promise.resolve([])),
+  getClientEvents: vi.fn(() => Promise.resolve([])),
+  getClientDomains: vi.fn(() => Promise.resolve([])),
+  getClientSoftware: vi.fn(() => Promise.resolve({ inventory: [], events: [] })),
+  getClientHealth: vi.fn(() => Promise.resolve({ snapshots: [], uptimeLogs: [] })),
+  getClientAnomalies: vi.fn(() => Promise.resolve([])),
+  killClientProcess: vi.fn(() => Promise.resolve({ success: true })),
+  sendDeviceCommand: vi.fn(() => Promise.resolve({ success: true })),
+  updatePeripheralStatus: vi.fn(() => Promise.resolve({})),
+}));
+
+vi.mock('../services/settingsApi.js', () => ({
+  getTelemetrySettings: vi.fn(() => Promise.resolve({ intervalMs: 5000 })),
+  updateTelemetrySettings: vi.fn(() => Promise.resolve({ intervalMs: 5000 })),
 }));
 
 vi.mock('../services/analyticsApi.js', () => ({

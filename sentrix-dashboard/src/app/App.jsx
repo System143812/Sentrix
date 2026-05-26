@@ -249,7 +249,8 @@ function DashboardShell({
             onUpdateGroup={handleUpdateGroup}
             groups={groups}
             onArchive={handleArchiveDevice}
-            canControl={user.role === "network_admin"}
+            canControl={["network_admin", "admin"].includes(user.role)}
+            canManagePeripherals={user.role === "network_admin"}
           />
         ) : activeTab === "network" ? (
           <NetworkPage
@@ -267,7 +268,8 @@ function DashboardShell({
             onUpdateGroup={handleUpdateGroup}
             groups={groups}
             onArchive={handleArchiveDevice}
-            canControl={user.role === "network_admin"}
+            canControl={["network_admin", "admin"].includes(user.role)}
+            canManagePeripherals={user.role === "network_admin"}
           />
         ) : activeTab === "analytics" ? (
           <AnalyticsPage dashboardData={dashboardData} loading={loading} />

@@ -44,6 +44,54 @@ export async function getClientPeripheralHistory(id) {
   return result.data;
 }
 
+export async function getClientPeripheralHistoryFiltered(id, params = {}) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) search.set(key, value);
+  });
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const result = await fetchJson(`/api/clients/${id}/peripherals/history${suffix}`);
+  return result.data;
+}
+
+export async function updatePeripheralStatus(id, key, action, note = "") {
+  const result = await fetchJson(`/api/clients/${id}/peripherals/${encodeURIComponent(key)}/${action}`, {
+    method: "PATCH",
+    body: JSON.stringify({ note }),
+  });
+  return result.data;
+}
+
+export async function getClientEvents(id, params = {}) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) search.set(key, value);
+  });
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const result = await fetchJson(`/api/clients/${id}/events${suffix}`);
+  return result.data;
+}
+
+export async function getClientDomains(id) {
+  const result = await fetchJson(`/api/clients/${id}/domains`);
+  return result.data;
+}
+
+export async function getClientSoftware(id) {
+  const result = await fetchJson(`/api/clients/${id}/software`);
+  return result.data;
+}
+
+export async function getClientHealth(id) {
+  const result = await fetchJson(`/api/clients/${id}/health`);
+  return result.data;
+}
+
+export async function getClientAnomalies(id) {
+  const result = await fetchJson(`/api/clients/${id}/anomalies`);
+  return result.data;
+}
+
 export async function updateClientGroup(id, group) {
   const result = await fetchJson(`/api/clients/${id}/group`, {
     method: "PATCH",

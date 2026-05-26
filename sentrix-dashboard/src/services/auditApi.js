@@ -10,3 +10,11 @@ export async function getAuditLogs(params = {}) {
   const result = await fetchJson(`/api/audit${suffix}`);
   return result.data;
 }
+
+export async function blockAuditLogSubject(id, reason = "") {
+  const result = await fetchJson(`/api/audit/${id}/block`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+  return result.data;
+}
