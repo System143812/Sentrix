@@ -1,4 +1,4 @@
-import { Boxes, Laptop, ShieldCheck, ShieldX, Wifi, WifiOff } from "lucide-react";
+import { Boxes, Laptop, Plug, Unplug, Wifi, WifiOff } from "lucide-react";
 import { useMemo, useState } from "react";
 import { DeviceTable } from "../components/DeviceTable.jsx";
 import { GroupPanel } from "../components/GroupPanel.jsx";
@@ -79,7 +79,7 @@ export function HomePage({
         <SummaryCard 
           label="Peripherals" 
           value={missingCount > 0 ? missingCount : "All Secure"} 
-          icon={missingCount > 0 ? ShieldX : ShieldCheck} 
+          icon={missingCount > 0 ? Unplug : Plug} 
           tone={missingCount > 0 ? "rose" : "emerald"}
           subValue={missingCount > 0 ? "missing" : "verified"}
         />
