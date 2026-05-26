@@ -13,6 +13,7 @@ export function DevicesPage({
   groups,
   onArchive,
   canControl = false,
+  canManagePeripherals = false,
 }) {
   const [query, setQuery] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("all");
@@ -78,6 +79,7 @@ export function DevicesPage({
         groups={groups}
         onArchive={onArchive}
         canControl={canControl}
+        canManagePeripherals={canManagePeripherals}
         currentPage={currentPage}
         pageSize={pageSize}
         onPageChange={setCurrentPage}
