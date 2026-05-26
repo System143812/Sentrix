@@ -36,8 +36,8 @@ export function Pagination({
     const pages = [];
 
     // Configuration variables for easy adjustment
-    const MAX_PAGES_BEFORE_ELLIPSIS = 5; // Total pages before we start hiding with ...
-    const MIDDLE_RANGE = 1; // How many numbers to show on each side of current (2+1+2 = 5 total)
+    const MAX_PAGES_BEFORE_ELLIPSIS = 7; // Total pages before we start hiding with ...
+    const MIDDLE_RANGE = 2; // How many numbers to show on each side of current (2+1+2 = 5 total)
 
     // If we have few pages, just show them all
     if (totalPages <= MAX_PAGES_BEFORE_ELLIPSIS) {
@@ -114,23 +114,24 @@ export function Pagination({
         )}
 
         <p className="font-ui text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-          Showing <span className="text-slate-900 font-data">{startItem}</span>
+          <span className="hidden sm:inline">Showing </span>
+          <span className="text-slate-900 font-data">{startItem}</span>
           <span className="mx-1.5 opacity-40">—</span>
           <span className="text-slate-900 font-data">{endItem}</span>
           <span className="mx-2 text-slate-300">/</span>
-          <span className="text-slate-500">Total</span>
-          <span className="ml-1 text-slate-900 font-data">
+          <span className="hidden sm:inline text-slate-500">Total </span>
+          <span className="text-slate-900 font-data">
             {safeTotalItems}
           </span>
         </p>
       </div>
 
       {/* Right Section: Navigation Controls */}
-      <nav className="flex items-center gap-1.5" aria-label="Pagination">
+      <nav className="flex items-center gap-1 sm:gap-1.5" aria-label="Pagination">
         <button
           onClick={() => onPageChange(safeCurrentPage - 1)}
           disabled={safeCurrentPage === 1}
-          className="group flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:bg-white"
+          className="group flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:bg-white"
           title="Previous Page"
         >
           <ChevronLeft
@@ -139,35 +140,45 @@ export function Pagination({
           />
         </button>
 
-        <div className="flex items-center gap-0.5 px-1">
-          {getPageNumbers().map((page, index) => (
-            <React.Fragment key={index}>
-              {page === '...' ? (
-                <div className="flex h-10 w-6 items-center justify-center text-slate-300">
-                  <MoreHorizontal size={14} />
-                </div>
-              ) : (
-                <button
-                  onClick={() => onPageChange(page)}
-                  aria-current={safeCurrentPage === page ? 'page' : undefined}
-                  className={`flex h-10 min-w-[38px] items-center justify-center rounded-xl px-2 text-xs font-bold tracking-tight transition-all duration-300 ${
-                    safeCurrentPage === page
-                      ? 'bg-slate-900 text-white shadow-lg shadow-slate-200 ring-2 ring-slate-900 ring-offset-2'
-                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  {page}
-                </button>
-              )}
-            </React.Fragment>
-          ))}
-        </div>
+        <div className="flex items-center gap-0 sm:gap-0.5 px-0.5 sm:px-1">
+          {getPageNumbers().map((page, index) => {
+            const isEllipsis = page === '...';
+            // On very small screens, hide some middle numbers to stay professional
+            const isMobileHidden = !isEllipsis && 
+                                   page !== 1 && 
+                                   page !== totalPages && 
+                                   Math.abs(page - safeCurrentPage) > 1;
 
+            return (
+              <React.Fragment key={index}>
+                {isEllipsis ? (
+                  <div className="flex h-9 w-5 sm:h-10 sm:w-6 items-center justify-center text-slate-300">
+                    <MoreHorizontal size={14} />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onPageChange(page)}
+                    aria-current={safeCurrentPage === page ? 'page' : undefined}
+                    className={`flex h-9 min-w-[34px] sm:h-10 sm:min-w-[38px] items-center justify-center rounded-xl px-1.5 sm:px-2 text-xs font-bold tracking-tight transition-all duration-300 ${
+                      isMobileHidden ? 'hidden md:flex' : 'flex'
+                    } ${
+                      safeCurrentPage === page
+                        ? 'bg-slate-900 text-white shadow-lg shadow-slate-200 ring-2 ring-slate-900 ring-offset-2'
+                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
 
         <button
           onClick={() => onPageChange(safeCurrentPage + 1)}
           disabled={safeCurrentPage === totalPages}
-          className="group flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:bg-white"
+          className="group flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:bg-white"
           title="Next Page"
         >
           <ChevronRight
