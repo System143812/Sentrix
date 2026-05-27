@@ -65,7 +65,7 @@ export function HomePage({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="page-reveal space-y-6">
       <PageHeader
         icon={Laptop}
         title="Device lifecycle management for school labs"

@@ -79,7 +79,7 @@ export function AuditPage() {
   }, [query]);
 
   return (
-    <div className="space-y-6">
+    <div className="page-reveal space-y-6">
       {pendingBlock ? (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/55 px-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">

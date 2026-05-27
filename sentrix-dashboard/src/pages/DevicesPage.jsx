@@ -45,7 +45,7 @@ export function DevicesPage({
   }, [query, selectedGroup]);
 
   return (
-    <div className="space-y-6">
+    <div className="page-reveal space-y-6">
       <PageHeader
         icon={MonitorCog}
         title="Devices"
