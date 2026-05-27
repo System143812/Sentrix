@@ -34,11 +34,15 @@ import {
   Gauge,
   HardDrive,
   Laptop,
+  Monitor,
   FileSpreadsheet,
   FileText,
   FileBarChart,
   Plug,
   Unplug,
+  User,
+  Globe,
+  ShieldBan,
 } from "lucide-react";
 import { SentrixLogoLoader } from "../components/SentrixLogo.jsx";
 import { Card } from "../components/Card.jsx";
@@ -632,28 +636,28 @@ function AgentMetricsPanel({ analytics, loading }) {
     {
       label: "CPU Temp",
       value: formatTemperature(analytics.cpuTemperature),
-      detail: "Average reported CPU sensor",
+      detail: "Average CPU sensor",
       icon: Thermometer,
       tone: "rose",
     },
     {
       label: "GPU Temp",
       value: formatTemperature(analytics.gpuTemperature),
-      detail: "Average reported GPU sensor",
+      detail: "Average GPU sensor",
       icon: Thermometer,
       tone: "amber",
     },
     {
       label: "Upload",
       value: formatBytesPerSecond(analytics.uploadBytesPerSec),
-      detail: "Average outbound throughput",
+      detail: "Avg outbound speed",
       icon: Upload,
       tone: "blue",
     },
     {
       label: "Download",
       value: formatBytesPerSecond(analytics.downloadBytesPerSec),
-      detail: "Average inbound throughput",
+      detail: "Avg inbound speed",
       icon: Download,
       tone: "teal",
     },
@@ -663,7 +667,7 @@ function AgentMetricsPanel({ analytics, loading }) {
         analytics.latencyMs == null
           ? "Unknown"
           : `${Math.round(Number(analytics.latencyMs))} ms`,
-      detail: "Average agent network latency",
+      detail: "Network response time",
       icon: Wifi,
       tone: "slate",
     },
@@ -673,7 +677,7 @@ function AgentMetricsPanel({ analytics, loading }) {
         analytics.packetLoss == null
           ? "Unknown"
           : `${Math.round(Number(analytics.packetLoss))}%`,
-      detail: "Average reported packet loss",
+      detail: "Data transmission health",
       icon: Radio,
       tone: "rose",
     },
@@ -687,31 +691,28 @@ function AgentMetricsPanel({ analytics, loading }) {
       subtitle="Temperature and network readings reported by devices"
       tone="blue"
     >
-      <div className="grid gap-5">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {metrics.map((metric) => {
             const Icon = metric.icon;
             return (
               <div
-                className="group relative overflow-hidden rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition-all duration-300 hover:border-slate-300 hover:shadow-md"
+                className={`group relative overflow-hidden rounded-2xl border p-4 transition-all duration-300 hover:shadow-md ${GLASS_TONES[metric.tone] || GLASS_TONES.slate}`}
                 key={metric.label}
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 font-ui">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
                       {metric.label}
                     </p>
-                    <strong className="mt-1.5 block break-words text-2xl font-bold text-slate-900 font-data tabular-nums">
+                    <strong className="mt-1 block text-lg font-bold text-slate-900 font-data tabular-nums">
                       {metric.value}
                     </strong>
-                    <span className="mt-1 block text-[11px] font-medium text-slate-400 italic">
-                      {metric.detail}
-                    </span>
                   </div>
                   <span
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-all duration-300 group-hover:scale-110 ${ICON_TONES[metric.tone] || ICON_TONES.blue}`}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-all duration-300 group-hover:scale-110 ${ICON_TONES[metric.tone] || ICON_TONES.blue}`}
                   >
-                    <Icon size={20} strokeWidth={2.5} />
+                    <Icon size={16} strokeWidth={2.5} />
                   </span>
                 </div>
               </div>
@@ -719,83 +720,137 @@ function AgentMetricsPanel({ analytics, loading }) {
           })}
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
-          <div>
-            <div className="hidden grid-cols-[1.8fr_repeat(6,1fr)] bg-slate-50 border-b border-slate-200 px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-ui md:grid">
-              <span>Device</span>
-              <span className="text-right">CPU Temp</span>
-              <span className="text-right">GPU Temp</span>
-              <span className="text-right">Upload</span>
-              <span className="text-right">Download</span>
-              <span className="text-right">Latency</span>
-              <span className="text-right">Loss</span>
-            </div>
-            <div className="divide-y divide-slate-100 font-data">
-              {paginatedDevices.length ? (
-                paginatedDevices.map((device) => {
-                  const cm = getClientMetrics(device);
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md">
+          <div className="hidden grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100">
+            <div>Device Name</div>
+            <div className="text-center">CPU State</div>
+            <div className="text-center">GPU State</div>
+            <div className="text-center">Up Speed</div>
+            <div className="text-center">Down Speed</div>
+            <div className="text-center">Latency</div>
+            <div className="text-center">Packet Loss</div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {paginatedDevices.length ? (
+              paginatedDevices.map((device) => {
+                const cm = getClientMetrics(device);
 
-                  return (
-                    <div
-                      className="grid gap-3 p-4 text-sm transition-colors hover:bg-slate-50/50 md:grid-cols-[1.8fr_repeat(6,1fr)] md:items-center md:px-6"
-                      key={device.id}
-                    >
-                      <span className="font-bold text-slate-800 tracking-tight truncate font-ui">
+                return (
+                  <article
+                    className="group flex flex-col gap-4 p-5 transition-all hover:bg-slate-50/30 lg:grid lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr] lg:items-center lg:gap-6 lg:px-6 lg:py-4"
+                    key={device.id}
+                  >
+                    {/* Device Identity */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
+                        <Monitor size={18} strokeWidth={2} />
+                      </div>
+                      <span className="truncate text-sm font-bold text-slate-800 tracking-tight font-ui">
                         {device.hostname}
                       </span>
-                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">
-                          CPU Temp
-                        </span>
-                        {formatTemperature(cm.cpuTemperature)}
-                      </span>
-                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">
-                          GPU Temp
-                        </span>
-                        {formatTemperature(cm.gpuTemperature)}
-                      </span>
-                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">
-                          Upload
-                        </span>
-                        {formatBytesPerSecond(cm.uploadBytesPerSec)}
-                      </span>
-                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">
-                          Download
-                        </span>
-                        {formatBytesPerSecond(cm.downloadBytesPerSec)}
-                      </span>
-                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">
-                          Latency
-                        </span>
-                        {cm.latencyMs == null
-                          ? "Unknown"
-                          : `${Math.round(Number(cm.latencyMs))}ms`}
-                      </span>
-                      <span className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-right">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">
-                          Loss
-                        </span>
-                        {formatPercent(cm.packetLoss)}
-                      </span>
                     </div>
-                  );
-                })
-              ) : (
-                <div className="p-20 text-center text-xs font-bold text-slate-300 uppercase tracking-widest font-ui">
-                  Waiting for device data...
+
+                    {/* CPU Temp */}
+                    <div className="flex items-center justify-between gap-3 lg:justify-center">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                        CPU Temp
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Thermometer size={12} className="text-rose-400" />
+                        <span className="text-xs font-bold font-data text-slate-700">
+                          {formatTemperature(cm.cpuTemperature)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* GPU Temp */}
+                    <div className="flex items-center justify-between gap-3 lg:justify-center">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                        GPU Temp
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Thermometer size={12} className="text-amber-400" />
+                        <span className="text-xs font-bold font-data text-slate-700">
+                          {formatTemperature(cm.gpuTemperature)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Upload */}
+                    <div className="flex items-center justify-between gap-3 lg:justify-center">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                        Upload
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Upload size={12} className="text-blue-400" />
+                        <span className="text-xs font-bold font-data text-slate-700">
+                          {formatBytesPerSecond(cm.uploadBytesPerSec)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Download */}
+                    <div className="flex items-center justify-between gap-3 lg:justify-center">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                        Download
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Download size={12} className="text-teal-400" />
+                        <span className="text-xs font-bold font-data text-slate-700">
+                          {formatBytesPerSecond(cm.downloadBytesPerSec)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Latency */}
+                    <div className="flex items-center justify-between gap-3 lg:justify-center">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                        Latency
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Wifi size={12} className="text-slate-400" />
+                        <span className="text-xs font-bold font-data text-slate-700">
+                          {cm.latencyMs == null
+                            ? "N/A"
+                            : `${Math.round(Number(cm.latencyMs))}ms`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Packet Loss */}
+                    <div className="flex items-center justify-between gap-3 lg:justify-center">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                        Loss
+                      </span>
+                      <div
+                        className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight border ${
+                          (Number(cm.packetLoss) || 0) > 0
+                            ? "bg-rose-50 text-rose-600 border-rose-100"
+                            : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                        }`}
+                      >
+                        {formatPercent(cm.packetLoss)}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })
+            ) : (
+              <div className="p-20 text-center">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+                  <Activity size={24} />
                 </div>
-              )}
-            </div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                  Waiting for device telemetry...
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
         <Pagination
           currentPage={currentPage}
-          totalItems={analytics.allDevices.length}
+          totalItems={analytics.allDevices?.length || 0}
           pageSize={pageSize}
           onPageChange={setCurrentPage}
           onPageSizeChange={setPageSize}
@@ -974,14 +1029,14 @@ function DeviceComparisonPanel({ devices, loading, rangeKey }) {
       tone="blue"
     >
       <MultiLineChart devices={devices} rangeKey={rangeKey} />
-      <div className="mt-8 max-h-[460px] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 custom-scrollbar">
-        <div className="hidden grid-cols-[1.3fr_0.7fr_0.7fr_0.7fr] bg-slate-50 border-b border-slate-200 px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 md:grid font-ui">
-          <span>Hostname</span>
-          <span className="text-center">Health</span>
-          <span className="text-center">Load</span>
-          <span className="text-right">Status</span>
+      <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md">
+        <div className="hidden grid-cols-[1.5fr_1fr_1fr_120px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100">
+          <div>Entity Identity</div>
+          <div className="text-center">Health Analysis</div>
+          <div className="text-center">Current Load</div>
+          <div className="text-center">Assessed Status</div>
         </div>
-        <div className="divide-y divide-slate-100 font-data">
+        <div className="divide-y divide-slate-100 max-h-[460px] overflow-auto custom-scrollbar">
           {devices.length ? (
             devices.map((device) => {
               const health = getHealthScore(device);
@@ -989,42 +1044,86 @@ function DeviceComparisonPanel({ devices, loading, rangeKey }) {
               const isOutlier = health < 65 || load > 82;
 
               return (
-                <div
-                  className="grid gap-3 p-4 text-sm transition-colors hover:bg-slate-50/50 md:grid-cols-[1.3fr_0.7fr_0.7fr_0.7fr] md:items-center md:px-6"
+                <article
+                  className="group flex flex-col gap-4 p-5 transition-all hover:bg-slate-50/30 lg:grid lg:grid-cols-[1.5fr_1fr_1fr_120px] lg:items-center lg:gap-6 lg:px-6 lg:py-4"
                   key={device.id}
                 >
-                  <span className="font-bold text-slate-800 tracking-tight font-ui truncate">
-                    {device.hostname}
-                  </span>
-                  <span className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-center">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">
-                      Health
-                    </span>
-                    {health}%
-                  </span>
-                  <span className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 tabular-nums text-slate-600 font-bold md:block md:bg-transparent md:p-0 md:text-center">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:hidden">
-                      Load
-                    </span>
-                    {load}%
-                  </span>
-                  <div className="flex justify-start font-ui md:justify-end">
-                    <span
-                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight border transition-all ${isOutlier ? "bg-rose-50 text-rose-700 border-rose-100" : "bg-emerald-50 text-emerald-700 border-emerald-100"}`}
-                    >
-                      <div
-                        className={`h-1 w-1 rounded-full ${isOutlier ? "bg-rose-500" : "bg-emerald-500"}`}
-                      />
-                      {isOutlier ? "Review" : "Standard"}
+                  {/* Device Identity */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
+                      <Monitor size={18} strokeWidth={2} />
+                    </div>
+                    <span className="truncate text-sm font-bold text-slate-800 tracking-tight font-ui">
+                      {device.hostname}
                     </span>
                   </div>
-                </div>
+
+                  {/* Health Analysis */}
+                  <div className="flex items-center justify-between gap-3 lg:justify-center">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                      Health
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck
+                        size={12}
+                        className={health >= 65 ? "text-emerald-400" : "text-rose-400"}
+                      />
+                      <span
+                        className={`text-xs font-bold font-data tabular-nums ${health >= 65 ? "text-slate-700" : "text-rose-600"}`}
+                      >
+                        {health}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Current Load */}
+                  <div className="flex items-center justify-between gap-3 lg:justify-center">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                      Load
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Zap
+                        size={12}
+                        className={load <= 82 ? "text-blue-400" : "text-amber-400"}
+                      />
+                      <span
+                        className={`text-xs font-bold font-data tabular-nums ${load <= 82 ? "text-slate-700" : "text-amber-600"}`}
+                      >
+                        {load}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Assessed Status */}
+                  <div className="flex items-center justify-between border-t border-slate-50 pt-4 lg:justify-center lg:border-0 lg:pt-0">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                      Status
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${
+                        isOutlier
+                          ? "bg-rose-50 text-rose-600 border-rose-100"
+                          : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                      }`}
+                    >
+                      <div
+                        className={`h-1 w-1 rounded-full ${isOutlier ? "bg-rose-500 animate-pulse" : "bg-emerald-500"}`}
+                      />
+                      {isOutlier ? "Action Required" : "Stable Unit"}
+                    </span>
+                  </div>
+                </article>
               );
             })
           ) : (
-            <p className="p-12 text-center text-xs font-bold text-slate-300 uppercase tracking-widest font-ui">
-              No devices selected
-            </p>
+            <div className="p-16 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+                <Laptop size={24} />
+              </div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                Zero outliers detected
+              </p>
+            </div>
           )}
         </div>
       </div>

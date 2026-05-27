@@ -951,7 +951,7 @@ function PeripheralHistoryPanel({ deviceId, history, canControl }) {
         onEndDateChange={setEndDate}
         onStartDateChange={setStartDate}
         startDate={startDate}
-        className="mb-6 bg-slate-50/60 border-slate-200/60"
+        className="mb-6"
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -1122,7 +1122,6 @@ function BehaviorAnalyticsDetails({ device }) {
         onEndDateChange={setEndDate}
         onStartDateChange={setStartDate}
         startDate={startDate}
-        className="bg-white/60 border-slate-200/60"
       />
 
       <div className="grid gap-4 xl:grid-cols-4">

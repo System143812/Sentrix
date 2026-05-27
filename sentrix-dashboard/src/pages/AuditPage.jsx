@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, RefreshCcw, LoaderCircle, ShieldAlert, X } from "lucide-react";
+import { ClipboardList, RefreshCcw, LoaderCircle, ShieldAlert, X, User, Monitor, Globe, Clock, ShieldBan, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { SearchFilterBar } from "../components/SearchFilterBar.jsx";
 import { DateFilterBar } from "../components/DateFilterBar.jsx";
@@ -7,6 +7,14 @@ import { matchesSearch, labelAction } from "../shared/utils.js";
 import * as auditApi from "../services/auditApi.js";
 import { Pagination } from "../components/Pagination.jsx";
 import { usePaginationState } from "../hooks/usePaginationState.js";
+
+const getActionColor = (action = "") => {
+  const a = action.toLowerCase();
+  if (a.includes("block") || a.includes("delete") || a.includes("fail") || a.includes("stop") || a.includes("kill")) return "text-rose-600 bg-rose-50 border-rose-100";
+  if (a.includes("update") || a.includes("edit") || a.includes("change") || a.includes("restart")) return "text-amber-600 bg-amber-50 border-amber-100";
+  if (a.includes("login") || a.includes("start") || a.includes("deploy") || a.includes("create")) return "text-emerald-600 bg-emerald-50 border-emerald-100";
+  return "text-indigo-600 bg-indigo-50 border-indigo-100";
+};
 
 export function AuditPage() {
   const [logs, setLogs] = useState([]);
@@ -148,54 +156,145 @@ export function AuditPage() {
 
       {error ? <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">{error}</div> : null}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="hidden grid-cols-[1.1fr_1fr_1fr_110px_140px_80px] gap-4 bg-slate-50 px-5 py-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:grid">
-          <div>Action</div>
-          <div>User</div>
-          <div>Target</div>
-          <div>IP</div>
-          <div>MAC</div>
-          <div>Time</div>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md">
+        <div className="hidden grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100">
+          <div>Log Activity</div>
+          <div>Actor & Entity</div>
+          <div>Asset Context</div>
+          <div>Network Origin</div>
+          <div className="text-right">Management</div>
         </div>
         <div className="divide-y divide-slate-100">
-          {paginatedLogs.length ? paginatedLogs.map((log) => (
-            <article className="grid gap-3 px-5 py-4 text-sm text-slate-700 lg:grid-cols-[1.1fr_1fr_1fr_110px_140px_80px] lg:items-center lg:gap-4" key={log.id}>
-              <div className="min-w-0">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">Action</span>
-                <p className="break-words font-semibold text-slate-900">{labelAction(log.action)}</p>
-                <p className="mt-1 text-xs text-slate-500">{log.actorRole || "System"}</p>
+          {paginatedLogs.length ? (
+            paginatedLogs.map((log) => (
+              <article
+                className="group flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px] lg:items-center lg:gap-6"
+                key={log.id}
+              >
+                {/* 1. Action & Timestamp */}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 lg:mb-1.5">
+                    <span
+                      className={`inline-flex shrink-0 rounded-md border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${getActionColor(
+                        log.action
+                      )}`}
+                    >
+                      {labelAction(log.action)}
+                    </span>
+                    {log.blocked && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-rose-500">
+                        <ShieldBan size={10} strokeWidth={3} />
+                        Blocked
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-slate-500 lg:mt-0">
+                    <Clock size={12} className="shrink-0 text-slate-300" />
+                    <p className="text-xs font-medium tabular-nums">
+                      {log.createdAt ? new Date(Number(log.createdAt)).toLocaleString() : "Unknown"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 2. User/Actor Info */}
+                <div className="min-w-0">
+                  <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                    Actor
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
+                      <User size={18} strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-slate-800">
+                        {log.actorEmail || "System Engine"}
+                      </p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        {log.actorRole || "Automated"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Target/Asset Info */}
+                <div className="min-w-0">
+                  <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                    Target Asset
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
+                      <Monitor size={18} strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-slate-800">
+                        {log.targetLabel || log.targetId || "System"}
+                      </p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        {log.targetType || "Service"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Network Info */}
+                <div className="min-w-0">
+                  <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                    Network Context
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
+                      <Globe size={18} strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-data text-xs font-bold text-slate-700">
+                        {log.ipAddress || "Internal"}
+                      </p>
+                      <p className="mt-0.5 font-data text-[10px] font-bold text-slate-400">
+                        {log.macAddress || "No MAC Recorded"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Actions */}
+                <div className="flex items-center justify-between border-t border-slate-50 pt-5 lg:justify-end lg:border-0 lg:pt-0">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                    Audit Controls
+                  </span>
+                  <button
+                    className={`inline-flex h-9 items-center gap-2 rounded-lg border px-4 text-[10px] font-bold uppercase tracking-widest transition-all active:scale-[0.97] ${
+                      log.blocked
+                        ? "border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm shadow-emerald-600/5 cursor-default"
+                        : "border-rose-100 bg-rose-50 text-rose-600 shadow-sm shadow-rose-600/5 hover:bg-rose-100 hover:border-rose-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    }`}
+                    disabled={log.blocked || (!log.macAddress && !log.actorEmail)}
+                    onClick={() => setPendingBlock(log)}
+                    type="button"
+                  >
+                    {log.blocked ? (
+                      <>
+                        <CheckCircle2 size={14} strokeWidth={3} />
+                        Blocked
+                      </>
+                    ) : (
+                      <>
+                        <ShieldBan size={14} strokeWidth={3} />
+                        Block
+                      </>
+                    )}
+                  </button>
+                </div>
+              </article>
+            ))
+          ) : (
+            <div className="p-12 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+                <ClipboardList size={24} />
               </div>
-              <div className="min-w-0">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">User</span>
-                <p className="break-words text-xs font-semibold text-slate-600">{log.actorEmail || "System"}</p>
-              </div>
-              <div className="min-w-0">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">Target</span>
-                <p className="break-words text-xs font-semibold text-slate-600">{log.targetLabel || log.targetId || log.targetType || "System"}</p>
-              </div>
-              <div className="min-w-0">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">IP</span>
-                <p className="break-words text-xs text-slate-500">{log.ipAddress || "Unknown"}</p>
-              </div>
-              <div className="min-w-0">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">MAC</span>
-                <p className="break-words text-xs text-slate-500">{log.macAddress || "Unknown"}</p>
-              </div>
-              <div className="min-w-0">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">Time</span>
-                <p className="text-xs font-medium text-slate-500">{log.createdAt ? new Date(Number(log.createdAt)).toLocaleString() : "Unknown"}</p>
-                <button
-                  className="mt-2 rounded-md border border-rose-100 bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={log.blocked || (!log.macAddress && !log.actorEmail)}
-                  onClick={() => setPendingBlock(log)}
-                  type="button"
-                >
-                  {log.blocked ? "Blocked" : "Block"}
-                </button>
-              </div>
-            </article>
-          )) : (
-            <div className="p-8 text-center text-sm text-slate-500">{loading ? "Loading audit history..." : "No audit records found."}</div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                {loading ? "Decrypting Logs..." : "Zero Audit Entries"}
+              </p>
+            </div>
           )}
         </div>
         
