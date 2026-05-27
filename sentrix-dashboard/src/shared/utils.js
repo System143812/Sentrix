@@ -153,6 +153,13 @@ export function matchesSearch(item, query, fields = []) {
     .some((value) => String(value).toLowerCase().includes(normalizedQuery));
 }
 
+export function labelAction(action = "") {
+  return action
+    .replace(/^remote_/, "Remote ")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 // SVG Path Functions
 
 export function buildSmoothSvgPath(coordinates, step) {
