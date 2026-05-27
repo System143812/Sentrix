@@ -1743,18 +1743,24 @@ export function DeviceTable({
                   </div>
                 </div>
 
-                {expanded ? (
-                  <DeviceDetails
-                    device={device}
-                    error={detailCache[device.id]?.error}
-                    hardware={detailCache[device.id]?.hardware}
-                    loading={detailCache[device.id]?.loading}
-                    metricHistory={detailCache[device.id]?.metricHistory}
-                    peripheralHistory={detailCache[device.id]?.peripheralHistory}
-                    canControl={canControl}
-                    canManagePeripherals={canManagePeripherals}
-                  />
-                ) : null}
+                <div
+                  className={`grid transition-all duration-300 ease-in-out ${
+                    expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <DeviceDetails
+                      device={device}
+                      error={detailCache[device.id]?.error}
+                      hardware={detailCache[device.id]?.hardware}
+                      loading={detailCache[device.id]?.loading}
+                      metricHistory={detailCache[device.id]?.metricHistory}
+                      peripheralHistory={detailCache[device.id]?.peripheralHistory}
+                      canControl={canControl}
+                      canManagePeripherals={canManagePeripherals}
+                    />
+                  </div>
+                </div>
               </article>
             );
           })}

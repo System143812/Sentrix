@@ -253,7 +253,7 @@ export function NetworkPage({
                   deployMessage?.toLowerCase().includes("wrong");
 
   return (
-    <div className="space-y-6">
+    <div className="page-reveal space-y-6">
       {selectedIp ? (
         <DeployDialog
           ip={selectedIp}
