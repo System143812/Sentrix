@@ -25,7 +25,7 @@ export function LoginPage({ onLogin, error }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-mist px-4 py-8 text-ink sm:px-6 lg:px-8">
+    <div className="page-reveal flex min-h-screen items-center justify-center bg-mist px-4 py-8 text-ink sm:px-6 lg:px-8">
       <div className="grid w-full max-w-6xl overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-slate-200/80 lg:min-h-[610px] lg:grid-cols-[1fr_1.05fr]">
         <section
           className="order-2 flex min-h-[360px] flex-col justify-between bg-ink bg-cover bg-center p-6 text-white sm:p-8 lg:order-1 lg:p-10"

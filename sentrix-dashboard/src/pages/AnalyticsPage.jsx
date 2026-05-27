@@ -3,8 +3,6 @@ import {
   Activity,
   AlertTriangle,
   BadgeAlert,
-  AreaChart,
-  CalendarDays,
   CheckCircle2,
   Clock3,
   Cpu,
@@ -280,7 +278,7 @@ function Panel({
   return (
     <Card
       padding="0"
-      className="analytics-panel analytics-reveal relative flex h-full min-w-0 flex-col overflow-hidden bg-white border-slate-200/60 shadow-sm transition-all hover:shadow-md"
+      className="analytics-panel relative flex h-full min-w-0 flex-col overflow-hidden bg-white border-slate-200/60 shadow-sm transition-all hover:shadow-md"
     >
       <ModuleLoader loading={loading} />
       <div className="flex flex-1 flex-col p-6 sm:p-8">
@@ -320,7 +318,7 @@ function MetricCard({
   return (
     <Card
       padding="0"
-      className={`analytics-card analytics-reveal relative overflow-hidden border shadow-sm backdrop-blur-md transition-all hover:shadow-md ${GLASS_TONES[cardTone] || GLASS_TONES.slate}`}
+      className={`analytics-card relative overflow-hidden border shadow-sm backdrop-blur-md transition-all hover:shadow-md ${GLASS_TONES[cardTone] || GLASS_TONES.slate}`}
     >
       <ModuleLoader loading={loading} />
       <div className="p-6">
@@ -1832,46 +1830,52 @@ function ExportPanel({ analytics, loading, onExport, exportingType }) {
               <ChevronDown className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} size={18} />
             </button>
 
-            {open ? (
-              <div className="grid gap-3 border-t border-slate-100 bg-slate-50/60 p-3">
-                {exportMethods.map((method) => {
-                  const isExporting = exportingType === method.id;
-                  const Icon = method.icon;
+            <div
+              className={`grid transition-all duration-300 ease-in-out ${
+                open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              }`}
+            >
+              <div className="overflow-hidden">
+                <div className="grid gap-3 border-t border-slate-100 bg-slate-50/60 p-3">
+                  {exportMethods.map((method) => {
+                    const isExporting = exportingType === method.id;
+                    const Icon = method.icon;
 
-                  return (
-                    <button
-                      key={method.id}
-                      className={`relative w-full overflow-hidden rounded-xl ${method.color} px-5 py-4 text-white shadow-lg ${method.shadow} transition-all duration-300 ${method.hover} active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed`}
-                      disabled={loading || (exportingType && !isExporting)}
-                      onClick={() => onExport(method.id)}
-                      title={method.label}
-                      type="button"
-                    >
-                      <div className="relative z-10 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={`rounded-lg ${method.iconBg} border border-white/10 p-2 text-white shadow-inner`}>
-                            {isExporting ? (
-                              <RefreshCcw size={18} className="animate-spin" />
-                            ) : (
-                              <Icon size={18} strokeWidth={2.5} />
-                            )}
+                    return (
+                      <button
+                        key={method.id}
+                        className={`relative w-full overflow-hidden rounded-xl ${method.color} px-5 py-4 text-white shadow-lg ${method.shadow} transition-all duration-300 ${method.hover} active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed`}
+                        disabled={loading || (exportingType && !isExporting)}
+                        onClick={() => onExport(method.id)}
+                        title={method.label}
+                        type="button"
+                      >
+                        <div className="relative z-10 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className={`rounded-lg ${method.iconBg} border border-white/10 p-2 text-white shadow-inner`}>
+                              {isExporting ? (
+                                <RefreshCcw size={18} className="animate-spin" />
+                              ) : (
+                                <Icon size={18} strokeWidth={2.5} />
+                              )}
+                            </div>
+                            <div className="min-w-0 text-left font-ui">
+                              <p className="text-sm font-bold leading-tight tracking-tight">
+                                {isExporting ? `Preparing ${method.id.toUpperCase()}...` : method.label}
+                              </p>
+                              <p className={`mt-0.5 text-[9px] font-medium uppercase tracking-[0.15em] ${method.text}`}>
+                                {method.subtitle}
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0 text-left font-ui">
-                            <p className="text-sm font-bold leading-tight tracking-tight">
-                              {isExporting ? `Preparing ${method.id.toUpperCase()}...` : method.label}
-                            </p>
-                            <p className={`mt-0.5 text-[9px] font-medium uppercase tracking-[0.15em] ${method.text}`}>
-                              {method.subtitle}
-                            </p>
-                          </div>
+                          <ChevronRight className={`shrink-0 ${method.chevron}`} size={18} />
                         </div>
-                        <ChevronRight className={`shrink-0 ${method.chevron}`} size={18} />
-                      </div>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            ) : null}
+            </div>
           </div>
 
           <div className="flex items-center justify-between rounded-xl border border-slate-200/60 bg-slate-50/50 p-4 transition-all duration-300 hover:border-slate-300 hover:bg-white hover:shadow-sm group">
@@ -2004,7 +2008,7 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
       className="analytics-shell w-full min-w-0 space-y-6 rounded-lg"
       aria-busy={pageLoading}
     >
-      <div className="space-y-6">
+      <div className="page-reveal space-y-6">
         <PageHeader
           icon={Activity}
           title="Lab health and device performance"
@@ -2045,7 +2049,7 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
           ) : null}
         </PageHeader>
 
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+        <div className="page-reveal grid min-w-0 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
           <MetricCard
             icon={ShieldCheck}
             label="Health Score"
@@ -2080,16 +2084,16 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
           />
         </div>
 
-        <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)]">
+        <div className="page-reveal grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)]">
           <HealthScorePanel analytics={analytics} loading={pageLoading} />
           <AlertTrendsPanel analytics={analytics} loading={pageLoading} />
         </div>
 
-        <div className="grid min-w-0 gap-6">
+        <div className="page-reveal grid min-w-0 gap-6">
           <AgentMetricsPanel analytics={analytics} loading={pageLoading} />
         </div>
 
-        <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="page-reveal grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <DeviceComparisonPanel
             devices={analytics.outliers}
             loading={pageLoading}
@@ -2098,13 +2102,13 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
           <HeatmapPanel devices={analytics.allDevices} loading={pageLoading} />
         </div>
 
-        <div className="grid min-w-0 gap-6 xl:grid-cols-3">
+        <div className="page-reveal grid min-w-0 gap-6 xl:grid-cols-3">
           <DistributionPanel analytics={analytics} loading={pageLoading} />
           <EventTimelinePanel analytics={analytics} loading={pageLoading} />
           <TopIssuesPanel analytics={analytics} loading={pageLoading} />
         </div>
 
-        <div className="grid min-w-0 gap-6 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="page-reveal grid min-w-0 gap-6 xl:grid-cols-3 2xl:grid-cols-4">
           <StatusTransitionsPanel analytics={analytics} loading={pageLoading} />
           <GroupPerformancePanel analytics={analytics} loading={pageLoading} />
           <PeripheralSummaryPanel analytics={analytics} loading={pageLoading} />
@@ -2119,5 +2123,3 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
     </div>
   );
 }
-``;
-//harvey pogi
