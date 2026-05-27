@@ -83,27 +83,33 @@ The administrative user interface.
 
 ## Setup and Installation Guide
 
-This guide provides a step-by-step procedure for setting up the Sentrix environment on a Windows machine.
+This guide provides a step-by-step procedure for setting up the Sentrix environment from scratch on a Windows machine.
 
 ### Prerequisites
-1.  **Node.js:** Download and install Node.js (v20 or higher) from [nodejs.org](https://nodejs.org/).
-2.  **MySQL Server:** Download and install MySQL Community Server (v8.0 or higher) from [dev.mysql.com](https://dev.mysql.com/downloads/mysql/).
-3.  **Git:** Download and install Git from [git-scm.com](https://git-scm.com/).
+Before starting, download and install the following tools:
+1.  **Node.js (v20.x or higher):** [Download from nodejs.org](https://nodejs.org/en/download/). Choose the "LTS" version.
+2.  **MySQL Community Server (v8.0 or higher):** [Download from dev.mysql.com](https://dev.mysql.com/downloads/installer/). During installation, remember your root password.
+3.  **Git for Windows:** [Download from git-scm.com](https://git-scm.com/download/win).
+4.  **Nmap (Optional but Recommended):** [Download from nmap.org](https://nmap.org/download.html). Install the self-installer (e.g., `nmap-7.95-setup.exe`).
 
-### Step 1: Clone the Repository
-Open a terminal (PowerShell or Command Prompt) and run:
+### Step 1: Clone the Project
+Open a terminal (PowerShell or Git Bash) and run:
 ```bash
 git clone https://github.com/your-repo/sentrix.git
 cd sentrix
 ```
 
-### Step 2: Database Configuration
-1.  Open your MySQL terminal or a GUI tool like MySQL Workbench.
-2.  Create a new database named `sentrix`:
+### Step 2: Database Setup
+1.  Open the **MySQL Command Line Client** or a tool like **MySQL Workbench**.
+2.  Log in with your root password.
+3.  Create the database:
     ```sql
     CREATE DATABASE sentrix;
     ```
-3.  Navigate to `sentrix-core/src/database/migrations` and execute the SQL scripts in numerical order (001 to 015) against the `sentrix` database.
+4.  Import the schema:
+    *   In the terminal, navigate to the `sentrix-core` folder.
+    *   Run: `mysql -u your_username -p sentrix < schema.sql` (Replace `your_username` with your MySQL username).
+    *   *Alternatively:* Open `sentrix-core/schema.sql` in MySQL Workbench and execute the entire script.
 
 ### Step 3: Backend Configuration (Core)
 1.  Navigate to the core directory:
@@ -111,52 +117,51 @@ cd sentrix
     cd sentrix-core
     npm install
     ```
-2.  Create a `.env` file in the `sentrix-core` folder:
+2.  Create a file named `.env` in the `sentrix-core` folder and add the following content:
     ```env
     PORT=3000
     DB_HOST=localhost
-    DB_USER=your_mysql_user
+    DB_USER=your_mysql_username
     DB_PASS=your_mysql_password
     DB_NAME=sentrix
-    JWT_SECRET=your_random_secret_string
+    JWT_SECRET=choose_a_random_long_string
     ```
-3.  Start the backend:
+3.  Start the backend in development mode:
     ```bash
     npm run dev
     ```
 
 ### Step 4: Frontend Configuration (Dashboard)
-1.  Open a new terminal window and navigate to the dashboard directory:
+1.  Open a **new terminal window** and navigate to the dashboard directory:
     ```bash
     cd sentrix-dashboard
     npm install
     ```
-2.  Start the dashboard:
+2.  Start the dashboard development server:
     ```bash
     npm run dev
     ```
-3.  The dashboard should now be accessible at `http://localhost:5173`.
+3.  Open your browser and navigate to `http://localhost:5173`.
 
-### Step 5: Preparing Client PCs for Deployment
-To allow the Core to push the agent to other PCs, each client machine must be prepared once:
-1.  Navigate to the `scripts/` folder in the project root.
-2.  Copy `Sentrix-PC-Provisioner.ps1` to the client PC.
-3.  Run the script as Administrator in PowerShell:
-    ```powershell
-    .\Sentrix-PC-Provisioner.ps1
-    ```
-    *This script enables the built-in Administrator account and opens the required firewall ports for SMB and WMI.*
+### Step 5: Preparing Client PCs for Remote Deployment
+To enable "Zero-Touch" deployment to laboratory workstations, you must prepare each target PC once:
+1.  Ensure the client PC is on the same network as the Core.
+2.  Locate `scripts/Sentrix-PC-Provisioner.ps1` in the project root.
+3.  Copy this script to the client PC.
+4.  Right-click the script and select **Run with PowerShell** as Administrator (or run `.\Sentrix-PC-Provisioner.ps1` from an elevated PowerShell window).
+    *   This script enables the built-in Administrator account and configures firewall rules for SMB and WMI.
 
-### Step 6: Deploying Agents
+### Step 6: Deploying the Agent
 1.  Log in to the Sentrix Dashboard.
-2.  Go to the **Discovery** page and click **Rescan**.
-3.  Locate a discovered PC and click **Deploy**.
-4.  Enter the client's `Administrator` credentials.
-5.  Once the status changes to "Success," the device will appear in the **Devices** list with live metrics.
+2.  Navigate to the **Network** or **Discovery** page.
+3.  Click **Rescan** to find the prepared client PC.
+4.  Click **Deploy** on the discovered device.
+5.  Enter `Administrator` as the username and the password set during provisioning.
+6.  The system will push the agent, and once complete, the device will start reporting live telemetry to the **Devices** and **Analytics** pages.
 
 ---
 
 ## Technical Maintenance
-*   **Logs:** Core logs are available in the terminal output.
-*   **Migrations:** When updating the system, check for new SQL files in `sentrix-core/src/database/migrations`.
-*   **Testing:** Run `npm test` in any module directory to execute the Vitest suite.
+*   **Database Migrations:** If you update the project, check `sentrix-core/src/database/migrations` for new SQL files and run them in order.
+*   **Agent Updates:** Re-deploying from the dashboard will overwrite the existing agent with the latest version.
+*   **Testing:** Run `npm test` in the `sentrix-core` or `sentrix-dashboard` directories to execute the automated test suites.

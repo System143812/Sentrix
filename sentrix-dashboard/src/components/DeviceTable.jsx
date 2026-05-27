@@ -30,6 +30,7 @@ import { createPortal } from "react-dom";
 import { useLayoutEffect, useRef, useEffect, useMemo, useState } from "react";
 import { MetricPill } from "./MetricPill.jsx";
 import { SearchFilterBar } from "./SearchFilterBar.jsx";
+import { DateFilterBar } from "./DateFilterBar.jsx";
 import { Pagination } from "./Pagination.jsx";
 import { useTelemetryInterval } from "../hooks/useTelemetryInterval.js";
 import * as clientApi from "../services/clientApi.js";
@@ -943,29 +944,15 @@ function PeripheralHistoryPanel({ deviceId, history, canControl }) {
         )}
       </div>
 
-      <div className="mb-6 grid gap-3 rounded-xl border border-slate-200/60 bg-slate-50/60 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
-          From
-          <input
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold normal-case tracking-normal text-slate-700 outline-none focus:border-slate-900"
-            onChange={(event) => setStartDate(event.target.value)}
-            type="date"
-            value={startDate}
-          />
-        </label>
-        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
-          To
-          <input
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold normal-case tracking-normal text-slate-700 outline-none focus:border-slate-900"
-            onChange={(event) => setEndDate(event.target.value)}
-            type="date"
-            value={endDate}
-          />
-        </label>
-        <button className="btn-minimal h-10 px-4" onClick={reloadHistory} type="button">
-          Filter logs
-        </button>
-      </div>
+      <DateFilterBar
+        endDate={endDate}
+        loading={pendingKey !== ""}
+        onApply={reloadHistory}
+        onEndDateChange={setEndDate}
+        onStartDateChange={setStartDate}
+        startDate={startDate}
+        className="mb-6 bg-slate-50/60 border-slate-200/60"
+      />
 
       <div className="mb-4 flex flex-wrap gap-2">
         {[
@@ -1128,19 +1115,15 @@ function BehaviorAnalyticsDetails({ device }) {
 
   return (
     <div className="grid gap-5">
-      <div className="grid gap-3 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
-          From
-          <input className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold normal-case tracking-normal" onChange={(event) => setStartDate(event.target.value)} type="date" value={startDate} />
-        </label>
-        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
-          To
-          <input className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold normal-case tracking-normal" onChange={(event) => setEndDate(event.target.value)} type="date" value={endDate} />
-        </label>
-        <button className="btn-minimal h-10 px-4" disabled={loading} onClick={loadBehaviorData} type="button">
-          {loading ? "Loading" : "Filter"}
-        </button>
-      </div>
+      <DateFilterBar
+        endDate={endDate}
+        loading={loading}
+        onApply={loadBehaviorData}
+        onEndDateChange={setEndDate}
+        onStartDateChange={setStartDate}
+        startDate={startDate}
+        className="bg-white/60 border-slate-200/60"
+      />
 
       <div className="grid gap-4 xl:grid-cols-4">
         <DetailItem label="Tracked Domains" value={data.domains.length} />
