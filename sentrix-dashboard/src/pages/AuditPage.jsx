@@ -2,17 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { ClipboardList, RefreshCcw, LoaderCircle, ShieldAlert, X } from "lucide-react";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { SearchFilterBar } from "../components/SearchFilterBar.jsx";
-import { matchesSearch } from "../shared/utils.js";
+import { DateFilterBar } from "../components/DateFilterBar.jsx";
+import { matchesSearch, labelAction } from "../shared/utils.js";
 import * as auditApi from "../services/auditApi.js";
 import { Pagination } from "../components/Pagination.jsx";
 import { usePaginationState } from "../hooks/usePaginationState.js";
-
-function labelAction(action = "") {
-  return action
-    .replace(/^remote_/, "Remote ")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
 
 export function AuditPage() {
   const [logs, setLogs] = useState([]);
@@ -143,19 +137,14 @@ export function AuditPage() {
         query={query}
       />
 
-      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
-          From
-          <input className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold normal-case tracking-normal text-slate-700 outline-none focus:border-slate-900" onChange={(event) => setStartDate(event.target.value)} type="date" value={startDate} />
-        </label>
-        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
-          To
-          <input className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold normal-case tracking-normal text-slate-700 outline-none focus:border-slate-900" onChange={(event) => setEndDate(event.target.value)} type="date" value={endDate} />
-        </label>
-        <button className="btn-minimal h-10 px-4" disabled={loading} onClick={loadLogs} type="button">
-          Apply date filter
-        </button>
-      </div>
+      <DateFilterBar
+        endDate={endDate}
+        loading={loading}
+        onApply={loadLogs}
+        onEndDateChange={setEndDate}
+        onStartDateChange={setStartDate}
+        startDate={startDate}
+      />
 
       {error ? <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">{error}</div> : null}
 

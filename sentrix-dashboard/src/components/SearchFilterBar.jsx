@@ -10,7 +10,7 @@ export function SearchFilterBar({
 }) {
   return (
     <div
-      className={`flex min-w-0 flex-col gap-3 rounded-xl p-3 sm:flex-row sm:items-center ${className}`}
+      className={`flex min-w-0 flex-col gap-3 rounded-xl sm:flex-row sm:items-center ${className}`}
     >
       <label className="relative min-w-0 flex-1">
         <Search
