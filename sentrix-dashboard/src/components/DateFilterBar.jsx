@@ -36,6 +36,7 @@ export function DateFilterBar({
               onChange={(event) => onStartDateChange?.(event.target.value)}
               type="date"
               value={startDate}
+              max="9999-12-31"
             />
           </div>
         </label>
@@ -55,6 +56,7 @@ export function DateFilterBar({
               onChange={(event) => onEndDateChange?.(event.target.value)}
               type="date"
               value={endDate}
+              max="9999-12-31"
             />
           </div>
         </label>

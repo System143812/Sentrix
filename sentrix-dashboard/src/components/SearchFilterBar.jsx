@@ -33,10 +33,10 @@ export function SearchFilterBar({
         <Search
           className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-slate-900"
           size={18}
-          strokeWidth={2.5}
+          strokeWidth={2}
         />
         <input
-          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-11 pr-11 text-sm font-semibold text-slate-700 outline-none transition-all duration-200 hover:border-slate-300 hover:bg-white focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-900/5"
+          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-11 pr-11 text-sm font-medium text-slate-700 outline-none transition-all duration-200 hover:border-slate-300 hover:bg-white focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-900/5 placeholder:font-normal placeholder:text-slate-400"
           onChange={(event) => onQueryChange?.(event.target.value)}
           placeholder={placeholder}
           value={query}

@@ -25,6 +25,8 @@ import {
   ShieldAlert,
   LoaderCircle,
   CircleHelp,
+  HardDrive,
+  MonitorDot,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useLayoutEffect, useRef, useEffect, useMemo, useState } from "react";
@@ -275,8 +277,8 @@ function RemoteControlPanel({ device }) {
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-xl border border-slate-200/60 bg-white p-5 sm:p-6 shadow-sm">
-        <h4 className="mb-5 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
+      <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6 shadow-inner">
+        <h4 className="mb-5 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
           <Terminal size={18} strokeWidth={2.5} className="text-slate-400" />
           Remote Control Console
         </h4>
@@ -1185,7 +1187,7 @@ function BehaviorAnalyticsDetails({ device }) {
 
         <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm">
           <h4 className="mb-4 text-sm font-bold uppercase tracking-widest text-slate-800">Health and Anomalies</h4>
-          <div className="grid gap-3">
+          <div className="custom-scrollbar grid max-h-80 gap-3 overflow-auto pr-1">
             {data.anomalies.length ? data.anomalies.slice(0, 20).map((alert) => (
               <div className="rounded-lg border border-rose-100 bg-rose-50/40 p-3" key={alert.id}>
                 <p className="text-sm font-bold text-slate-800">{alert.title}</p>
@@ -1232,8 +1234,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
       {activeView === "specification" ? (
         <div className="device-detail-view">
           <div className="grid gap-4 xl:grid-cols-3">
-        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition hover:border-slate-300">
-          <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Monitor size={15} strokeWidth={2.5} />
             Device Info
           </h4>
@@ -1248,8 +1250,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
           </dl>
         </section>
 
-        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition hover:border-slate-300">
-          <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Cpu size={15} strokeWidth={2.5} />
             Important Specs
           </h4>
@@ -1269,8 +1271,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
           </dl>
         </section>
 
-        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition hover:border-slate-300">
-          <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Usb size={15} strokeWidth={2.5} />
             Peripherals
           </h4>
@@ -1298,8 +1300,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition hover:border-slate-300">
-          <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Thermometer size={15} strokeWidth={2.5} />
             Temperature
           </h4>
@@ -1316,8 +1318,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
           </dl>
         </section>
 
-        <section className="rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm transition hover:border-slate-300">
-          <h4 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Network size={15} strokeWidth={2.5} />
             Network Metrics
           </h4>
@@ -1337,7 +1339,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
 
       <div className="mt-4 grid gap-4 xl:grid-cols-3">
         <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-600">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
+            <MonitorDot size={15} strokeWidth={2.5} />
             Graphics
           </h4>
           <div className="grid gap-2">
@@ -1356,7 +1359,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-600">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
+            <HardDrive size={15} strokeWidth={2.5} />
             Disks
           </h4>
           <div className="grid gap-2">
@@ -1375,7 +1379,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-600">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
+            <Usb size={15} strokeWidth={2.5} />
             USB Devices
           </h4>
           <div className="custom-scrollbar grid max-h-56 gap-2 overflow-auto pr-1">
@@ -1396,7 +1401,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-600">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
+            <Globe2 size={15} strokeWidth={2.5} />
             Network Adapters
           </h4>
           <div className="custom-scrollbar grid max-h-56 gap-2 overflow-auto pr-1">
@@ -1415,7 +1421,8 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
-          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-600">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
+            <Monitor size={15} strokeWidth={2.5} />
             Displays
           </h4>
           <div className="custom-scrollbar grid max-h-56 gap-2 overflow-auto pr-1">
