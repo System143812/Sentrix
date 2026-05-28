@@ -120,7 +120,7 @@ export function AuditPage() {
         icon={ClipboardList}
         title="Logs and Audit History"
         subtitle="Review sign-ins, account changes, device actions, process control, and remote commands."
-        backgroundImage="/settings_header.jpg"
+        backgroundImage="/audit_header.jpg"
         action={
           <button
             type="button"

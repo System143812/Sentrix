@@ -66,63 +66,61 @@ export function SentrixMark({ className = "", loading = false }) {
 
 const logoSizes = {
   sm: {
-    shell: "h-9 w-9",
-    mark: "h-6 w-6",
-    title: "text-base",
-  },
-  md: {
-    shell: "h-11 w-11",
-    mark: "h-8 w-8",
+    shell: "h-8 w-8",
+    mark: "h-[1.25em] w-auto",
     title: "text-lg",
   },
-  lg: {
-    shell: "h-14 w-14",
-    mark: "h-10 w-10",
+  md: {
+    shell: "h-10 w-10",
+    mark: "h-[1.25em] w-auto",
     title: "text-xl",
+  },
+  lg: {
+    shell: "h-12 w-12",
+    mark: "h-[1.25em] w-auto",
+    title: "text-2xl",
   },
 };
 
 const logoTones = {
-  slate: "border-slate-200 bg-slate-50/90 text-slate-950 ring-slate-900/5",
+  slate: "border-slate-200 bg-slate-50/90 text-ink ring-slate-900/5",
   white: "border-white/15 bg-white/10 text-white ring-white/20",
-  transparent: "border-transparent bg-transparent text-slate-950 ring-transparent shadow-none",
+  transparent: "text-ink",
 };
 
 export function SentrixLogo({
   compact = false,
   inverse = false,
-  framed = true,
+  framed = false,
   size = "md",
   tone = "slate",
+  className = "",
 }) {
   const logoSize = logoSizes[size] || logoSizes.md;
   const logoTone = inverse ? logoTones.white : logoTones[tone] || logoTones.slate;
-  const frameClass = framed
-    ? `grid ${logoSize.shell} place-items-center rounded-lg border shadow-sm ring-1 ${logoTone}`
-    : `grid ${logoSize.shell} place-items-center ${inverse ? "text-white" : "text-slate-950"}`;
 
   return (
-    <div className="flex items-center gap-3">
-      <span className={frameClass}>
-        <SentrixMark className={logoSize.mark} />
-      </span>
+    <div className={`flex items-center gap-2 ${className}`}>
+      {framed ? (
+        <span
+          className={`grid ${logoSize.shell} place-items-center rounded-lg border shadow-sm ring-1 ${logoTone}`}
+        >
+          <SentrixMark className={logoSize.mark} />
+        </span>
+      ) : (
+        <SentrixMark
+          className={`${logoSize.mark} ${inverse ? "text-white" : "text-ink"}`}
+        />
+      )}
       {!compact ? (
-        <div>
-          <p
-            className={`${logoSize.title} font-black leading-none tracking-normal ${
-              inverse ? "text-white" : "text-ink"
-            }`}
-          >
-            Sentrix
-          </p>
-          <p
-            className={`mt-1 text-xs font-semibold uppercase tracking-wide ${
-              inverse ? "text-slate-300" : "text-slate-500"
-            }`}
-          >
-            Device Management
-          </p>
-        </div>
+        <span
+          className={`${logoSize.title} font-semibold uppercase tracking-widest ${
+            inverse ? "text-white" : "text-ink"
+          }`}
+          style={{ fontFamily: "'Inter', sans-serif" }}
+        >
+          Sentrix
+        </span>
       ) : null}
     </div>
   );
@@ -139,10 +137,10 @@ export function SentrixLogoLoader({ label = "Loading", compact = false }) {
 
   return (
     <div className="grid place-items-center gap-3 text-center">
-      <span className="grid h-16 w-16 place-items-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-lg shadow-slate-300 ring-1 ring-slate-900/5">
+      <span className="grid h-16 w-16 place-items-center rounded-xl border border-line bg-white text-ink shadow-lg shadow-slate-200/50 ring-1 ring-slate-900/5">
         <SentrixMark className="h-12 w-12" loading />
       </span>
-      {label ? <p className="text-sm font-semibold text-slate-700">{label}</p> : null}
+      {label ? <p className="text-sm font-semibold text-ink/70">{label}</p> : null}
     </div>
   );
 }

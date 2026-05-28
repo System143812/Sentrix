@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Card } from "../components/Card.jsx";
 import { FormInput } from "../components/FormInput.jsx";
+import { PasswordValidator } from "../components/PasswordValidator.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { useToast } from "../components/ToastProvider.jsx";
 import { usePendingAction } from "../hooks/usePendingAction.js";
@@ -27,17 +28,30 @@ import * as settingsApi from "../services/settingsApi.js";
 import * as authApi from "../services/authApi.js";
 import { ICON_TONES } from "../styles/tones.js";
 
-function SettingsSection({ icon: Icon, title, subtitle, children, tone = "slate" }) {
+function SettingsSection({
+  icon: Icon,
+  title,
+  subtitle,
+  children,
+  tone = "slate",
+}) {
   return (
-    <Card padding="0" className="flex h-full min-w-0 flex-col overflow-hidden border-slate-200/70 bg-white shadow-sm transition hover:shadow-md">
+    <Card
+      padding="0"
+      className="flex h-full min-w-0 flex-col overflow-hidden border-slate-200/70 bg-white shadow-sm transition hover:shadow-md"
+    >
       <div className="flex flex-1 flex-col p-6">
         <div className="mb-6 flex items-start gap-4">
-          <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl border shadow-sm ${ICON_TONES[tone]}`}>
+          <span
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl border shadow-sm ${ICON_TONES[tone]}`}
+          >
             <Icon size={20} strokeWidth={2.25} />
           </span>
           <div className="min-w-0">
             <h3 className="text-lg font-semibold">{title}</h3>
-            {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
+            {subtitle ? (
+              <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-1 flex-col">{children}</div>
@@ -49,14 +63,24 @@ function SettingsSection({ icon: Icon, title, subtitle, children, tone = "slate"
 function ActionButton({ label, icon: Icon, description, tone = "slate" }) {
   return (
     <div className="group relative">
-      <button className="btn-minimal relative h-14 w-full justify-center px-12 py-4" type="button">
+      <button
+        className="btn-minimal relative h-14 w-full justify-center px-12 py-4"
+        type="button"
+      >
         <span className="absolute left-4 flex items-center">
-          <span className={`rounded-lg border p-2 shadow-sm transition group-hover:scale-105 ${ICON_TONES[tone]}`}>
+          <span
+            className={`rounded-lg border p-2 shadow-sm transition group-hover:scale-105 ${ICON_TONES[tone]}`}
+          >
             <Icon size={18} strokeWidth={2.5} />
           </span>
         </span>
-        <span className="min-w-0 truncate text-center text-sm font-bold text-slate-700">{label}</span>
-        <ChevronRight size={16} className="absolute right-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-slate-500" />
+        <span className="min-w-0 truncate text-center text-sm font-bold text-slate-700">
+          {label}
+        </span>
+        <ChevronRight
+          size={16}
+          className="absolute right-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-slate-500"
+        />
       </button>
       <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-60 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2.5 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
         {description}
@@ -72,7 +96,8 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
   const { notify } = useToast();
 
   useEffect(() => {
-    settingsApi.getTelemetrySettings()
+    settingsApi
+      .getTelemetrySettings()
       .then((settings) => setInterval(settings.intervalMs || 5000))
       .catch(() => {});
   }, []);
@@ -168,7 +193,8 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
           </div>
           <div className="mt-4 flex gap-3 rounded-xl border border-slate-200/60 bg-slate-50/70 p-4 text-xs font-medium leading-5 text-slate-500">
             <Info size={16} className="shrink-0 text-blue-500" />
-            This schedule is saved globally and sent to connected devices for metrics and activity collection.
+            This schedule is saved globally and sent to connected devices for
+            metrics and activity collection.
           </div>
         </div>
       </div>
@@ -211,11 +237,40 @@ function CredentialCard() {
       tone="amber"
     >
       <form className="grid gap-3" onSubmit={handleSubmit}>
-        <FormInput onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Current password" type="password" value={currentPassword} required />
-        <FormInput onChange={(event) => setNextPassword(event.target.value)} placeholder="New password" type="password" value={nextPassword} required />
-        <FormInput onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm new password" type="password" value={confirmPassword} required />
-        <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70" disabled={pending === "password"} type="submit">
-          {pending === "password" ? <LoaderCircle className="animate-spin" size={17} /> : "Update password"}
+        <FormInput
+          onChange={(event) => setCurrentPassword(event.target.value)}
+          placeholder="Current password"
+          type="password"
+          value={currentPassword}
+          required
+        />
+        <div>
+          <FormInput
+            onChange={(event) => setNextPassword(event.target.value)}
+            placeholder="New password"
+            type="password"
+            value={nextPassword}
+            required
+          />
+          <PasswordValidator password={nextPassword} />
+        </div>
+        <FormInput
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          placeholder="Confirm new password"
+          type="password"
+          value={confirmPassword}
+          required
+        />
+        <button
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#b45309] px-5 text-[10px] font-bold uppercase tracking-[0.15em] text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
+          disabled={pending === "password"}
+          type="submit"
+        >
+          {pending === "password" ? (
+            <LoaderCircle className="animate-spin" size={14} />
+          ) : (
+            "Update password"
+          )}
         </button>
       </form>
     </SettingsSection>
@@ -283,7 +338,11 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
     try {
       await setPending("save-group", async () => {
         if (editingGroupId) {
-          await groupApi.updateGroup(editingGroupId, groupName, groupDescription);
+          await groupApi.updateGroup(
+            editingGroupId,
+            groupName,
+            groupDescription,
+          );
           setMessage("Group renamed.");
           notify("Group renamed.", "success");
         } else {
@@ -308,7 +367,9 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
     try {
       await setPending(`delete-group-${id}`, async () => {
         await groupApi.deleteGroup(id);
-        setMessage("Group deleted. Devices in that group were moved to Unassigned.");
+        setMessage(
+          "Group deleted. Devices in that group were moved to Unassigned.",
+        );
         notify("Group deleted. Devices were moved to Unassigned.", "success");
         await onGroupsChanged?.();
       });
@@ -354,7 +415,10 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
       <SystemConfigurationCard isNetworkAdmin={isNetworkAdmin} />
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-2">
-        <Card padding="5" className="min-w-0 border-slate-200/70 shadow-sm transition hover:shadow-md">
+        <Card
+          padding="5"
+          className="min-w-0 border-slate-200/70 shadow-sm transition hover:shadow-md"
+        >
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold">Admin Accounts</h3>
@@ -362,7 +426,9 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
                 Normal admins can monitor labs but cannot manage access.
               </p>
             </div>
-            <span className={`grid h-11 w-11 place-items-center rounded-xl border shadow-sm ${ICON_TONES.blue}`}>
+            <span
+              className={`grid h-11 w-11 place-items-center rounded-xl border shadow-sm ${ICON_TONES.blue}`}
+            >
               <Users size={20} />
             </span>
           </div>
@@ -376,19 +442,22 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
                 value={email}
                 required
               />
-              <FormInput
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Temporary password"
-                type="password"
-                value={password}
-                required
-              />
+              <div>
+                <FormInput
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Temporary password"
+                  type="password"
+                  value={password}
+                  required
+                />
+                <PasswordValidator password={password} />
+              </div>
               <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-signal px-4 text-sm font-semibold text-white transition hover:bg-signal-dark disabled:cursor-wait disabled:opacity-70"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1e3a8a] px-5 text-[10px] font-bold uppercase tracking-[0.15em] text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
                 disabled={pendingAction === "create-admin"}
               >
                 {pendingAction === "create-admin" ? (
-                  <LoaderCircle className="animate-spin" size={17} />
+                  <LoaderCircle className="animate-spin" size={14} />
                 ) : (
                   "Create admin"
                 )}
@@ -405,7 +474,9 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
                   key={admin.id}
                 >
                   <div className="min-w-0">
-                    <p className="break-words text-sm font-semibold">{admin.email}</p>
+                    <p className="break-words text-sm font-semibold">
+                      {admin.email}
+                    </p>
                     <p className="text-xs text-slate-500">{admin.role}</p>
                   </div>
                   {isNetworkAdmin ? (
@@ -427,7 +498,10 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
           </div>
         </Card>
 
-        <Card padding="5" className="min-w-0 border-slate-200/70 shadow-sm transition hover:shadow-md">
+        <Card
+          padding="5"
+          className="min-w-0 border-slate-200/70 shadow-sm transition hover:shadow-md"
+        >
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold">Groups</h3>
@@ -435,7 +509,9 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
                 Use names like CL1, Room303, Lab A, or Faculty Room.
               </p>
             </div>
-            <span className={`grid h-11 w-11 place-items-center rounded-xl border shadow-sm ${ICON_TONES.teal}`}>
+            <span
+              className={`grid h-11 w-11 place-items-center rounded-xl border shadow-sm ${ICON_TONES.teal}`}
+            >
               <Layers size={20} />
             </span>
           </div>
@@ -454,11 +530,11 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
                 value={groupDescription}
               />
               <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0f766e] px-5 text-[10px] font-bold uppercase tracking-[0.15em] text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
                 disabled={pendingAction === "save-group"}
               >
                 {pendingAction === "save-group" ? (
-                  <LoaderCircle className="animate-spin" size={17} />
+                  <LoaderCircle className="animate-spin" size={14} />
                 ) : editingGroupId ? (
                   "Save group"
                 ) : (
@@ -475,7 +551,9 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
                 key={group.id}
               >
                 <div className="min-w-0">
-                  <p className="break-words text-sm font-semibold">{group.name}</p>
+                  <p className="break-words text-sm font-semibold">
+                    {group.name}
+                  </p>
                   <p className="break-words text-xs text-slate-500">
                     {group.description || "No description"}
                   </p>
@@ -483,7 +561,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
                 {isNetworkAdmin ? (
                   <div className="flex items-center gap-2">
                     <button
-                      className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-signal hover:text-signal"
+                      className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-slate-900 hover:text-slate-900"
                       onClick={() => startEditingGroup(group)}
                       type="button"
                     >
@@ -519,22 +597,36 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
           tone="amber"
         >
           <div className="grid gap-3">
-            <ActionButton label="Multi-factor sign-in" icon={Fingerprint} description="Prepare multi-factor authentication controls." tone="blue" />
+            <ActionButton
+              label="Multi-factor sign-in"
+              icon={Fingerprint}
+              description="Prepare multi-factor authentication controls."
+              tone="blue"
+            />
           </div>
         </SettingsSection>
 
         <SettingsSection
           icon={Shield}
-          title="Data Privacy"
+          title="Data Privacy & Optimization"
           subtitle="Privacy and retention actions for device data."
           tone="emerald"
         >
           <div className="grid gap-3">
-            <ActionButton label="Hide sensitive data" icon={EyeOff} description="Restrict visibility of sensitive device data." tone="emerald" />
-            <ActionButton label="Clear old history" icon={Clock} description="Review automated database retention behavior." tone="rose" />
+            <ActionButton
+              label="Hide sensitive data"
+              icon={EyeOff}
+              description="Restrict visibility of sensitive device data."
+              tone="emerald"
+            />
+            <ActionButton
+              label="Clear old history"
+              icon={Clock}
+              description="Review automated database retention behavior."
+              tone="rose"
+            />
           </div>
         </SettingsSection>
-
       </div>
     </div>
   );
