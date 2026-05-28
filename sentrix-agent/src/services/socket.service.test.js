@@ -7,10 +7,15 @@ vi.mock('socket.io-client');
 vi.mock('./metrics/processes.service.js');
 vi.mock('child_process', () => ({
   execFile: vi.fn((file, args, options, callback) => {
-    callback(null, { stdout: 'Command Success' });
+    const cb = typeof options === 'function' ? options : callback;
+    cb(null, { stdout: 'Command Success' });
+  }),
+  exec: vi.fn((cmd, options, callback) => {
+    const cb = typeof options === 'function' ? options : callback;
+    cb(null, { stdout: 'Command Success' });
   })
 }));
-import { execFile } from 'child_process';
+import { execFile, exec } from 'child_process';
 
 describe('Socket Service', () => {
   let mockSocket;
@@ -62,5 +67,17 @@ describe('Socket Service', () => {
     await commandHandler({ command: 'kill-process', args: { pid: 1234 } }, vi.fn());
 
     expect(killProcess).toHaveBeenCalledWith(1234);
+  });
+
+  it('should handle utility maintenance commands', async () => {
+    connectToCore({ serverUrl: 'http://localhost:4000', profile: mockProfile });
+    
+    const commandHandler = mockSocket.on.mock.calls.find(call => call[0] === 'agent:command')[1];
+    const callback = vi.fn();
+
+    await commandHandler({ command: 'utility:network-reset' }, callback);
+
+    expect(exec).toHaveBeenCalled();
+    expect(callback).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
   });
 });
