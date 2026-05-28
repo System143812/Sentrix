@@ -12,24 +12,38 @@ const ALLOWED_DEVICE_COMMANDS = new Set([
 
 async function emitAgentCommand(req, clientId, command, args = {}) {
   const io = req.app.get("io");
-  const room = `agent:${clientId}`;
-  const sockets = await io.in(room).fetchSockets();
+  if (!io) {
+    throw new AppError(500, "Real-time communication engine is not initialized.");
+  }
 
-  if (sockets.length === 0) {
+  const room = `agent:${clientId}`;
+  let sockets;
+  
+  try {
+    sockets = await io.in(room).fetchSockets();
+  } catch (error) {
+    console.error(`[Socket] Failed to fetch sockets for room ${room}:`, error);
+    throw new AppError(500, "Failed to reach the communication relay.");
+  }
+
+  if (!sockets || sockets.length === 0) {
     throw new AppError(400, "Agent is offline or not connected.");
   }
 
   try {
-    return await sockets[0].timeout(5000).emitWithAck("agent:command", {
+    // Attempt to send the command with a 30s timeout (PowerShell can be slow)
+    return await sockets[0].timeout(30000).emitWithAck("agent:command", {
       command,
       args,
     });
   } catch (error) {
+    console.error(`[Socket] Command emission failed for ${clientId}:`, error.message);
+    
     if (error.name === "TimeoutError") {
       throw new AppError(504, "Agent did not respond in time. The command might still be running.");
     }
 
-    throw error;
+    throw new AppError(400, `Communication failure: ${error.message}`);
   }
 }
 
@@ -81,20 +95,35 @@ export async function sendClientCommand(req, res, next) {
     const { id } = req.params;
     const { command, payload = {} } = req.body || {};
 
-    if (!ALLOWED_DEVICE_COMMANDS.has(command)) {
+    const isUtility = typeof command === "string" && command.startsWith("utility:");
+
+    if (!ALLOWED_DEVICE_COMMANDS.has(command) && !isUtility) {
       throw new AppError(400, "Unsupported remote command.");
     }
 
     const client = await clientService.getClientById(id);
-    const result = await emitAgentCommand(req, id, command, payload);
+    
+    // Enrich payload with the sender's role if available
+    const enrichedPayload = { ...payload };
+    if (req.user && req.user.role) {
+      enrichedPayload.senderRole = req.user.role;
+    }
+
+    const result = await emitAgentCommand(req, id, command, enrichedPayload);
 
     if (!result?.success) {
       throw new AppError(400, result?.message || "Remote command failed.");
     }
 
+    let auditAction = `remote_${command}`;
+    if (isUtility) {
+      const actionKey = command.replace("utility:", "");
+      auditAction = `utility_${actionKey.replace(/-/g, "_")}`;
+    }
+
     await logAuditEvent({
       req,
-      action: `remote_${command}`,
+      action: auditAction,
       targetType: "client",
       targetId: id,
       targetLabel: client?.hostname,
