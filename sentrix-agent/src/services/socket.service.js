@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
 import { killProcess } from "./metrics/processes.service.js";
 import { runRemotePowerCommand } from "../utils/power.js";
+import { runMaintenanceAction } from "../utils/maintenance.js";
 
 /**
  * Manages the persistent connection between the agent and the Sentrix core.
@@ -47,10 +48,12 @@ export function connectToCore({ serverUrl, profile, onStatus, onTelemetrySetting
    */
   socket.on("agent:command", async (payload = {}, callback) => {
     const { command, args } = payload;
+    console.log(`[Socket] Received command: ${command}`, args);
 
     // Handle process termination
     if (command === "kill-process") {
       const result = await killProcess(args.pid);
+      console.log(`[Socket] Kill process result:`, result);
       callback?.(result);
       return;
     }
@@ -58,11 +61,24 @@ export function connectToCore({ serverUrl, profile, onStatus, onTelemetrySetting
     // Handle system power/maintenance commands
     const powerCommands = ["shutdown", "restart", "sleep", "lock", "update"];
     if (powerCommands.includes(command)) {
+      console.log(`[Socket] Executing power command: ${command}`);
       const result = await runRemotePowerCommand(command);
+      console.log(`[Socket] Power command result:`, result);
       callback?.(result);
       return;
     }
 
+    // Handle utility maintenance shortcuts
+    if (command.startsWith("utility:")) {
+      const action = command.replace("utility:", "");
+      console.log(`[Socket] Executing maintenance action: ${action}`);
+      const result = await runMaintenanceAction(action, args);
+      console.log(`[Socket] Maintenance action result:`, result);
+      callback?.(result);
+      return;
+    }
+
+    console.warn(`[Socket] Unknown command: ${command}`);
     callback?.({ success: false, message: `Unknown command: ${command}` });
   });
 
