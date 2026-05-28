@@ -50,7 +50,7 @@ export function DevicesPage({
         icon={MonitorCog}
         title="Devices"
         subtitle="Manage device groups, expand device details, and review agent status at a glance."
-        backgroundImage="/love_computer.jpg"
+        backgroundImage="/devices_header.jpg"
       />
 
       <SearchFilterBar

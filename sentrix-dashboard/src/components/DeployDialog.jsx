@@ -1,5 +1,6 @@
 import { X, ShieldAlert, LoaderCircle } from "lucide-react";
 import { useState } from "react";
+import { FormInput } from "./FormInput.jsx";
 
 export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading, error }) {
   const [username, setUsername] = useState("Administrator");
@@ -15,7 +16,7 @@ export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading
       <div className="w-full max-w-md rounded-lg border border-line bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-blue-50 text-signal">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-slate-900">
               <ShieldAlert size={20} />
             </div>
             <div>
@@ -57,38 +58,27 @@ export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading
             </div>
           ) : null}
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Admin Username
-            </label>
-            <input
-              type="text"
-              required
-              className="h-11 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-blue-100"
-              placeholder="Administrator"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              disabled={loading}
-            />
-            <p className="text-[10px] text-slate-400">
-              Use DOMAIN\User for domain-joined machines.
-            </p>
-          </div>
+          <FormInput
+            label="Admin Username"
+            placeholder="Administrator"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            disabled={loading}
+            required
+          />
+          <p className="text-[10px] text-slate-400 -mt-2">
+            Use DOMAIN\User for domain-joined machines.
+          </p>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Password
-            </label>
-            <input
-              type="password"
-              required
-              className="h-11 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-signal focus:ring-2 focus:ring-blue-100"
-              placeholder="Password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              disabled={loading}
-            />
-          </div>
+          <FormInput
+            label="Password"
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            disabled={loading}
+            required
+          />
 
           <div className="mt-8 flex justify-end gap-2">
             <button

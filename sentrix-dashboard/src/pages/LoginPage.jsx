@@ -2,11 +2,13 @@ import { useState } from "react";
 import {
   Activity,
   CheckCircle2,
-  Lock,
-  Mail,
   ShieldCheck,
+  Mail,
+  Lock,
 } from "lucide-react";
 import { SentrixLogo, SentrixLogoLoader } from "../components/SentrixLogo.jsx";
+import { FormInput } from "../components/FormInput.jsx";
+import { PasswordValidator } from "../components/PasswordValidator.jsx";
 
 export function LoginPage({ onLogin, error }) {
   const [email, setEmail] = useState("");
@@ -31,7 +33,7 @@ export function LoginPage({ onLogin, error }) {
           className="order-2 flex min-h-[360px] flex-col justify-between bg-ink bg-cover bg-center p-6 text-white sm:p-8 lg:order-1 lg:p-10"
           style={{
             backgroundImage:
-              "linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.82)), url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80')",
+              "linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.82)), url('/login_header.jpg')",
           }}
         >
           <SentrixLogo inverse />
@@ -72,43 +74,40 @@ export function LoginPage({ onLogin, error }) {
             </p>
 
             <div
-              className="mt-6 min-h-36 rounded-xl border border-line bg-cover bg-center shadow-inner sm:min-h-44 lg:hidden"
+              className="mt-6 flex min-h-36 items-center justify-center rounded-xl border border-line bg-cover bg-center shadow-inner sm:min-h-44 lg:hidden relative overflow-hidden"
               style={{
                 backgroundImage:
-                  "linear-gradient(90deg, rgba(15, 23, 42, 0.78), rgba(15, 118, 110, 0.4)), url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1000&q=80')",
+                  "url('/login_mobile_header.jpg')",
               }}
-            />
+            >
+              <div className="absolute inset-0 bg-slate-950/65 backdrop-blur-[1px]" />
+              <div className="relative z-10 scale-125">
+                <SentrixLogo inverse framed={false} size="lg" />
+              </div>
+            </div>
 
             <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
-              <label className="block text-sm font-semibold text-slate-700">
-                Email
-                <span className="mt-2 flex items-center gap-3 rounded-lg border border-line bg-slate-50 px-3 transition focus-within:border-signal focus-within:ring-2 focus-within:ring-blue-100">
-                  <Mail className="shrink-0 text-slate-400" size={18} />
-                  <input
-                    className="min-h-12 w-full min-w-0 bg-transparent text-sm outline-none"
-                    placeholder="admin@sentrix.local"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    required
-                  />
-                </span>
-              </label>
+              <FormInput
+                label="Email"
+                type="email"
+                placeholder="admin@sentrix.local"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                icon={Mail}
+              />
 
-              <label className="block text-sm font-semibold text-slate-700">
-                Password
-                <span className="mt-2 flex items-center gap-3 rounded-lg border border-line bg-slate-50 px-3 transition focus-within:border-signal focus-within:ring-2 focus-within:ring-blue-100">
-                  <Lock className="shrink-0 text-slate-400" size={18} />
-                  <input
-                    className="min-h-12 w-full min-w-0 bg-transparent text-sm outline-none"
-                    placeholder="Enter your password"
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    required
-                  />
-                </span>
-              </label>
+              <div>
+                <FormInput
+                  label="Password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  icon={Lock}
+                />
+              </div>
 
               {error ? (
                 <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
@@ -117,7 +116,7 @@ export function LoginPage({ onLogin, error }) {
               ) : null}
 
               <button
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-signal px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-signal-dark disabled:cursor-wait disabled:opacity-70"
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-900 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
                 type="submit"
                 disabled={loading}
               >
