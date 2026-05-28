@@ -12,15 +12,22 @@ Write-Host "--- Preparing Assets Folder ---"
 $distDir = Join-Path $PSScriptRoot "..\dist"
 $assetsDir = Join-Path $distDir "assets"
 $binHardwareDir = Join-Path $assetsDir "bin\hardware"
+$modulesDestDir = Join-Path $assetsDir "Modules"
 
 # Create directories
 if (-not (Test-Path $assetsDir)) { New-Item -ItemType Directory -Path $assetsDir | Out-Null }
 if (-not (Test-Path $binHardwareDir)) { New-Item -ItemType Directory -Path $binHardwareDir | Out-Null }
+if (-not (Test-Path $modulesDestDir)) { New-Item -ItemType Directory -Path $modulesDestDir | Out-Null }
 
 Write-Host "--- Copying Temperature Bridge ---"
 Copy-Item "src\services\metrics\temp-bridge.ps1" -Destination $assetsDir -Force
 
 Write-Host "--- Copying Hardware DLLs ---"
 Copy-Item "bin\hardware\*.dll" -Destination $binHardwareDir -Force
+
+Write-Host "--- Copying Modules ---"
+if (Test-Path "Modules") {
+    Copy-Item "Modules\*" -Destination $modulesDestDir -Recurse -Force
+}
 
 Write-Host "--- Build Complete: dist\sentrix-agent.exe ---"
