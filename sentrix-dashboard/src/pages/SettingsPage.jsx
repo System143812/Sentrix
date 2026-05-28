@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Trash2,
   Users,
+  Zap,
 } from "lucide-react";
 import { Card } from "../components/Card.jsx";
 import { FormInput } from "../components/FormInput.jsx";
@@ -608,15 +609,15 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
 
         <SettingsSection
           icon={Shield}
-          title="Data Privacy & Optimization"
-          subtitle="Privacy and retention actions for device data."
+          title="Security & Admin Tools"
+          subtitle="Enforcement actions and maintenance shortcuts."
           tone="emerald"
         >
           <div className="grid gap-3">
             <ActionButton
-              label="Hide sensitive data"
-              icon={EyeOff}
-              description="Restrict visibility of sensitive device data."
+              label="Admin utility shortcuts"
+              icon={Zap}
+              description="Configure one-click maintenance and enforcement tools."
               tone="emerald"
             />
             <ActionButton

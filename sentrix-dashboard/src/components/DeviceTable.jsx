@@ -27,6 +27,11 @@ import {
   CircleHelp,
   HardDrive,
   MonitorDot,
+  Zap,
+  Trash2,
+  MessageSquare,
+  Eraser,
+  Clock as ClockIcon,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useLayoutEffect, useRef, useEffect, useMemo, useState } from "react";
@@ -35,6 +40,7 @@ import { SearchFilterBar } from "./SearchFilterBar.jsx";
 import { DateFilterBar } from "./DateFilterBar.jsx";
 import { Pagination } from "./Pagination.jsx";
 import { useTelemetryInterval } from "../hooks/useTelemetryInterval.js";
+import { useToast } from "./ToastProvider.jsx";
 import * as clientApi from "../services/clientApi.js";
 import {
   formatBool,
@@ -248,9 +254,54 @@ function DetailViewSwitch({ activeView, onChange, canControl }) {
   );
 }
 
+function BroadcastDialog({ onCancel, onSend }) {
+  const [message, setMessage] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/40 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="flex items-center gap-3 mb-5">
+          <span className="grid h-10 w-10 place-items-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
+            <MessageSquare size={20} strokeWidth={2.5} />
+          </span>
+          <h3 className="text-lg font-bold text-slate-900 tracking-tight">Broadcast Message</h3>
+        </div>
+        
+        <p className="mb-4 text-xs font-medium text-slate-500 leading-relaxed">
+          The text will appear as a native Windows popup on the target PC's active screen.
+        </p>
+
+        <textarea
+          autoFocus
+          className="w-full h-32 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100/50 transition-all resize-none"
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="e.g. Lab will close in 5 minutes. Please save your work."
+          value={message}
+        />
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button className="btn-minimal h-11 px-6 text-xs" onClick={onCancel} type="button">
+            Cancel
+          </button>
+          <button
+            className="h-11 rounded-xl bg-blue-600 px-6 text-xs font-bold text-white shadow-lg shadow-blue-900/10 transition hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50"
+            disabled={!message.trim()}
+            onClick={() => onSend(message)}
+            type="button"
+          >
+            Send Message
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RemoteControlPanel({ device }) {
   const [commandStatus, setCommandStatus] = useState("");
   const [loadingCommand, setLoadingCommand] = useState("");
+  const [showBroadcast, setShowBroadcast] = useState(false);
+  const { notify } = useToast();
 
   const powerActions = [
     { id: "shutdown", label: "Turn off", icon: Power, hoverTone: "group-hover:text-rose-500", description: "Power off this device" },
@@ -260,27 +311,57 @@ function RemoteControlPanel({ device }) {
     { id: "update", label: "Update", icon: ArrowUpCircle, hoverTone: "group-hover:text-emerald-500", description: "Start Windows Update scan" },
   ];
 
-  async function handleCommand(command) {
+  const utilityShortcuts = [
+    { id: "network-reset", label: "Network Reset", icon: Zap, hoverTone: "group-hover:text-blue-500", description: "Flush DNS and reset IP stack" },
+    { id: "system-purge", label: "System Purge", icon: Trash2, hoverTone: "group-hover:text-rose-500", description: "Clear temp files and update cache" },
+    { id: "time-sync", label: "Clock Sync", icon: ClockIcon, hoverTone: "group-hover:text-emerald-500", description: "Force time synchronization" },
+    { id: "workspace-reset", label: "Clear Workspace", icon: Eraser, hoverTone: "group-hover:text-amber-500", description: "Kill all non-system applications" },
+    { id: "broadcast-message", label: "Broadcast", icon: MessageSquare, hoverTone: "group-hover:text-indigo-500", description: "Send a native screen popup" },
+  ];
+
+  async function handleCommand(command, payload = {}) {
     setLoadingCommand(command);
     setCommandStatus(`Sending ${command}...`);
 
     try {
-      await clientApi.sendDeviceCommand(device.id, command);
-      setCommandStatus(`${command.charAt(0).toUpperCase() + command.slice(1)} command sent.`);
+      const result = await clientApi.sendDeviceCommand(device.id, command, payload);
+      const msg = result.message || `${command.charAt(0).toUpperCase() + command.slice(1)} command sent.`;
+      setCommandStatus(msg);
+      notify(msg, "success");
     } catch (error) {
-      setCommandStatus(error.message || `Unable to send ${command}.`);
+      const msg = error.message || `Unable to send ${command}.`;
+      setCommandStatus(msg);
+      notify(msg, "failed");
     } finally {
       setLoadingCommand("");
       setTimeout(() => setCommandStatus(""), 5000);
     }
   }
 
+  function onShortcutClick(action) {
+    if (action.id === "broadcast-message") {
+      setShowBroadcast(true);
+    } else {
+      handleCommand(`utility:${action.id}`);
+    }
+  }
+
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-6">
+      {showBroadcast && (
+        <BroadcastDialog
+          onCancel={() => setShowBroadcast(false)}
+          onSend={(msg) => {
+            setShowBroadcast(false);
+            handleCommand("utility:broadcast-message", { text: msg });
+          }}
+        />
+      )}
+
       <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6 shadow-inner">
         <h4 className="mb-5 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
           <Terminal size={18} strokeWidth={2.5} className="text-slate-400" />
-          Remote Control Console
+          Remote Power Controls
         </h4>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {powerActions.map((action) => {
@@ -314,12 +395,53 @@ function RemoteControlPanel({ device }) {
             );
           })}
         </div>
-        <div className="mt-5 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3.5 text-xs font-medium leading-5 text-blue-700 shadow-sm">
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6 shadow-inner">
+        <h4 className="mb-5 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
+          <Zap size={18} strokeWidth={2.5} className="text-slate-400" />
+          Admin Maintenance Tools
+        </h4>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {utilityShortcuts.map((action) => {
+            const Icon = action.icon;
+            const pending = loadingCommand === `utility:${action.id}`;
+
+            return (
+              <div className="group relative" key={action.id}>
+                <button
+                  className="flex h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-md active:scale-95 disabled:cursor-wait disabled:opacity-50"
+                  disabled={Boolean(loadingCommand)}
+                  onClick={() => onShortcutClick(action)}
+                  type="button"
+                >
+                  <Icon
+                    className={`text-slate-400 transition-colors duration-200 ${action.hoverTone} group-active:text-white ${
+                      pending ? "animate-pulse" : ""
+                    }`}
+                    size={24}
+                    strokeWidth={2.5}
+                  />
+                  <span className="text-[10px] font-bold uppercase tracking-widest">
+                    {pending ? "Executing" : action.label}
+                  </span>
+                </button>
+                <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-44 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
+                  {action.description}
+                  <div className="absolute left-1/2 top-full -ml-1.5 border-[6px] border-transparent border-t-slate-900" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3.5 text-xs font-medium leading-5 text-blue-700 shadow-sm">
           <Info className="mt-0.5 shrink-0 text-blue-400" size={18} strokeWidth={2.5} />
           <p>
-            Commands are delivered instantly via reverse-tunnel. Ensure the device agent is online before execution.
+            Maintenance shortcuts execute pre-defined system scripts as SYSTEM. These are high-priority operations that do not require user interaction.
           </p>
         </div>
+        
         {commandStatus ? (
           <div className="mt-4 flex items-center gap-3 rounded-lg border border-slate-200/60 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-700 shadow-sm">
             <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
@@ -1484,22 +1606,13 @@ export function DeviceTable({
 
   useEffect(() => {
     if (!expandedId) return;
-    
-    // Check cache without using detailCache as a dependency to avoid loops
-    // Functional update or ref would be better, but we can just use expandedId
-    // and let the state update handle the re-render.
   }, [expandedId]);
 
-  // Use a separate effect for fetching to keep logic clean
   useEffect(() => {
     if (!expandedId) return;
 
-    // Use a ref to track if this specific fetch is still active
     let active = true;
 
-    // We check if it's already loaded or loading in the state
-    // But we need the current state value. 
-    // To avoid dependency loops, we check it inside the effect ONE TIME.
     setDetailCache((current) => {
       const cached = current[expandedId];
       const now = Date.now();
@@ -1509,26 +1622,13 @@ export function DeviceTable({
         return current;
       }
 
-      // Trigger fetch
-      console.log(`[Cache] Fetching details for device: ${expandedId}`);
-      
       Promise.all([
-        clientApi.getClientHardware(expandedId).catch(err => { console.error("Hardware fetch failed:", err); return null; }),
-        clientApi.getClientMetrics(expandedId, { range: "24h", limit: 1440 }).catch(err => { console.error("Metrics fetch failed:", err); return null; }),
-        clientApi.getClientPeripheralHistory(expandedId).catch(err => { console.error("Peripheral History fetch failed:", err); return null; }),
+        clientApi.getClientHardware(expandedId).catch(() => null),
+        clientApi.getClientMetrics(expandedId, { range: "24h", limit: 1440 }).catch(() => null),
+        clientApi.getClientPeripheralHistory(expandedId).catch(() => null),
       ]).then(([hardware, metricHistory, peripheralHistory]) => {
         if (!active) return;
         
-        console.log(`[Cache] Results for ${expandedId}:`, { 
-          hasHardware: !!hardware, 
-          hasMetrics: !!metricHistory, 
-          hasPeripherals: !!peripheralHistory 
-        });
-
-        if (peripheralHistory) {
-          console.log(`[Cache] Peripheral History Data:`, peripheralHistory);
-        }
-
         setDetailCache((prev) => ({
           ...prev,
           [expandedId]: {
@@ -1582,9 +1682,7 @@ export function DeviceTable({
         current === pendingArchive.id ? null : current,
       );
       setPendingArchive(null);
-    } catch (error) {
-      // The shared toast handles the visible error message.
-    }
+    } catch (error) {}
   }
 
   return (
