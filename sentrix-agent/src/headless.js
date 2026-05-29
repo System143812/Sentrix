@@ -12,6 +12,7 @@ import {
 import { connectToCore } from "./services/socket.service.js";
 import { detectDeviceEvents, buildDomainSummaries } from "./services/event-detector.service.js";
 import { collectSoftwareInventory } from "./services/software-inventory.service.js";
+import { startHelperWatchdog } from "./services/watchdog.service.js";
 
 // Robust way to get the directory where the EXE (or script) is located
 const __filename_robust = typeof __filename !== "undefined" 
@@ -41,6 +42,22 @@ function log(message, extra = "") {
     // Ignore log file write errors
   }
 }
+
+// Redirect global console to our log file
+const originalLog = console.log;
+const originalError = console.error;
+const originalWarn = console.warn;
+
+console.log = (...args) => {
+  log(args.map(a => typeof a === "object" ? JSON.stringify(a) : a).join(" "));
+  // originalLog.apply(console, args); // Optional: keep original behavior if needed
+};
+console.error = (...args) => {
+  log("ERROR: " + args.map(a => typeof a === "object" ? JSON.stringify(a) : a).join(" "));
+};
+console.warn = (...args) => {
+  log("WARN: " + args.map(a => typeof a === "object" ? JSON.stringify(a) : a).join(" "));
+};
 
 if (fs.existsSync(externalEnvPath)) {
   dotenv.config({ path: externalEnvPath });
@@ -164,6 +181,7 @@ async function start() {
 
   await collectAndSendMetrics();
   await collectAndSendSoftwareInventory();
+  startHelperWatchdog();
 
   metricsTimer = setInterval(collectAndSendMetrics, metricsIntervalMs);
   detailsTimer = setInterval(() => refreshDetails(), detailsIntervalMs);
