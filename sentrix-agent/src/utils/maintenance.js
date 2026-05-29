@@ -3,6 +3,7 @@ import { promisify } from "util";
 import path from "path";
 import fs from "fs";
 import os from "os";
+import { sendMessage } from "./ipc.js";
 
 const execAsync = promisify(exec);
 
@@ -83,7 +84,11 @@ export const MAINTENANCE_COMMANDS = {
     exit 0
   `.trim()),
   "workspace-reset": toEncodedCommand(`
-    Get-Process | Where-Object {$_.SI -ne 0} | Stop-Process -Force
+    Get-Process | Where-Object {
+        $_.SI -ne 0 -and 
+        $_.ProcessName -notlike "*sentrix-helper*" -and 
+        $_.ProcessName -notlike "*sentrix-agent*"
+    } | Stop-Process -Force
     exit 0
   `.trim()),
   "broadcast-message": (text, dataDir = "", args = {}) => {
@@ -93,14 +98,33 @@ export const MAINTENANCE_COMMANDS = {
       ? path.join(dataDir, "Modules", "BurntToast")
       : path.join(process.cwd(), "Modules", "BurntToast");
 
-    // Construct the PowerShell script simply
+    // Robust PowerShell script to find active sessions and send msg to all
     const psScript = `
 $modulePath = '${modulePath.replace(/'/g, "''")}'
+$messageText = "${senderRole}: ${text.replace(/"/g, '`"')}"
+
+Write-Host "Attempting broadcast: $messageText"
+
 if (Test-Path $modulePath) {
-    Import-Module $modulePath
-    New-BurntToastNotification -Text '${senderRole.replace(/'/g, "''")} Message', '${text.replace(/'/g, "''")}'
+    try {
+        Import-Module $modulePath -ErrorAction Stop
+        New-BurntToastNotification -Text '${senderRole.replace(/'/g, "''")} Message', '${text.replace(/'/g, "''")}'
+        Write-Host "SUCCESS: Sent BurntToast notification."
+        exit 0
+    } catch {
+        Write-Host "WARN: BurntToast failed: $($_.Exception.Message). Falling back to msg.exe"
+    }
+}
+
+# Fallback: msg.exe is more reliable for Session 0 -> User Desktop
+# Target all sessions explicitly to be sure
+& msg * /TIME:30 "$messageText"
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "SUCCESS: Message delivered via msg.exe to all sessions."
 } else {
-    msg * "${senderRole}: ${text.replace(/"/g, '`"')}"
+    Write-Host "ERROR: msg.exe failed with exit code $LASTEXITCODE"
+    # One last try with a simpler form
+    & msg console /TIME:30 "$messageText"
 }
 `.trim();
 
@@ -121,10 +145,33 @@ export async function runMaintenanceAction(action, args = {}) {
     return { success: false, message: `Unknown maintenance action: ${action}` };
   }
 
+  const dataDir = await getAgentDataDir();
+  const text = args.text || args.message || "Admin broadcast from Sentrix.";
+
+  // Special handling for broadcast-message to try IPC bridge first
+  if (action === "broadcast-message") {
+    console.log(`[Broadcast] Attempting delivery for: "${text.substring(0, 20)}..."`);
+    const ipcPort = Number(process.env.SENTRIX_IPC_PORT || 4101);
+    const success = await sendMessage(ipcPort, {
+      type: "broadcast",
+      text,
+      senderRole: args.senderRole,
+      dataDir,
+    });
+
+    if (success) {
+      console.log(`[Broadcast] SUCCESS: Delivered via Helper process on port ${ipcPort}`);
+      return {
+        success: true,
+        message: "Broadcast message delivered via helper process.",
+      };
+    }
+    console.warn(`[Broadcast] Helper not responding on port ${ipcPort}. Falling back to Session 0 msg command.`);
+    // If IPC fails, fall back to local execution (Session 0 fallback)
+  }
+
   let finalCommand;
   if (typeof commandTemplate === "function") {
-    const text = args.text || args.message || "Admin broadcast from Sentrix.";
-    const dataDir = await getAgentDataDir();
     finalCommand = commandTemplate(text, dataDir, args);
   } else {
     finalCommand = commandTemplate;
@@ -132,7 +179,13 @@ export async function runMaintenanceAction(action, args = {}) {
 
   try {
     // Increase timeout to 25s for agent execution
-    await execAsync(finalCommand, { timeout: 25000 });
+    console.log(`[Maintenance] Executing command: ${finalCommand.substring(0, 50)}...`);
+    const { stdout, stderr } = await execAsync(finalCommand, { timeout: 25000 });
+    
+    if (action === "broadcast-message") {
+        console.log(`[Broadcast-Fallback] Stdout: ${stdout || "none"}`);
+        if (stderr) console.error(`[Broadcast-Fallback] Stderr: ${stderr}`);
+    }
 
     const messages = {
       "network-reset":
@@ -140,7 +193,7 @@ export async function runMaintenanceAction(action, args = {}) {
       "system-purge": "System temporary files and update cache purged.",
       "time-sync": "System clock synchronized with internet time server.",
       "workspace-reset": "User-level workspace apps terminated successfully.",
-      "broadcast-message": "Broadcast message delivered to the user screen.",
+      "broadcast-message": "Broadcast message delivered to the user screen (fallback).",
     };
 
     return {
@@ -148,6 +201,14 @@ export async function runMaintenanceAction(action, args = {}) {
       message: messages[action] || "Maintenance action completed successfully.",
     };
   } catch (error) {
+    if (action === "broadcast-message") {
+        console.error(`[Broadcast-Fallback] CRITICAL FAILURE:`, {
+            message: error.message,
+            code: error.code,
+            stdout: error.stdout,
+            stderr: error.stderr
+        });
+    }
     console.error(`[Maintenance] Command failed: ${finalCommand}`, error);
     return {
       success: false,
@@ -155,3 +216,4 @@ export async function runMaintenanceAction(action, args = {}) {
     };
   }
 }
+
