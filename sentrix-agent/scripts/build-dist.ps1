@@ -4,9 +4,11 @@ $ErrorActionPreference = "Stop"
 Write-Host "--- Bundling with esbuild ---"
 node esbuild.config.js
 
-Write-Host "--- Packaging Agent with pkg ---"
-# We package the bundled CJS file
-npx pkg dist/bundled-agent.cjs --targets node18-win-x64 --output dist/sentrix-agent.exe
+Write-Host "--- Packaging Agents with pkg ---"
+# Package headless agent
+npx pkg dist/headless.js --targets node18-win-x64 --output dist/sentrix-agent.exe
+# Package helper agent
+npx pkg dist/helper.js --targets node18-win-x64 --output dist/sentrix-helper.exe
 
 Write-Host "--- Preparing Assets Folder ---"
 $distDir = Join-Path $PSScriptRoot "..\dist"
