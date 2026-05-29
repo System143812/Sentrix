@@ -7,4 +7,8 @@ const router = express.Router();
 router.get("/telemetry", settingsController.getTelemetry);
 router.patch("/telemetry", requireRole("network_admin"), settingsController.updateTelemetry);
 
+router.get("/pruning", settingsController.getPruning);
+router.patch("/pruning", requireRole("network_admin"), settingsController.updatePruning);
+router.post("/pruning/trigger", requireRole("network_admin"), settingsController.triggerPruning);
+
 export default router;
