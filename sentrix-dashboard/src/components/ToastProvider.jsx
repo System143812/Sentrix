@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, CircleX, Info, X } from "lucide-react";
+import { generateId } from "../shared/utils";
 
 const ToastContext = createContext(null);
 
@@ -34,7 +35,7 @@ export function ToastProvider({ children }) {
   }, []);
 
   const notify = useCallback((message, type = "default", options = {}) => {
-    const id = crypto.randomUUID();
+    const id = generateId();
     const nextToast = {
       id,
       type: toastStyles[type] ? type : "default",
