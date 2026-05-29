@@ -118,12 +118,14 @@ function getDeploymentFailure(error, ip) {
   };
 }
 
+import { BlurOverlay } from "../components/BlurOverlay.jsx";
+
 function DeploymentFailureOverlay({ failure, loading, onClose, onRetry }) {
   if (!failure) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/50 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-rose-100 bg-white p-6 shadow-2xl shadow-slate-950/20">
+    <BlurOverlay onClose={onClose} className="z-[60]" containerClassName="w-full max-w-lg">
+      <div className="rounded-2xl border border-rose-100 bg-white p-6 shadow-2xl shadow-slate-950/20">
         <div className="flex items-start gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600">
             <AlertTriangle size={24} strokeWidth={2.5} />
@@ -170,7 +172,7 @@ function DeploymentFailureOverlay({ failure, loading, onClose, onRetry }) {
           </button>
         </div>
       </div>
-    </div>
+    </BlurOverlay>
   );
 }
 
