@@ -94,7 +94,7 @@ export function HomePage({
       <PageHeader
         title={`Welcome back, ${user?.email?.split('@')[0] || 'Admin'}!`}
         subtitle={
-          <div className="h-6 overflow-hidden">
+          <div className="min-h-[1.5rem]">
             <p className="animate-tip-cycle" key={tipIndex}>
               <span className="font-bold text-blue-400 mr-2">Tip:</span>
               {HOME_TIPS[tipIndex]}

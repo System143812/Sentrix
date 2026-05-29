@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import {
+  Activity,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Clock,
   EyeOff,
   Fingerprint,
@@ -28,6 +31,7 @@ import * as groupApi from "../services/groupApi.js";
 import * as settingsApi from "../services/settingsApi.js";
 import * as authApi from "../services/authApi.js";
 import { ICON_TONES } from "../styles/tones.js";
+import { StorageLifecycleOverlay } from "../components/StorageLifecycleOverlay.jsx";
 
 function SettingsSection({
   icon: Icon,
@@ -61,7 +65,7 @@ function SettingsSection({
   );
 }
 
-function ActionButton({ label, icon: Icon, description, tone = "slate" }) {
+function ActionButton({ label, icon: Icon, description, tone = "slate", showChevron = true }) {
   return (
     <div className="group relative">
       <button
@@ -78,10 +82,12 @@ function ActionButton({ label, icon: Icon, description, tone = "slate" }) {
         <span className="min-w-0 truncate text-center text-sm font-bold text-slate-700">
           {label}
         </span>
-        <ChevronRight
-          size={16}
-          className="absolute right-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-slate-500"
-        />
+        {showChevron && (
+          <ChevronUp
+            size={16}
+            className="absolute right-4 text-slate-300 transition group-hover:-translate-y-1 group-hover:text-slate-500"
+          />
+        )}
       </button>
       <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-60 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2.5 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
         {description}
@@ -287,6 +293,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
   const [groupDescription, setGroupDescription] = useState("");
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [message, setMessage] = useState("");
+  const [isPruningOpen, setIsPruningOpen] = useState(false);
   const { pending: pendingAction, setPending } = usePendingAction();
   const { notify } = useToast();
 
@@ -597,13 +604,21 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
           subtitle="Security options for dashboard access."
           tone="amber"
         >
-          <div className="grid gap-3">
-            <ActionButton
-              label="Multi-factor sign-in"
-              icon={Fingerprint}
-              description="Prepare multi-factor authentication controls."
-              tone="blue"
-            />
+          <div className="grid gap-3 opacity-70">
+            <div className="relative overflow-hidden rounded-xl border border-slate-200/50 bg-slate-50/30">
+              <ActionButton
+                label="Multi-factor sign-in"
+                icon={Fingerprint}
+                description="Prepare multi-factor authentication controls."
+                tone="blue"
+                showChevron={false}
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <span className="rounded-full bg-slate-200/50 px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-widest text-slate-500 border border-slate-300/50 backdrop-blur-sm">
+                  Soon
+                </span>
+              </div>
+            </div>
           </div>
         </SettingsSection>
 
@@ -619,16 +634,26 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
               icon={Zap}
               description="Configure one-click maintenance and enforcement tools."
               tone="emerald"
+              showChevron={true}
             />
-            <ActionButton
-              label="Clear old history"
-              icon={Clock}
-              description="Review automated database retention behavior."
-              tone="rose"
-            />
+            <div onClick={() => setIsPruningOpen(true)}>
+              <ActionButton
+                label="Storage & Data Lifecycle"
+                icon={Clock}
+                description="Optimize database health and manage historical data retention."
+                tone="rose"
+                showChevron={true}
+              />
+            </div>
           </div>
         </SettingsSection>
       </div>
+
+      <StorageLifecycleOverlay 
+        isOpen={isPruningOpen} 
+        onClose={() => setIsPruningOpen(false)} 
+        isNetworkAdmin={isNetworkAdmin}
+      />
     </div>
   );
 }
