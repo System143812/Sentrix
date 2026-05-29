@@ -23,7 +23,6 @@ async function clearData() {
     "client_displays",
     "client_dns_logs",
     "client_graphics_cards",
-    "client_groups",
     "client_hardware_disks",
     "client_hardware_profiles",
     "client_metric_cpu_samples",
@@ -42,8 +41,8 @@ async function clearData() {
     "client_processes",
     "client_usb_devices",
     "clients",
-    "discovery_scan_results",
-    "dns_intelligence"
+    "client_groups",
+    "discovery_scan_results"
   ];
 
   const connection = await pool.getConnection();
@@ -68,6 +67,7 @@ async function clearData() {
     await connection.query("SET FOREIGN_KEY_CHECKS = 1");
     console.log("\n✨ Cleanup complete! The operational database is fresh.");
     console.log("👤 Users table remains untouched.");
+    console.log("⚙️  System settings remain untouched.");
   } catch (err) {
     console.error("\n💥 Critical Cleanup Failure:", err.message);
   } finally {
