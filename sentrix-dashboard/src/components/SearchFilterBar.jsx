@@ -60,7 +60,7 @@ export function SearchFilterBar({
               <Filter size={14} strokeWidth={2.5} />
             </div>
             <select
-              className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/50 pl-9 pr-10 text-xs font-bold uppercase tracking-widest text-slate-500 outline-none transition-all duration-200 hover:border-slate-300 hover:bg-white focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-900/5 cursor-pointer"
+              className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/50 pl-9 pr-10 text-sm font-semibold text-slate-600 outline-none transition-all duration-200 hover:border-slate-300 hover:bg-white focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-900/5 cursor-pointer"
               onChange={(event) => filter.onChange?.(event.target.value)}
               value={filter.value}
               title={filter.label}

@@ -22,9 +22,9 @@ export function DateFilterBar({
 }) {
   return (
     <div
-      className={`relative flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur-md sm:flex-row sm:items-end sm:justify-between sm:gap-6 ${className}`}
+      className={`relative flex flex-col flex-wrap gap-4 rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur-md sm:flex-row sm:items-end sm:justify-between sm:gap-6 ${className}`}
     >
-      <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+      <div className="flex flex-1 flex-col flex-wrap gap-4 sm:flex-row sm:items-center sm:gap-5">
         <label className="flex flex-1 flex-col gap-2">
           <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
             <CalendarDays size={14} className="text-slate-300" />
@@ -63,7 +63,7 @@ export function DateFilterBar({
       </div>
 
       <button
-        className={`group relative flex h-11 items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold uppercase tracking-widest transition-all duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto ${
+        className={`group relative flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold uppercase tracking-widest transition-all duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto ${
           loading
             ? "bg-slate-100 text-slate-400 border border-slate-200"
             : "bg-slate-900 text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800 hover:shadow-slate-900/20"
@@ -77,7 +77,7 @@ export function DateFilterBar({
         ) : (
           <Filter size={16} className="transition-transform group-hover:rotate-12" />
         )}
-        <span>{loading ? "Processing..." : "Apply Filter"}</span>
+        <span>{loading ? "Applying..." : "Apply"}</span>
       </button>
     </div>
   );
