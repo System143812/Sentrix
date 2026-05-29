@@ -273,7 +273,7 @@ function BroadcastDialog({ onCancel, onSend, device, allDevices = [] }) {
   ];
 
   return (
-    <BlurOverlay className="z-[100]" onClose={onCancel}>
+    <BlurOverlay onClose={onCancel}>
       <div className="w-full max-h-[90vh] flex flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 p-5 border-b border-slate-50 bg-slate-50/30">
@@ -1032,7 +1032,7 @@ function ProcessEndConfirmDialog({ count, loading, onCancel, onConfirm }) {
   if (!count) return null;
 
   return createPortal(
-    <BlurOverlay className="z-[80]" onClose={onCancel}>
+    <BlurOverlay onClose={onCancel}>
       <div className="w-full rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="flex items-start gap-4">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600">
