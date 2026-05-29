@@ -301,16 +301,27 @@ h6,
   animation: device-detail-view 260ms ease-out both;
 }
 
-@keyframes analytics-reveal {
-  from {
+@keyframes tip-slide-up {
+  0% {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translateY(10px);
   }
-
-  to {
+  15% {
     opacity: 1;
     transform: translateY(0);
   }
+  85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.animate-tip-cycle {
+  animation: tip-slide-up 10s infinite;
 }
 
 @keyframes analytics-draw {

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Activity,
   BarChart3,
+  ChevronDown,
   Home,
   LoaderCircle,
   LogOut,
@@ -179,11 +180,16 @@ function DashboardShell({
 
   return (
     <main className="min-h-screen bg-mist text-ink">
-      <div className="border-b border-line bg-white/90 shadow-sm backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
+      <div className="sticky top-0 z-[1000] border-b border-line bg-white/95 shadow-sm backdrop-blur-md">
+        <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+          <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+            {/* Left: Brand */}
+            <div className="shrink-0">
               <SentrixLogo />
+            </div>
+
+            {/* Center: Navigation (Always Centered) */}
+            <div className="order-last flex w-full flex-1 justify-center md:order-none md:w-auto">
               <TabNav
                 tabs={tabs.filter((tab) => tab.id !== "audit" || user.role === "network_admin")}
                 activeTab={activeTab}
@@ -191,55 +197,70 @@ function DashboardShell({
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 font-ui">
-            <span
-              title={connected ? "Live" : "Offline"}
-              aria-label={connected ? "Live connection" : "Offline connection"}
-              className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide shadow-sm ${
-                connected
-                  ? "border-emerald-100 bg-emerald-50 text-emerald-700"
-                  : "border-rose-100 bg-rose-50 text-rose-700"
-              }`}
-            >
-              {connected ? <Wifi size={14} strokeWidth={2.5} /> : <WifiOff size={14} strokeWidth={2.5} />}
-              <span className="hidden sm:inline">{connected ? "Live" : "Offline"}</span>
-            </span>
-
-            <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200/60 bg-slate-50 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-sm">
-              <UserCircle size={14} strokeWidth={2.5} />
-              {user.role === "network_admin" ? "Network Admin" : "Admin"}
-            </span>
-
-            <button
-              className="btn-minimal h-10 px-4 disabled:cursor-wait disabled:opacity-70"
-              onClick={refresh}
-              disabled={loading}
-              type="button"
-            >
-              {loading ? (
-                <LoaderCircle className="animate-spin" size={15} />
-              ) : (
-                <RefreshCcw size={15} strokeWidth={2.5} />
-              )}
-              <span className="hidden text-[10px] font-bold uppercase tracking-wide sm:inline">
-                {loading ? "Syncing" : "Sync"}
+            {/* Right: Actions Cluster */}
+            <div className="flex items-center gap-2">
+              <span
+                title={connected ? "Live" : "Offline"}
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest shadow-sm transition-all ${
+                  connected
+                    ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                    : "border-rose-100 bg-rose-50 text-rose-700"
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                {connected ? "Live" : "Offline"}
               </span>
-            </button>
 
-            <button
-              type="button"
-              onClick={onLogout}
-              title="Logout"
-              aria-label="Logout"
-              className="btn-minimal h-10 px-3 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 sm:px-4"
-            >
-              <LogOut size={15} strokeWidth={2.5} />
-              <span className="hidden text-[10px] font-bold uppercase tracking-wide sm:inline">Logout</span>
-            </button>
-          </div>
+              <div className="group relative">
+                <button className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-500 shadow-sm transition-all hover:border-slate-900 hover:text-slate-900 active:scale-95">
+                  <UserCircle size={18} strokeWidth={2.5} />
+                  <span className="hidden text-[10px] font-bold uppercase tracking-widest sm:inline">
+                    {user.role === "network_admin" ? "Network Admin" : "Admin"}
+                  </span>
+                  <ChevronDown size={14} className="transition-transform group-hover:rotate-180" strokeWidth={2.5} />
+                </button>
+                
+                <div className="invisible absolute right-0 top-full z-[100] mt-2 w-52 origin-top-right scale-95 opacity-0 transition-all duration-200 group-hover:visible group-hover:scale-100 group-hover:opacity-100">
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl ring-1 ring-slate-900/5">
+                    <div className="mb-2 px-3 py-2 border-b border-slate-50 bg-slate-50/30">
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Authenticated as</p>
+                      <p className="truncate text-xs font-bold text-slate-700 mt-0.5">
+                        {user.email}
+                      </p>
+                    </div>
+
+                    <button
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                      onClick={refresh}
+                      disabled={loading}
+                    >
+                      <RefreshCcw size={14} className={loading ? "animate-spin" : ""} strokeWidth={2.5} />
+                      <div className="flex-1">
+                        <p className="leading-tight">Sync Fleet</p>
+                        <p className="text-[9px] font-medium text-slate-400">Refresh device metrics</p>
+                      </div>
+                    </button>
+
+                    <div className="my-1 border-t border-slate-50" />
+
+                    <button
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-rose-600 transition hover:bg-rose-50"
+                      onClick={onLogout}
+                    >
+                      <LogOut size={14} strokeWidth={2.5} />
+                      <div className="flex-1">
+                        <p className="leading-tight">Sign Out</p>
+                        <p className="text-[9px] font-medium text-rose-400/70">Terminate session</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </header>
         </div>
       </div>
+
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         {activeTab === "home" ? (
