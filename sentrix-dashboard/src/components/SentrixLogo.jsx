@@ -67,17 +67,17 @@ export function SentrixMark({ className = "", loading = false }) {
 const logoSizes = {
   sm: {
     shell: "h-8 w-8",
-    mark: "h-[1.25em] w-auto",
+    mark: "h-[1.35em] w-auto",
     title: "text-lg",
   },
   md: {
     shell: "h-10 w-10",
-    mark: "h-[1.25em] w-auto",
+    mark: "h-[1.45em] w-auto",
     title: "text-xl",
   },
   lg: {
     shell: "h-12 w-12",
-    mark: "h-[1.25em] w-auto",
+    mark: "h-[1.75em] w-auto",
     title: "text-2xl",
   },
 };
@@ -114,7 +114,7 @@ export function SentrixLogo({
       )}
       {!compact ? (
         <span
-          className={`${logoSize.title} font-semibold uppercase tracking-widest ${
+          className={`${logoSize.title} font-bold uppercase tracking-widest ${
             inverse ? "text-white" : "text-ink"
           }`}
           style={{ fontFamily: "'Inter', sans-serif" }}
