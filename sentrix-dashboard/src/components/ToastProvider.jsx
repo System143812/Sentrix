@@ -55,7 +55,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed bottom-5 right-5 z-[70] grid w-[calc(100%-2.5rem)] max-w-sm gap-3">
+      <div className="pointer-events-none fixed bottom-5 right-5 z-[10000] grid w-[calc(100%-2.5rem)] max-w-sm gap-3">
         {toasts.map((toast) => {
           const style = toastStyles[toast.type] || toastStyles.default;
           const Icon = style.icon;
