@@ -12,3 +12,23 @@ export async function updateTelemetrySettings(intervalMs) {
   });
   return result.data;
 }
+
+export async function getPruningSettings() {
+  const result = await fetchJson("/api/settings/pruning");
+  return result.data;
+}
+
+export async function updatePruningSettings(settings) {
+  const result = await fetchJson("/api/settings/pruning", {
+    method: "PATCH",
+    body: JSON.stringify(settings),
+  });
+  return result.data;
+}
+
+export async function triggerPruning() {
+  const result = await fetchJson("/api/settings/pruning/trigger", {
+    method: "POST",
+  });
+  return result.data;
+}
