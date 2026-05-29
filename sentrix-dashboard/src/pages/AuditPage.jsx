@@ -16,6 +16,8 @@ const getActionColor = (action = "") => {
   return "text-indigo-600 bg-indigo-50 border-indigo-100";
 };
 
+import { BlurOverlay } from "../components/BlurOverlay.jsx";
+
 export function AuditPage() {
   const [logs, setLogs] = useState([]);
   const [query, setQuery] = useState("");
@@ -80,41 +82,39 @@ export function AuditPage() {
 
   return (
     <div className="page-reveal space-y-6">
-      {pendingBlock ? (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/55 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
-            <div className="flex items-start gap-4">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600">
-                <ShieldAlert size={24} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <h3 className="text-lg font-bold text-slate-900">Block this subject?</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  {pendingBlock.registeredUserRole
-                    ? `This log belongs to a registered ${pendingBlock.registeredUserRole.replace("_", " ").toUpperCase()} account. Are you sure you want to block this user?`
-                    : `Are you sure you want to block ${pendingBlock.macAddress || pendingBlock.actorEmail || "this user/MAC address"}?`}
-                </p>
-                <p className="mt-2 text-xs font-semibold text-slate-400">
-                  Blocked access returns only "Failed" to avoid exposing block status.
-                </p>
-              </div>
-              <button className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-900" onClick={() => setPendingBlock(null)} type="button">
-                <X size={18} />
-              </button>
+      <BlurOverlay isOpen={!!pendingBlock} onClose={() => setPendingBlock(null)} className="z-[80]" containerClassName="w-full max-w-lg">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
+          <div className="flex items-start gap-4">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600">
+              <ShieldAlert size={24} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-lg font-bold text-slate-900">Block this subject?</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                {pendingBlock?.registeredUserRole
+                  ? `This log belongs to a registered ${pendingBlock.registeredUserRole.replace("_", " ").toUpperCase()} account. Are you sure you want to block this user?`
+                  : `Are you sure you want to block ${pendingBlock?.macAddress || pendingBlock?.actorEmail || "this user/MAC address"}?`}
+              </p>
+              <p className="mt-2 text-xs font-semibold text-slate-400">
+                Blocked access returns only "Failed" to avoid exposing block status.
+              </p>
             </div>
-            <textarea
-              className="mt-5 min-h-24 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium outline-none focus:border-slate-900"
-              onChange={(event) => setBlockReason(event.target.value)}
-              placeholder="Reason for blocking"
-              value={blockReason}
-            />
-            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button className="btn-minimal h-10 px-4" onClick={() => setPendingBlock(null)} type="button">Cancel</button>
-              <button className="h-10 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white shadow-lg shadow-rose-900/10 hover:bg-rose-700" onClick={confirmBlock} type="button">Block</button>
-            </div>
+            <button className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-900" onClick={() => setPendingBlock(null)} type="button">
+              <X size={18} />
+            </button>
+          </div>
+          <textarea
+            className="mt-5 min-h-24 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium outline-none focus:border-slate-900"
+            onChange={(event) => setBlockReason(event.target.value)}
+            placeholder="Reason for blocking"
+            value={blockReason}
+          />
+          <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button className="btn-minimal h-10 px-4" onClick={() => setPendingBlock(null)} type="button">Cancel</button>
+            <button className="h-10 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white shadow-lg shadow-rose-900/10 hover:bg-rose-700" onClick={confirmBlock} type="button">Block</button>
           </div>
         </div>
-      ) : null}
+      </BlurOverlay>
 
       <PageHeader
         icon={ClipboardList}
