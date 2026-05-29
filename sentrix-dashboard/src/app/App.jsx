@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { TabNav } from "../components/TabNav.jsx";
 import { SentrixLogo, SentrixLogoLoader } from "../components/SentrixLogo.jsx";
+import { BlurOverlay } from "../components/BlurOverlay.jsx";
 import { ToastProvider, useToast } from "../components/ToastProvider.jsx";
 import { useDevices } from "../hooks/useDevices.js";
 import { useDiscovery } from "../hooks/useDiscovery.js";
@@ -102,11 +103,11 @@ export default function App() {
   if (!authReady) {
     return (
       <main className="min-h-screen bg-mist text-ink">
-        <div className="mx-auto flex h-screen max-w-4xl items-center justify-center px-4">
+        <BlurOverlay isOpen={true}>
           <div className="rounded-lg border border-line bg-white p-6 text-center shadow-xl">
             <SentrixLogoLoader label="Checking login status..." />
           </div>
-        </div>
+        </BlurOverlay>
       </main>
     );
   }
