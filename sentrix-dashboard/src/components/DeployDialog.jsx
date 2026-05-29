@@ -1,6 +1,7 @@
 import { X, ShieldAlert, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import { FormInput } from "./FormInput.jsx";
+import { BlurOverlay } from "./BlurOverlay.jsx";
 
 export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading, error }) {
   const [username, setUsername] = useState("Administrator");
@@ -12,8 +13,8 @@ export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4">
-      <div className="w-full max-w-md rounded-lg border border-line bg-white p-6 shadow-xl">
+    <BlurOverlay onClose={onCancel}>
+      <div className="w-full rounded-lg border border-line bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-slate-900">
@@ -106,6 +107,6 @@ export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading
           </div>
         </form>
       </div>
-    </div>
+    </BlurOverlay>
   );
 }
