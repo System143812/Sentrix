@@ -13,7 +13,8 @@ const { default: createApp } = await import("./app.js");
 const { ensureDatabaseSchema } = await import("./lib/schema.js");
 const { registerDeviceSocket } = await import("./sockets/device.socket.js");
 const { startOfflineWatcher } = await import("./services/heartbeat.service.js");
-const { startDiscoveryScheduler } = await import("./services/discovery/index.js");
+const { startDiscoveryScheduler } =
+  await import("./services/discovery/index.js");
 const { startPruningService } = await import("./services/pruning.service.js");
 
 await ensureDatabaseSchema();
@@ -24,10 +25,7 @@ const port = process.env.PORT || 4000;
 const host = process.env.HOST || "0.0.0.0";
 
 // Allowed frontend origins for CORS
-const clientUrls = (
-  process.env.CLIENT_URL || 
-  "http://localhost:5173"
-)
+const clientUrls = (process.env.CLIENT_URL || "http://localhost:5173")
   .split(",")
   .map((url) => url.trim())
   .filter(Boolean);
@@ -43,7 +41,9 @@ function allowClientOrigin(origin, callback) {
   }
 
   console.warn(`[CORS] Blocked request from unauthorized origin: ${origin}`);
-  callback(new Error(`Origin ${origin} is not allowed by Sentrix CORS policy.`));
+  callback(
+    new Error(`Origin ${origin} is not allowed by Sentrix CORS policy.`),
+  );
 }
 
 const io = new Server(server, {
