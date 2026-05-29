@@ -11,6 +11,7 @@ const execFileAsync = promisify(execFile);
 
 async function deployAgentViaAdminPush(ip, credentials, serverUrl) {
   const agentExePath = path.resolve(__dirname, "../../../../sentrix-agent/dist/sentrix-agent.exe");
+  const helperExePath = path.resolve(__dirname, "../../../../sentrix-agent/dist/sentrix-helper.exe");
   const assetsPath = path.resolve(__dirname, "../../../../sentrix-agent/dist/assets");
   
   if (!fs.existsSync(agentExePath)) {
@@ -31,10 +32,12 @@ async function deployAgentViaAdminPush(ip, credentials, serverUrl) {
     
     \$targetDir = "C:\\\\ProgramData\\\\SentrixAgent"
     
+    \$ErrorActionPreference = "Stop"
+
     Write-Host "Mapping administrative share..."
     \$driveName = "SentrixPush"
     if (Get-PSDrive \$driveName -ErrorAction SilentlyContinue) { Remove-PSDrive \$driveName -Force }
-    New-PSDrive -Name \$driveName -PSProvider FileSystem -Root "\\\\\$ip\\C\$" -Credential \$cred -ErrorAction Stop
+    New-PSDrive -Name \$driveName -PSProvider FileSystem -Root "\\\\\$ip\\C\$" -Credential \$cred
     
     try {
         \$remotePath = "\${driveName}:\\\\ProgramData\\\\SentrixAgent"
@@ -42,8 +45,24 @@ async function deployAgentViaAdminPush(ip, credentials, serverUrl) {
             New-Item -ItemType Directory -Path \$remotePath -Force | Out-Null
         }
         
+        Write-Host "Stopping existing agent and helper if running..."
+        \$innerStopCommand = @"
+            Stop-ScheduledTask -TaskName 'Sentrix Agent' -ErrorAction SilentlyContinue
+            Stop-ScheduledTask -TaskName 'Sentrix Helper' -ErrorAction SilentlyContinue
+            Get-Process -Name 'sentrix-agent' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+            Get-Process -Name 'sentrix-helper' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+"@
+        \$stopEncoded = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes(\$innerStopCommand))
+        try {
+            Invoke-WmiMethod -Path Win32_Process -Name Create -ArgumentList "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand \$stopEncoded" -ComputerName \$ip -Credential \$cred | Out-Null
+            Start-Sleep -Seconds 2
+        } catch {}
+
         Write-Host "Copying agent files..."
         Copy-Item -Path "${agentExePath.replace(/\\/g, "\\\\")}" -Destination "\$remotePath\\sentrix-agent.exe" -Force
+        if (Test-Path "${helperExePath.replace(/\\/g, "\\\\")}") {
+            Copy-Item -Path "${helperExePath.replace(/\\/g, "\\\\")}" -Destination "\$remotePath\\sentrix-helper.exe" -Force
+        }
         if (Test-Path "${assetsPath.replace(/\\/g, "\\\\")}") {
             Copy-Item -Path "${assetsPath.replace(/\\/g, "\\\\")}" -Destination \$remotePath -Recurse -Force
         }
@@ -53,17 +72,28 @@ async function deployAgentViaAdminPush(ip, credentials, serverUrl) {
         Write-Host "Triggering remote installation via WMI..."
         \$innerCommand = @"
             \`$dir = 'C:\\ProgramData\\SentrixAgent'
-            # Registration and Start
+            
+            # 1. Main Agent Registration
             \`$action = New-ScheduledTaskAction -Execute "\`$dir\\sentrix-agent.exe" -Argument "--server-url $url" -WorkingDirectory \`$dir
             \`$trigger = New-ScheduledTaskTrigger -AtStartup
             \`$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest
             \`$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
             
-            # Remove existing task if any
             Unregister-ScheduledTask -TaskName 'Sentrix Agent' -Confirm:\`$false -ErrorAction SilentlyContinue
-            
             Register-ScheduledTask -TaskName 'Sentrix Agent' -Action \`$action -Trigger \`$trigger -Principal \`$principal -Settings \`$settings -Force
             Start-ScheduledTask -TaskName 'Sentrix Agent'
+
+            # 2. Helper Registration (User Session)
+            if (Test-Path "\`$dir\\sentrix-helper.exe") {
+                \`$hAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -Command \`"\`$d = '\`$dir'; Start-Process -FilePath \`"\`$d\sentrix-helper.exe\`" -WindowStyle Hidden\`"" -WorkingDirectory \`$dir
+                \`$hTrigger = New-ScheduledTaskTrigger -AtLogOn
+                \`$hPrincipal = New-ScheduledTaskPrincipal -GroupId 'Users' -RunLevel Highest
+                \`$hSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Days 0)
+                
+                Unregister-ScheduledTask -TaskName 'Sentrix Helper' -Confirm:\`$false -ErrorAction SilentlyContinue
+                Register-ScheduledTask -TaskName 'Sentrix Helper' -Action \`$hAction -Trigger \`$hTrigger -Principal \`$hPrincipal -Settings \`$hSettings -Force
+                Start-ScheduledTask -TaskName 'Sentrix Helper' -ErrorAction SilentlyContinue
+            }
             
             # Lockdown Phase: Re-secure the machine
             Write-Host 'Securing machine...'
@@ -119,6 +149,7 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
   try {
     const { username, password } = credentials;
     const agentExePath = path.resolve(__dirname, "../../../../sentrix-agent/dist/sentrix-agent.exe");
+    const helperExePath = path.resolve(__dirname, "../../../../sentrix-agent/dist/sentrix-helper.exe");
     const assetsPath = path.resolve(__dirname, "../../../../sentrix-agent/dist/assets");
 
     if (!fs.existsSync(agentExePath)) {
@@ -136,6 +167,8 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
       \$pass = \$passRaw | ConvertTo-SecureString -AsPlainText -Force
       \$cred = New-Object System.Management.Automation.PSCredential(\$user, \$pass)
       
+      \$ErrorActionPreference = "Stop"
+
       try {
           \$localIsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
           if (\$localIsAdmin) {
@@ -150,15 +183,25 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
       }
 
       \$targetDir = "C:\\\\ProgramData\\\\SentrixAgent"
-      \$session = New-PSSession -ComputerName \$ip -Credential \$cred -ErrorAction Stop
+      \$session = New-PSSession -ComputerName \$ip -Credential \$cred
 
       try {
           Invoke-Command -Session \$session -ScriptBlock {
               param(\$dir)
               if (-not (Test-Path \$dir)) { New-Item -ItemType Directory -Path \$dir -Force }
+              
+              Write-Host "Stopping existing agent and helper if running..."
+              Stop-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
+              Stop-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
+              Get-Process -Name "sentrix-agent" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+              Get-Process -Name "sentrix-helper" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+              Start-Sleep -Seconds 2
           } -ArgumentList \$targetDir
 
           Copy-Item -Path "${agentExePath.replace(/\\/g, "\\\\")}" -Destination "\$targetDir\\\\sentrix-agent.exe" -ToSession \$session
+          if (Test-Path "${helperExePath.replace(/\\/g, "\\\\")}") {
+              Copy-Item -Path "${helperExePath.replace(/\\/g, "\\\\")}" -Destination "\$targetDir\\\\sentrix-helper.exe" -ToSession \$session
+          }
           if (Test-Path "${assetsPath.replace(/\\/g, "\\\\")}") {
               Copy-Item -Path "${assetsPath.replace(/\\/g, "\\\\")}" -Destination "\$targetDir" -Recurse -Force -ToSession \$session
           }
@@ -168,6 +211,7 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
               \$envContent = "SENTRIX_SERVER_URL=\$u"
               \$envContent | Out-File -FilePath "\$dir\\.env" -Encoding utf8
               
+              # 1. Main Agent Registration
               \$action = New-ScheduledTaskAction -Execute "\$dir\\sentrix-agent.exe" -Argument "--server-url \$u" -WorkingDirectory \$dir
               \$trigger = New-ScheduledTaskTrigger -AtStartup
               \$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
@@ -178,6 +222,19 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
               
               Register-ScheduledTask -TaskName "Sentrix Agent" -Action \$action -Trigger \$trigger -Principal \$principal -Settings \$settings -Force
               Start-ScheduledTask -TaskName "Sentrix Agent"
+
+              # 2. Helper Registration (User Session)
+              if (Test-Path "\$dir\\sentrix-helper.exe") {
+                  \$hAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -WindowStyle Hidden -Command \`"Start-Process -FilePath '\$dir\\sentrix-helper.exe' -WorkingDirectory '\$dir' -WindowStyle Hidden\`""
+                  \$hTrigger = New-ScheduledTaskTrigger -AtLogOn
+                  \$hPrincipal = New-ScheduledTaskPrincipal -GroupId "Users" -RunLevel Highest
+                  \$hSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Days 0)
+                  \$hSettings.Hidden = \$true
+                  
+                  Unregister-ScheduledTask -TaskName "Sentrix Helper" -Confirm:\$false -ErrorAction SilentlyContinue
+                  Register-ScheduledTask -TaskName "Sentrix Helper" -Action \$hAction -Trigger \$hTrigger -Principal \$hPrincipal -Settings \$hSettings -Force
+                  Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
+              }
 
               # Lockdown Phase: Re-secure the machine
               Disable-LocalUser -Name "Administrator" -ErrorAction SilentlyContinue
