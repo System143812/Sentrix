@@ -47,13 +47,13 @@ export function PageHeader({
               </h2>
             </div>
             {subtitle ? (
-              <p
+              <div
                 className={`mt-1.5 max-w-3xl text-sm leading-6 ${
                   isDark ? "font-medium text-slate-300/90" : "text-slate-500"
                 }`}
               >
                 {subtitle}
-              </p>
+              </div>
             ) : null}
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
