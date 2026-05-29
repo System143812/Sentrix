@@ -7,6 +7,7 @@ import {
   Database,
   Info,
   CircuitBoard,
+  Users,
   Monitor,
   Network,
   RadioTower,
@@ -174,12 +175,14 @@ function hasTemperatureReading(temperature = {}) {
   );
 }
 
+import { BlurOverlay } from "./BlurOverlay.jsx";
+
 function ConfirmDialog({ device, onCancel, onConfirm }) {
   if (!device) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4 backdrop-blur-[2px]">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
+    <BlurOverlay onClose={onCancel}>
+      <div className="w-full rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h3 className="text-lg font-bold text-slate-900">Archive device?</h3>
@@ -214,7 +217,7 @@ function ConfirmDialog({ device, onCancel, onConfirm }) {
           </button>
         </div>
       </div>
-    </div>
+    </BlurOverlay>
   );
 }
 
@@ -254,53 +257,198 @@ function DetailViewSwitch({ activeView, onChange, canControl }) {
   );
 }
 
-function BroadcastDialog({ onCancel, onSend }) {
+function BroadcastDialog({ onCancel, onSend, device, allDevices = [] }) {
   const [message, setMessage] = useState("");
+  const [target, setTarget] = useState("single");
+
+  const groupDevices = allDevices.filter(d => d.group === device.group && d.status === "online");
+  const onlineDevices = allDevices.filter(d => d.status === "online");
+
+  const targetCount = target === "single" ? 1 : target === "group" ? groupDevices.length : onlineDevices.length;
+
+  const targets = [
+    { id: "single", label: "This Device", icon: Monitor, description: device.hostname },
+    { id: "group", label: "Same Group", icon: Users, description: `${device.group || 'Unassigned'} (${groupDevices.length} online)` },
+    { id: "all", label: "All Online", icon: Globe2, description: `Broadcast to ${onlineDevices.length} devices` },
+  ];
 
   return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/40 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
-        <div className="flex items-center gap-3 mb-5">
-          <span className="grid h-10 w-10 place-items-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
-            <MessageSquare size={20} strokeWidth={2.5} />
+    <BlurOverlay className="z-[100]" onClose={onCancel}>
+      <div className="w-full max-h-[90vh] flex flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-3 p-5 border-b border-slate-50 bg-slate-50/30">
+          <span className="grid h-11 w-11 place-items-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+            <MessageSquare size={22} strokeWidth={2.5} />
           </span>
-          <h3 className="text-lg font-bold text-slate-900 tracking-tight">Broadcast Message</h3>
+          <div>
+            <h3 className="text-base font-bold text-slate-900 tracking-tight">Broadcast Message</h3>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">System Notification</p>
+          </div>
         </div>
         
-        <p className="mb-4 text-xs font-medium text-slate-500 leading-relaxed">
-          The text will appear as a native Windows popup on the target PC's active screen.
-        </p>
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Targeting Scope</p>
+          <div className="grid gap-2 mb-6">
+            {targets.map((t) => {
+              const TargetIcon = t.icon;
+              const active = target === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTarget(t.id)}
+                  className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                    active 
+                    ? 'border-blue-600 bg-white shadow-md ring-4 ring-blue-50' 
+                    : 'border-slate-100 bg-slate-50/30 text-slate-600 hover:border-slate-300 hover:bg-white'
+                  }`}
+                  type="button"
+                >
+                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg border transition-colors ${active ? 'border-blue-100 bg-blue-50 text-blue-600' : 'border-slate-200 bg-white text-slate-400'}`}>
+                    <TargetIcon size={16} strokeWidth={2.5} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold leading-tight text-slate-900">{t.label}</p>
+                    <p className="truncate text-[10px] font-medium text-slate-500 mt-0.5">{t.description}</p>
+                  </div>
+                  <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 ${active ? 'border-blue-600 bg-blue-600' : 'border-slate-200 bg-white'}`}>
+                    {active && <div className="h-1 w-1 rounded-full bg-white" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-        <textarea
-          autoFocus
-          className="w-full h-32 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100/50 transition-all resize-none"
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="e.g. Lab will close in 5 minutes. Please save your work."
-          value={message}
-        />
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Message Text</p>
+          <textarea
+            autoFocus
+            className="w-full h-28 rounded-xl border border-slate-200 bg-slate-50/50 p-4 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100/50 transition-all resize-none"
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="e.g. Lab will close in 5 minutes. Please save your work."
+            value={message}
+          />
+        </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button className="btn-minimal h-11 px-6 text-xs" onClick={onCancel} type="button">
+        {/* Footer */}
+        <div className="flex justify-end gap-2 p-4 bg-slate-50/30 border-t border-slate-50">
+          <button className="btn-minimal h-10 px-5 text-[10px] font-bold uppercase tracking-widest" onClick={onCancel} type="button">
             Cancel
           </button>
           <button
-            className="h-11 rounded-xl bg-blue-600 px-6 text-xs font-bold text-white shadow-lg shadow-blue-900/10 transition hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50"
+            className="h-10 rounded-xl bg-blue-600 px-6 text-[10px] font-bold uppercase tracking-widest text-white shadow-lg shadow-blue-900/10 transition hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50"
             disabled={!message.trim()}
-            onClick={() => onSend(message)}
+            onClick={() => onSend(message, target)}
             type="button"
           >
-            Send Message
+            Send to {targetCount} {targetCount === 1 ? 'PC' : 'PCs'}
           </button>
         </div>
       </div>
-    </div>
+    </BlurOverlay>
   );
 }
 
-function RemoteControlPanel({ device }) {
+function ActionConfirmDialog({ action, onCancel, onConfirm, device, allDevices = [] }) {
+  const [target, setTarget] = useState("single");
+  if (!action) return null;
+  const Icon = action.icon;
+
+  const isDangerous = ["shutdown", "restart", "system-purge", "workspace-reset"].includes(action.id);
+
+  const groupDevices = allDevices.filter(d => d.group === device.group && d.status === "online");
+  const onlineDevices = allDevices.filter(d => d.status === "online");
+
+  const targetCount = target === "single" ? 1 : target === "group" ? groupDevices.length : onlineDevices.length;
+
+  const targets = [
+    { id: "single", label: "This Device", icon: Monitor, description: device.hostname },
+    { id: "group", label: "Same Group", icon: Users, description: `${device.group || 'Unassigned'} (${groupDevices.length} online)` },
+    { id: "all", label: "All Online", icon: Globe2, description: `Broadcast to ${onlineDevices.length} devices` },
+  ];
+
+  return (
+    <BlurOverlay onClose={onCancel}>
+      <div className="w-full max-h-[90vh] flex flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+        {/* Header - Tightened */}
+        <div className="flex items-center gap-3 p-5 border-b border-slate-50 bg-slate-50/30">
+          <span className={`grid h-11 w-11 place-items-center rounded-xl border shadow-sm ${isDangerous ? 'border-rose-100 bg-rose-50 text-rose-600' : 'border-blue-100 bg-blue-50 text-blue-600'}`}>
+            <Icon size={22} strokeWidth={2.5} />
+          </span>
+          <div>
+            <h3 className="text-base font-bold text-slate-900 tracking-tight">{action.label}</h3>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Remote Command</p>
+          </div>
+        </div>
+        
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Targeting Scope</p>
+          <div className="grid gap-2 mb-6">
+            {targets.map((t) => {
+              const TargetIcon = t.icon;
+              const active = target === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTarget(t.id)}
+                  className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                    active 
+                    ? 'border-blue-600 bg-white shadow-md ring-4 ring-blue-50' 
+                    : 'border-slate-100 bg-slate-50/30 text-slate-600 hover:border-slate-300 hover:bg-white'
+                  }`}
+                  type="button"
+                >
+                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg border transition-colors ${active ? 'border-blue-100 bg-blue-50 text-blue-600' : 'border-slate-200 bg-white text-slate-400'}`}>
+                    <TargetIcon size={16} strokeWidth={2.5} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold leading-tight text-slate-900">{t.label}</p>
+                    <p className="truncate text-[10px] font-medium text-slate-500 mt-0.5">{t.description}</p>
+                  </div>
+                  <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 ${active ? 'border-blue-600 bg-blue-600' : 'border-slate-200 bg-white'}`}>
+                    {active && <div className="h-1 w-1 rounded-full bg-white" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-100">
+            <p className="text-xs font-medium text-slate-600 leading-relaxed">
+              Confirming will <strong>{action.label.toLowerCase()}</strong> {targetCount > 1 ? `${targetCount} devices` : "this device"}. 
+              <span className="block mt-1 text-slate-400 font-normal text-[10px]">{action.description}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Footer - Compact */}
+        <div className="flex justify-end gap-2 p-4 bg-slate-50/30 border-t border-slate-50">
+          <button className="btn-minimal h-10 px-5 text-[10px] font-bold uppercase tracking-widest" onClick={onCancel} type="button">
+            Cancel
+          </button>
+          <button
+            className={`h-10 rounded-xl px-6 text-[10px] font-bold uppercase tracking-widest text-white shadow-lg transition active:scale-[0.98] ${
+              isDangerous 
+              ? 'bg-rose-600 shadow-rose-900/10 hover:bg-rose-700' 
+              : 'bg-blue-600 shadow-blue-900/10 hover:bg-blue-700'
+            }`}
+            onClick={() => onConfirm(target)}
+            type="button"
+          >
+            Confirm Execution
+          </button>
+        </div>
+      </div>
+    </BlurOverlay>
+  );
+}
+
+
+function RemoteControlPanel({ device, allDevices = [] }) {
   const [commandStatus, setCommandStatus] = useState("");
   const [loadingCommand, setLoadingCommand] = useState("");
   const [showBroadcast, setShowBroadcast] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
   const { notify } = useToast();
 
   const powerActions = [
@@ -319,42 +467,96 @@ function RemoteControlPanel({ device }) {
     { id: "broadcast-message", label: "Broadcast", icon: MessageSquare, hoverTone: "group-hover:text-indigo-500", description: "Send a native screen popup" },
   ];
 
-  async function handleCommand(command, payload = {}) {
+  async function handleCommand(targetDevices, command, payload = {}) {
     setLoadingCommand(command);
-    setCommandStatus(`Sending ${command}...`);
-
-    try {
-      const result = await clientApi.sendDeviceCommand(device.id, command, payload);
-      const msg = result.message || `${command.charAt(0).toUpperCase() + command.slice(1)} command sent.`;
-      setCommandStatus(msg);
-      notify(msg, "success");
-    } catch (error) {
-      const msg = error.message || `Unable to send ${command}.`;
-      setCommandStatus(msg);
-      notify(msg, "failed");
-    } finally {
-      setLoadingCommand("");
-      setTimeout(() => setCommandStatus(""), 5000);
+    const count = targetDevices.length;
+    
+    if (count > 1) {
+      setCommandStatus(`Executing ${command} on ${count} devices...`);
+    } else {
+      setCommandStatus(`Sending ${command} to ${targetDevices[0].hostname}...`);
     }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const d of targetDevices) {
+      try {
+        await clientApi.sendDeviceCommand(d.id, command, payload);
+        successCount++;
+        if (count > 1) {
+          setCommandStatus(`Progress: ${successCount}/${count} devices reached...`);
+        }
+      } catch (error) {
+        failCount++;
+      }
+    }
+
+    const finalMsg = count > 1 
+      ? `Batch finished: ${successCount} successful, ${failCount} failed.`
+      : successCount > 0 ? `${command.charAt(0).toUpperCase() + command.slice(1)} command sent.` : `Unable to send ${command}.`;
+
+    setCommandStatus(finalMsg);
+    notify(finalMsg, failCount === 0 ? "success" : "failed");
+    setLoadingCommand("");
+    setTimeout(() => setCommandStatus(""), 5000);
   }
 
-  function onShortcutClick(action) {
+  function onActionClick(action, type) {
     if (action.id === "broadcast-message") {
       setShowBroadcast(true);
     } else {
-      handleCommand(`utility:${action.id}`);
+      setPendingAction({ ...action, type });
     }
+  }
+
+  function confirmPendingAction(scope) {
+    if (!pendingAction) return;
+    
+    const command = pendingAction.type === 'utility' 
+      ? `utility:${pendingAction.id}` 
+      : pendingAction.id;
+    
+    let targetDevices = [device];
+    if (scope === "group") {
+      targetDevices = allDevices.filter(d => d.group === device.group && d.status === "online");
+    } else if (scope === "all") {
+      targetDevices = allDevices.filter(d => d.status === "online");
+    }
+      
+    handleCommand(targetDevices, command);
+    setPendingAction(null);
   }
 
   return (
     <div className="grid gap-6">
       {showBroadcast && (
         <BroadcastDialog
+          device={device}
+          allDevices={allDevices}
           onCancel={() => setShowBroadcast(false)}
-          onSend={(msg) => {
+          onSend={(msg, scope) => {
             setShowBroadcast(false);
-            handleCommand("utility:broadcast-message", { text: msg });
+            
+            let targetDevices = [device];
+            if (scope === "group") {
+              targetDevices = allDevices.filter(d => d.group === device.group && d.status === "online");
+            } else if (scope === "all") {
+              targetDevices = allDevices.filter(d => d.status === "online");
+            }
+            
+            handleCommand(targetDevices, "utility:broadcast-message", { text: msg });
           }}
+        />
+      )}
+
+      {pendingAction && (
+        <ActionConfirmDialog
+          action={pendingAction}
+          device={device}
+          allDevices={allDevices}
+          onCancel={() => setPendingAction(null)}
+          onConfirm={confirmPendingAction}
         />
       )}
 
@@ -373,7 +575,7 @@ function RemoteControlPanel({ device }) {
                 <button
                   className="flex h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-md active:scale-95 disabled:cursor-wait disabled:opacity-50"
                   disabled={Boolean(loadingCommand)}
-                  onClick={() => handleCommand(action.id)}
+                  onClick={() => onActionClick(action, 'power')}
                   type="button"
                 >
                   <Icon
@@ -412,7 +614,7 @@ function RemoteControlPanel({ device }) {
                 <button
                   className="flex h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-md active:scale-95 disabled:cursor-wait disabled:opacity-50"
                   disabled={Boolean(loadingCommand)}
-                  onClick={() => onShortcutClick(action)}
+                  onClick={() => onActionClick(action, 'utility')}
                   type="button"
                 >
                   <Icon
@@ -822,8 +1024,8 @@ function ProcessEndConfirmDialog({ count, loading, onCancel, onConfirm }) {
   if (!count) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/55 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
+    <BlurOverlay className="z-[80]" onClose={onCancel}>
+      <div className="w-full rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="flex items-start gap-4">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600">
             <ShieldAlert size={22} />
@@ -850,7 +1052,7 @@ function ProcessEndConfirmDialog({ count, loading, onCancel, onConfirm }) {
           </button>
         </div>
       </div>
-    </div>,
+    </BlurOverlay>,
     document.body,
   );
 }
@@ -1323,7 +1525,7 @@ function BehaviorAnalyticsDetails({ device }) {
   );
 }
 
-function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loading, error, canControl, canManagePeripherals }) {
+function DeviceDetails({ allDevices, device, hardware, metricHistory, peripheralHistory, loading, error, canControl, canManagePeripherals }) {
   const [activeView, setActiveView] = useState("specification");
   const details = device.details || {};
   const specs = hardware?.profile || details.specs || {};
@@ -1579,12 +1781,13 @@ function DeviceDetails({ device, hardware, metricHistory, peripheralHistory, loa
         </div>
       ) : (
         <div className="device-detail-view">
-          <RemoteControlPanel device={device} />
+          <RemoteControlPanel device={device} allDevices={allDevices} />
         </div>
       )}
     </div>
   );
 }
+
 
 export function DeviceTable({
   devices = [],
@@ -1855,6 +2058,7 @@ export function DeviceTable({
                 >
                   <div className="overflow-hidden">
                     <DeviceDetails
+                      allDevices={devices}
                       device={device}
                       error={detailCache[device.id]?.error}
                       hardware={detailCache[device.id]?.hardware}
