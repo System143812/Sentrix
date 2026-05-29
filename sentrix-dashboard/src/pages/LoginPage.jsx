@@ -81,8 +81,8 @@ export function LoginPage({ onLogin, error }) {
               }}
             >
               <div className="absolute inset-0 bg-slate-950/65 backdrop-blur-[1px]" />
-              <div className="relative z-10 scale-125">
-                <SentrixLogo inverse framed={false} size="lg" />
+              <div className="relative z-10">
+                <SentrixLogo inverse framed={false} size="md" />
               </div>
             </div>
 
