@@ -87,4 +87,46 @@ describe('Peripherals Service (Sanity Check)', async () => {
     // Verification: Normal disconnect should be passed through
     expect(resultsAfterUnplug.length).toBe(2);
   });
+
+  it('should filter out system radio controls and generic infrastructure noise', async () => {
+    const mockNoiseResult = JSON.stringify([
+      { 
+        FriendlyName: 'HID-compliant wireless radio controls', 
+        InstanceId: 'HID\\HPQ6001\\3', 
+        Class: 'HIDClass',
+        Service: null,
+        Manufacturer: '(Standard system devices)'
+      },
+      { 
+        FriendlyName: 'System board', 
+        InstanceId: 'ACPI\\PNP0C01\\2', 
+        Class: 'System',
+        Service: null,
+        Manufacturer: '(Standard system devices)'
+      },
+      { 
+        FriendlyName: 'USB Root Hub (USB 3.0)', 
+        InstanceId: 'IUSB3\\ROOT_HUB30\\4', 
+        Class: 'USB',
+        Service: 'usbhub3',
+        Manufacturer: '(Standard USB HUBs)'
+      },
+      { 
+        FriendlyName: 'Real Peripheral Mouse', 
+        InstanceId: 'USB\\VID_1111&PID_2222\\5', 
+        Class: 'Mouse',
+        Service: 'mouhid',
+        Manufacturer: 'Logitech'
+      }
+    ]);
+
+    execFile.mockImplementationOnce((cmd, args, opts, cb) => cb(null, { stdout: mockNoiseResult }));
+    
+    const results = await collectUsbDevices();
+
+    // Verification: Only 'Real Peripheral Mouse' should remain.
+    // Radio controls, System board (generic manufacturer + not priority), and Hub (service) should be gone.
+    expect(results.length).toBe(1);
+    expect(results[0].name).toBe('Real Peripheral Mouse');
+  });
 });

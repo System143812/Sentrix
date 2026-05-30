@@ -36,16 +36,30 @@ async function getWindowsUsbDevices() {
     
     // Universal Service Filter: Exclude hubs, controllers, and virtual bridges globally.
     // We use a broad regex to catch variant names (usbhub3, pci-express, etc).
-    const skipServiceRegex = /hub|^usbccgp|^pci|^vbus|^usbhost|^hidusb|^monitor|^bthpan|^bthenum|^umpass/i;
+    const skipServiceRegex = /hub|^usbccgp|^pci|^vbus|^usbhost|^hidusb|^monitor|^bthpan|^bthenum|^umpass|^swenum|^iwdbus|^mssmbios|^cad/i;
 
     for (const d of devices) {
       const className = (d.Class || "").toLowerCase();
       const service = (d.Service || "").toLowerCase();
       const name = (d.FriendlyName || "").toLowerCase();
       const instanceId = (d.InstanceId || "").toUpperCase();
+      const manufacturer = (d.Manufacturer || "").toLowerCase();
 
-      // 1. Universal Filtering (Infrastructure/Bridge services)
+      // 1. Universal Filtering (Infrastructure/Bridge services & System Noise)
+      const isHighPriority = highPriorityClasses.has(className);
+      
+      // Filter out infrastructure services
       if (!name || skipServiceRegex.test(service)) {
+        continue;
+      }
+
+      // Filter out specific system noise: Radio controls, airplane mode, etc.
+      if (name.includes("radio control") || name.includes("airplane mode") || name.includes("system controller")) {
+        if (!isHighPriority) continue;
+      }
+
+      // Filter out generic "Standard system devices" that aren't high priority
+      if (manufacturer.includes("standard system devices") && !isHighPriority) {
         continue;
       }
 
@@ -58,7 +72,6 @@ async function getWindowsUsbDevices() {
       // physical device are all grouped together for deduplication.
       const identityKey = vidPid || instanceId;
 
-      const isHighPriority = highPriorityClasses.has(className);
       const isGenericName = name.includes("usb input device") || name.includes("hid-compliant") || name.includes("standard");
 
       const existing = physicalMap.get(identityKey);
