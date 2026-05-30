@@ -43,6 +43,7 @@ import { Pagination } from "./Pagination.jsx";
 import { useTelemetryInterval } from "../hooks/useTelemetryInterval.js";
 import { useToast } from "./ToastProvider.jsx";
 import * as clientApi from "../services/clientApi.js";
+import * as settingsApi from "../services/settingsApi.js";
 import {
   formatBool,
   formatBytesPerSecond,
@@ -452,7 +453,7 @@ function ActionConfirmDialog({ action, onCancel, onConfirm, device, allDevices =
 }
 
 
-function RemoteControlPanel({ device, allDevices = [] }) {
+function RemoteControlPanel({ device, allDevices = [], utilityConfig }) {
   const [commandStatus, setCommandStatus] = useState("");
   const [loadingCommand, setLoadingCommand] = useState("");
   const [showBroadcast, setShowBroadcast] = useState(false);
@@ -474,6 +475,10 @@ function RemoteControlPanel({ device, allDevices = [] }) {
     { id: "workspace-reset", label: "Clear Workspace", icon: Eraser, hoverTone: "group-hover:text-amber-500", description: "Kill all non-system applications" },
     { id: "broadcast-message", label: "Broadcast", icon: MessageSquare, hoverTone: "group-hover:text-indigo-500", description: "Send a native screen popup" },
   ];
+
+  const enabledShortcuts = utilityConfig?.enabledIds 
+    ? utilityShortcuts.filter(s => utilityConfig.enabledIds.includes(s.id))
+    : utilityShortcuts;
 
   async function handleCommand(targetDevices, command, payload = {}) {
     setLoadingCommand(command);
@@ -613,36 +618,50 @@ function RemoteControlPanel({ device, allDevices = [] }) {
           Admin Maintenance Tools
         </h4>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {utilityShortcuts.map((action) => {
-            const Icon = action.icon;
-            const pending = loadingCommand === `utility:${action.id}`;
+          {enabledShortcuts.length > 0 ? (
+            enabledShortcuts.map((action) => {
+              const Icon = action.icon;
+              const pending = loadingCommand === `utility:${action.id}`;
 
-            return (
-              <div className="group relative" key={action.id}>
-                <button
-                  className="flex h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-md active:scale-95 disabled:cursor-wait disabled:opacity-50"
-                  disabled={Boolean(loadingCommand)}
-                  onClick={() => onActionClick(action, 'utility')}
-                  type="button"
-                >
-                  <Icon
-                    className={`text-slate-400 transition-colors duration-200 ${action.hoverTone} group-active:text-white ${
-                      pending ? "animate-pulse" : ""
-                    }`}
-                    size={24}
-                    strokeWidth={2.5}
-                  />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">
-                    {pending ? "Executing" : action.label}
-                  </span>
-                </button>
-                <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-44 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
-                  {action.description}
-                  <div className="absolute left-1/2 top-full -ml-1.5 border-[6px] border-transparent border-t-slate-900" />
+              return (
+                <div className="group relative" key={action.id}>
+                  <button
+                    className="flex h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-md active:scale-95 disabled:cursor-wait disabled:opacity-50"
+                    disabled={Boolean(loadingCommand)}
+                    onClick={() => onActionClick(action, 'utility')}
+                    type="button"
+                  >
+                    <Icon
+                      className={`text-slate-400 transition-colors duration-200 ${action.hoverTone} group-active:text-white ${
+                        pending ? "animate-pulse" : ""
+                      }`}
+                      size={24}
+                      strokeWidth={2.5}
+                    />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">
+                      {pending ? "Executing" : action.label}
+                    </span>
+                  </button>
+                  <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-44 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
+                    {action.description}
+                    <div className="absolute left-1/2 top-full -ml-1.5 border-[6px] border-transparent border-t-slate-900" />
+                  </div>
                 </div>
+              );
+            })
+          ) : (
+            <div className="col-span-full flex flex-col items-center justify-center py-6 text-center">
+              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-300">
+                <Zap size={24} strokeWidth={2} />
               </div>
-            );
-          })}
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                No active maintenance tools
+              </p>
+              <p className="mt-1 text-[9px] font-medium text-slate-400">
+                Configure shortcuts in system settings
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="mt-6 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3.5 text-xs font-medium leading-5 text-blue-700 shadow-sm">
@@ -1538,7 +1557,7 @@ function BehaviorAnalyticsDetails({ device }) {
   );
 }
 
-function DeviceDetails({ allDevices, device, hardware, metricHistory, peripheralHistory, loading, error, canControl, canManagePeripherals }) {
+function DeviceDetails({ allDevices, device, hardware, metricHistory, peripheralHistory, loading, error, canControl, canManagePeripherals, utilityConfig }) {
   const [activeView, setActiveView] = useState("specification");
   const details = device.details || {};
   const specs = hardware?.profile || details.specs || {};
@@ -1794,7 +1813,7 @@ function DeviceDetails({ allDevices, device, hardware, metricHistory, peripheral
         </div>
       ) : (
         <div className="device-detail-view">
-          <RemoteControlPanel device={device} allDevices={allDevices} />
+          <RemoteControlPanel device={device} allDevices={allDevices} utilityConfig={utilityConfig} />
         </div>
       )}
     </div>
@@ -1819,6 +1838,11 @@ export function DeviceTable({
   const [expandedId, setExpandedId] = useState(null);
   const [pendingArchive, setPendingArchive] = useState(null);
   const [detailCache, setDetailCache] = useState({});
+  const [utilityConfig, setUtilityConfig] = useState(null);
+
+  useEffect(() => {
+    settingsApi.getUtilityConfig().then(setUtilityConfig).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!expandedId) return;
@@ -2080,6 +2104,7 @@ export function DeviceTable({
                       peripheralHistory={detailCache[device.id]?.peripheralHistory}
                       canControl={canControl}
                       canManagePeripherals={canManagePeripherals}
+                      utilityConfig={utilityConfig}
                     />
                   </div>
                 </div>

@@ -32,6 +32,7 @@ import * as settingsApi from "../services/settingsApi.js";
 import * as authApi from "../services/authApi.js";
 import { ICON_TONES } from "../styles/tones.js";
 import { StorageLifecycleOverlay } from "../components/StorageLifecycleOverlay.jsx";
+import { AdminUtilityConfigOverlay } from "../components/AdminUtilityConfigOverlay.jsx";
 
 function SettingsSection({
   icon: Icon,
@@ -294,6 +295,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [message, setMessage] = useState("");
   const [isPruningOpen, setIsPruningOpen] = useState(false);
+  const [isUtilityOpen, setIsUtilityOpen] = useState(false);
   const { pending: pendingAction, setPending } = usePendingAction();
   const { notify } = useToast();
 
@@ -629,13 +631,15 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
           tone="emerald"
         >
           <div className="grid gap-3">
-            <ActionButton
-              label="Admin utility shortcuts"
-              icon={Zap}
-              description="Configure one-click maintenance and enforcement tools."
-              tone="emerald"
-              showChevron={true}
-            />
+            <div onClick={() => setIsUtilityOpen(true)}>
+              <ActionButton
+                label="Admin utility shortcuts"
+                icon={Zap}
+                description="Configure one-click maintenance and enforcement tools."
+                tone="emerald"
+                showChevron={true}
+              />
+            </div>
             <div onClick={() => setIsPruningOpen(true)}>
               <ActionButton
                 label="Storage & Data Lifecycle"
@@ -653,6 +657,13 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
         isOpen={isPruningOpen} 
         onClose={() => setIsPruningOpen(false)} 
         isNetworkAdmin={isNetworkAdmin}
+      />
+
+      <AdminUtilityConfigOverlay
+        isOpen={isUtilityOpen}
+        onClose={() => setIsUtilityOpen(false)}
+        isNetworkAdmin={isNetworkAdmin}
+        groups={groups}
       />
     </div>
   );
