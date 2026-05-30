@@ -84,3 +84,34 @@ export async function triggerPruning(req, res, next) {
     next(error);
   }
 }
+
+export async function getUtilities(req, res, next) {
+  try {
+    const settings = await settingsService.getUtilitySettings();
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateUtilities(req, res, next) {
+  try {
+    const settings = await settingsService.updateUtilitySettings({
+      enabledIds: req.body?.enabledIds,
+      userId: req.user?.id,
+    });
+
+    await logAuditEvent({
+      req,
+      action: "utility_shortcuts_updated",
+      targetType: "system_settings",
+      targetId: "utilities",
+      details: settings,
+    });
+
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    next(error);
+  }
+}
+

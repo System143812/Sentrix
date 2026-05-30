@@ -11,4 +11,7 @@ router.get("/pruning", settingsController.getPruning);
 router.patch("/pruning", requireRole("network_admin"), settingsController.updatePruning);
 router.post("/pruning/trigger", requireRole("network_admin"), settingsController.triggerPruning);
 
+router.get("/utilities", settingsController.getUtilities);
+router.patch("/utilities", requireRole("network_admin"), settingsController.updateUtilities);
+
 export default router;

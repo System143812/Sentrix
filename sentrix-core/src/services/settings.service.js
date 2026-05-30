@@ -15,6 +15,16 @@ const DEFAULT_PRUNING = {
   },
 };
 
+const DEFAULT_UTILITIES = {
+  enabledIds: [
+    "network-reset",
+    "system-purge",
+    "time-sync",
+    "workspace-reset",
+    "broadcast-message",
+  ],
+};
+
 function parseSetting(value, fallback) {
   if (!value) return fallback;
   if (typeof value === "object") return value;
@@ -114,3 +124,39 @@ export async function recordPruningRun() {
     [now],
   );
 }
+
+export async function getUtilitySettings() {
+  const [[row]] = await pool.query(
+    "SELECT setting_value, updated_at FROM system_settings WHERE setting_key = 'utilities' LIMIT 1",
+  );
+
+  const value = parseSetting(row?.setting_value, DEFAULT_UTILITIES);
+  return {
+    ...DEFAULT_UTILITIES,
+    ...value,
+    updatedAt: row?.updated_at || null,
+  };
+}
+
+export async function updateUtilitySettings({ enabledIds, userId = null }) {
+  const now = Date.now();
+  const value = { enabledIds: Array.isArray(enabledIds) ? enabledIds : [] };
+
+  await pool.query(
+    `
+    INSERT INTO system_settings (setting_key, setting_value, updated_by, updated_at)
+    VALUES ('utilities', ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      setting_value = VALUES(setting_value),
+      updated_by = VALUES(updated_by),
+      updated_at = VALUES(updated_at)
+    `,
+    [JSON.stringify(value), userId, now],
+  );
+
+  return {
+    ...value,
+    updatedAt: now,
+  };
+}
+
