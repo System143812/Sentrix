@@ -47,24 +47,6 @@ export function buildPeripheralSnapshot(details = {}) {
     }
   }
 
-  // 3. Process Network Adapters (Physical only)
-  for (const adapter of networkAdapters) {
-    // We only care about Wireless/Bluetooth if they aren't in USB list
-    const isWireless = /wireless|wifi|bluetooth/i.test(`${adapter.name} ${adapter.type}`);
-    if (!isWireless) continue;
-
-    const key = `adapter:${normalizeKey(adapter.mac || adapter.name)}`;
-    if (!snapshot.has(key)) {
-      snapshot.set(key, {
-        key,
-        name: adapter.name || "Network Adapter",
-        category: adapter.type || "Network Adapter",
-        vendor: null,
-        externalId: adapter.mac || null,
-      });
-    }
-  }
-
   return [...snapshot.values()];
 }
 
