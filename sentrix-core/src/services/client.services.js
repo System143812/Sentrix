@@ -36,28 +36,49 @@ export async function registerClient(clientData) {
   const id = clientData.agentId ?? clientData.id;
   if (!id) throw new Error("Client id is required.");
 
+  const existing = await getClientById(id);
   console.log(`[CORE] Registering agent: ${id} (${clientData.hostname})`);
   const now = Date.now();
-  const metrics = clientData.metrics ?? {};
-  const details = clientData.details ?? {};
 
-  // 1. First, ensure the client record exists (Primary Table)
-  // We use a basic normalization here for the main table record
-  const initialNormalized = await normalizeMetrics(metrics);
+  // 1. Determine which metrics/details to use. 
+  // If the registration packet is empty (typical on restart), keep what we already have.
+  const incomingMetrics = clientData.metrics || {};
+  const incomingDetails = clientData.details || {};
   
+  const hasIncomingMetrics = Object.keys(incomingMetrics).length > 0;
+  const hasIncomingDetails = Object.keys(incomingDetails).length > 0;
+
+  // For the main table, we want normalized metrics
+  const metricsToPersist = hasIncomingMetrics 
+    ? await normalizeMetrics(incomingMetrics) 
+    : (existing?.metrics || await normalizeMetrics({}));
+
+  const detailsToPersist = hasIncomingDetails 
+    ? incomingDetails 
+    : (existing?.details || {});
+
   await ClientRepository.upsert(id, {
     ...clientData,
-    metrics: initialNormalized,
-    details
+    metrics: metricsToPersist,
+    details: detailsToPersist
   }, now);
 
-  // 2. Now that the client exists, we can process detailed metrics (Child Tables)
-  // This handles processes, network activity, etc. which have FK constraints.
-  await processIncomingMetrics(id, metrics, now);
+  // 2. Only trigger expensive child-table updates if new data was actually sent
+  if (hasIncomingMetrics) {
+    await processIncomingMetrics(id, incomingMetrics, now);
+  }
+  
   await recordUptimeStatus(id, "online", now);
 
-  await saveHardwareDetails(id, details);
-  console.log(`[CORE] Agent ${id} registered successfully.`);
+  if (hasIncomingDetails) {
+    try {
+      await saveHardwareDetails(id, incomingDetails);
+    } catch (err) {
+      console.error(`[CORE] Initial hardware save failed for ${id}:`, err);
+    }
+  }
+
+  console.log(`[CORE] Agent ${id} registered successfully. Data preservation: ${!hasIncomingMetrics}`);
 
   return getClientById(id);
 }
@@ -202,20 +223,70 @@ export async function getClientHardwareDetails(id) {
   const client = await getClientById(id);
   if (!client || client.archived) return null;
 
-  const hardware = await getClientHardware(id);
+  // Use the atomic details JSON snapshot as the primary source for specifications.
+  // This prevents "flickering" caused by partial updates to child tables.
+  const details = client.details || {};
+  const specs = details.specs || {};
+  const agentPeripherals = details.peripherals || {};
 
-  // Fallback to client.details if structured hardware tables are empty
-  if (!hardware.profile && !hardware.peripherals && client.details) {
-    return {
-      profile: client.details.specs || null,
-      peripherals: client.details.peripherals || null,
-      disks: client.details.specs?.disks || [],
-      networkAdapters: client.details.specs?.networkAdapters || [],
-      usbDevices: client.details.usbDevices || [],
-      graphicsCards: client.details.peripherals?.graphicsCards || [],
-      displays: client.details.peripherals?.displays || [],
-    };
-  }
+  // We still fetch live inventory tracking to get 'missing' vs 'connected' statuses.
+  const inventoryData = await getClientPeripheralHistory(id).catch(() => ({ inventory: [] }));
+  const inventory = inventoryData.inventory || [];
 
-  return hardware;
+  return {
+    profile: {
+      manufacturer: specs.manufacturer || null,
+      model: specs.model || null,
+      serial: specs.serial || null,
+      bios: specs.bios || null,
+      baseboard: specs.baseboard || null,
+      cpu: specs.cpu || null,
+      cpuCores: specs.cpuCores || 0,
+      cpuThreads: specs.cpuThreads || 0,
+      totalMemoryGb: specs.totalMemoryGb || 0,
+      memorySlots: specs.memorySlots || 0,
+    },
+    peripherals: {
+      mouse: Boolean(agentPeripherals.mouse),
+      keyboard: Boolean(agentPeripherals.keyboard),
+      wifiDongle: Boolean(agentPeripherals.wifiDongle),
+      bluetoothDongle: Boolean(agentPeripherals.bluetoothDongle),
+      webcam: Boolean(agentPeripherals.webcam),
+      storage: Boolean(agentPeripherals.storage),
+    },
+    disks: (specs.disks || []).map(d => ({
+      name: d.name,
+      type: d.type || d.disk_type,
+      sizeGb: d.sizeGb || d.size_gb,
+    })),
+    networkAdapters: (specs.networkAdapters || []).map(a => ({
+      name: a.name,
+      mac: a.mac,
+      ip4: a.ip4,
+      type: a.type || a.adapter_type,
+    })),
+    usbDevices: (details.usbDevices || []).map(u => ({
+      name: u.name,
+      type: u.type || u.device_type,
+      vendor: u.manufacturer || u.vendor,
+      id: u.deviceId || u.external_id || u.id,
+    })),
+    graphicsCards: (agentPeripherals.graphicsCards || []).map(g => ({
+      model: g.model,
+      vendor: g.vendor,
+      vram: g.vram || g.vram_mb,
+    })),
+    displays: (agentPeripherals.displays || []).map(d => ({
+      model: d.model,
+      resolution: d.resolution,
+    })),
+    // Attach live inventory for status tracking in the UI
+    inventory: inventory.map(item => ({
+      key: item.key,
+      name: item.name,
+      category: item.category,
+      status: item.status,
+      lastSeenAt: item.last_seen_at || item.lastSeenAt,
+    })),
+  };
 }

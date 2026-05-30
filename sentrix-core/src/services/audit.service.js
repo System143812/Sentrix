@@ -2,20 +2,22 @@ import pool from "../lib/database.js";
 import { blockAuditSubject } from "./security.service.js";
 
 function getRequestIp(req) {
+  if (!req) return "127.0.0.1";
   return (
     req.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() ||
     req.socket?.remoteAddress ||
     req.ip ||
-    null
+    "127.0.0.1"
   );
 }
 
 function getRequestMac(req) {
+  if (!req) return null;
   return (
-    req?.headers?.["x-client-mac"] ||
-    req?.headers?.["x-forwarded-mac"] ||
-    req?.body?.macAddress ||
-    req?.body?.mac ||
+    req.headers?.["x-client-mac"] ||
+    req.headers?.["x-forwarded-mac"] ||
+    req.body?.macAddress ||
+    req.body?.mac ||
     null
   );
 }
