@@ -7,8 +7,9 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD || "secret",
   database: process.env.DB_DATABASE || "sentrix",
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 50, // Increased from 10 to handle more concurrent agents
   queueLimit: 0,
+  connectTimeout: 10000, // 10 seconds
 });
 
 export default pool;
