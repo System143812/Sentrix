@@ -4,15 +4,20 @@ import si from "systeminformation";
 
 const execFileAsync = promisify(execFile);
 
+let usbCache = [];
+
 async function getWindowsUsbDevices() {
   try {
-    // Fast query: Only get basic properties, avoid slow property lookups in PS loop.
+    // Universal Physical Rule:
+    // 1. Filter for external buses (USB, Bluetooth, Display) AND the HID logical layer.
+    // 2. Capture FriendlyName, InstanceId, Class, Service, and Manufacturer.
+    // 3. Status Code MUST be 0 (Working correctly). This kills "Compliance Mode" noise globally.
     const script = `
       $ProgressPreference = 'SilentlyContinue'
-      $classes = 'Mouse','Keyboard','Image','Camera','Biometric','Bluetooth','HIDClass','USB','Net'
-      Get-PnpDevice -PresentOnly | Where-Object { 
-        $classes -contains $_.Class -and $_.InstanceId -notmatch '^ROOT|^SWD|^HTREE' 
-      } | Select-Object FriendlyName, InstanceId, Class, Manufacturer | ConvertTo-Json
+      $devs = Get-PnpDevice -PresentOnly | Where-Object { 
+        $_.InstanceId -match '^USB|^BTHENUM|^DISPLAY|^HID' -and $_.ConfigManagerErrorCode -eq 0
+      } | Select-Object FriendlyName, InstanceId, Class, Service, Manufacturer
+      if ($devs) { $devs | ConvertTo-Json } else { "[]" }
     `.trim();
 
     const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
@@ -20,7 +25,7 @@ async function getWindowsUsbDevices() {
       windowsHide: true,
     });
 
-    if (!stdout || stdout.trim() === "") return [];
+    if (!stdout || stdout.trim() === "") return usbCache;
 
     const rawDevices = JSON.parse(stdout);
     const devices = Array.isArray(rawDevices) ? rawDevices : [rawDevices];
@@ -28,15 +33,19 @@ async function getWindowsUsbDevices() {
     const physicalMap = new Map();
 
     const highPriorityClasses = new Set(["mouse", "keyboard", "image", "camera", "biometric", "net", "bluetooth"]);
-    const skipInfraNames = ["root hub", "host controller", "composite device", "virtual adapter", "miniport", "bridge", "enumerator"];
+    
+    // Universal Service Filter: Exclude hubs, controllers, and virtual bridges globally.
+    // We use a broad regex to catch variant names (usbhub3, pci-express, etc).
+    const skipServiceRegex = /hub|^usbccgp|^pci|^vbus|^usbhost|^hidusb|^monitor|^bthpan|^bthenum|^umpass/i;
 
     for (const d of devices) {
       const className = (d.Class || "").toLowerCase();
+      const service = (d.Service || "").toLowerCase();
       const name = (d.FriendlyName || "").toLowerCase();
       const instanceId = (d.InstanceId || "").toUpperCase();
 
-      // 1. Basic Filtering
-      if (!name || skipInfraNames.some(skip => name.includes(skip))) {
+      // 1. Universal Filtering (Infrastructure/Bridge services)
+      if (!name || skipServiceRegex.test(service)) {
         continue;
       }
 
@@ -44,25 +53,17 @@ async function getWindowsUsbDevices() {
       const vidPidMatch = instanceId.match(/VID_([0-9A-F]+)&PID_([0-9A-F]+)/i);
       const vidPid = vidPidMatch ? vidPidMatch[0] : null;
 
-      // Extract a "Physical Path" or "Serial" part
-      const parts = instanceId.split('\\');
-      let physicalPart = parts[parts.length - 1] || instanceId;
-      
-      // Strip logical enumerators (e.g., ...&0&0005 -> ...&0)
-      const subParts = physicalPart.split('&');
-      const pathBase = subParts.length > 1 ? subParts.slice(0, -1).join('&') : physicalPart;
-
-      // The key combines VID/PID and the physical path base.
-      const identityKey = vidPid ? `${vidPid}_${pathBase}` : instanceId;
+      // The identityKey is now primarily the VID/PID if available.
+      // This ensures that the USB node, HID node, and NET node for the same
+      // physical device are all grouped together for deduplication.
+      const identityKey = vidPid || instanceId;
 
       const isHighPriority = highPriorityClasses.has(className);
       const isGenericName = name.includes("usb input device") || name.includes("hid-compliant") || name.includes("standard");
 
       const existing = physicalMap.get(identityKey);
 
-      // Selection logic:
-      // - Prefer High Priority classes (Keyboard/Mouse) over generic ones (HIDClass/USB).
-      // - Prefer specific names over generic ones.
+      // Selection logic: Prefer specific names/high-priority classes over generic ones.
       if (!existing || 
           (isHighPriority && !existing.isHighPriority) || 
           (!isGenericName && existing.isGenericName)) {
@@ -75,7 +76,8 @@ async function getWindowsUsbDevices() {
           vidPid,
           isHighPriority,
           isGenericName,
-          className
+          className,
+          service
         });
       }
     }
@@ -87,7 +89,6 @@ async function getWindowsUsbDevices() {
 
     for (const dev of physicalMap.values()) {
       const instanceId = dev.deviceId.toUpperCase();
-      // Extract Bluetooth Address if present (12 hex chars at the end or in the middle)
       const bthMatch = instanceId.match(/([0-9A-F]{12})(_[0-9A-F]+)?$/i) || instanceId.match(/DEV_([0-9A-F]{12})/i);
       
       if (bthMatch) {
@@ -102,9 +103,8 @@ async function getWindowsUsbDevices() {
       }
     }
 
-    // Process Bluetooth Groups: Keep the most descriptive name
+    // Process Bluetooth Groups
     for (const group of bluetoothGroups.values()) {
-      // Sort: prefer names that are NOT the raw address or generic services
       group.sort((a, b) => {
         const aGen = a.name.includes("Service") || a.name.includes("Transport") || a.name.includes("Gateway");
         const bGen = b.name.includes("Service") || b.name.includes("Transport") || b.name.includes("Gateway");
@@ -117,7 +117,6 @@ async function getWindowsUsbDevices() {
     for (const group of vidPidGroups.values()) {
       const highPriority = group.filter(d => d.isHighPriority);
       if (highPriority.length > 0) {
-        // Keep unique names within high priority
         const seen = new Set();
         for (const d of highPriority) {
           if (!seen.has(d.name)) {
@@ -137,7 +136,7 @@ async function getWindowsUsbDevices() {
       }
     }
 
-    return finalDevices.map(({ isHighPriority, isGenericName, className, vidPid, ...rest }) => {
+    const results = finalDevices.map(({ isHighPriority, isGenericName, className, vidPid, ...rest }) => {
       let finalName = rest.name;
       const manufacturer = rest.manufacturer;
       if (manufacturer && finalName.toLowerCase().startsWith(manufacturer.toLowerCase())) {
@@ -153,8 +152,28 @@ async function getWindowsUsbDevices() {
         deviceId: rest.deviceId
       };
     });
+
+    // --- AGENT-SIDE SANITY CHECK (The Shield) ---
+    // Detect transient Windows PnP service glitches (Mass Disconnects)
+    if (results.length === 0 && usbCache.length > 2) {
+      console.warn(`[PERIPHERALS] Windows returned 0 devices (Cache was ${usbCache.length}). Suppressing transient glitch.`);
+      return usbCache;
+    }
+
+    const dropThreshold = 0.7; // 70% drop
+    if (usbCache.length > 5) {
+      const dropCount = usbCache.length - results.length;
+      const dropPercent = dropCount / usbCache.length;
+      if (dropPercent >= dropThreshold) {
+        console.warn(`[PERIPHERALS] Detected abnormal mass drop (${Math.round(dropPercent * 100)}%). Suppressing transient glitch.`);
+        return usbCache;
+      }
+    }
+
+    usbCache = results;
+    return results;
   } catch (error) {
-    return [];
+    return usbCache;
   }
 }
 

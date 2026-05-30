@@ -176,6 +176,9 @@ async function start() {
     },
     onStatus(status) {
       log(`Connection ${status.connection}`, status.serverUrl || "");
+      if (status.connection === "online") {
+        lastMetricsSentAt = Date.now();
+      }
     },
   });
 
