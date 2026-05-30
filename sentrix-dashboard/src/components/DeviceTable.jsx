@@ -1246,6 +1246,10 @@ function PeripheralHistoryPanel({ deviceId, history, canControl }) {
   const [endDate, setEndDate] = useState("");
   const [pendingKey, setPendingKey] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  
+  const refreshIntervalMs = useTelemetryInterval();
+
   const inventory = localHistory?.inventory || [];
   const events = localHistory?.events || [];
   const activeInventory = inventory.filter((item) => item.status !== "archived");
@@ -1253,18 +1257,38 @@ function PeripheralHistoryPanel({ deviceId, history, canControl }) {
   const visibleInventory = statusView === "archived" ? archivedInventory : activeInventory;
   const missing = activeInventory.filter((item) => item.status === "missing");
 
-  useEffect(() => {
-    setLocalHistory(history || { inventory: [], events: [] });
-  }, [history]);
-
-  async function reloadHistory() {
+  async function reloadHistory(showLoading = false) {
     if (!deviceId) return;
-    const nextHistory = await clientApi.getClientPeripheralHistoryFiltered(deviceId, {
-      startDate: dateToMs(startDate),
-      endDate: dateToMs(endDate, true),
-    });
-    setLocalHistory(nextHistory || { inventory: [], events: [] });
+    if (showLoading) setLoading(true);
+    try {
+      const nextHistory = await clientApi.getClientPeripheralHistoryFiltered(deviceId, {
+        startDate: dateToMs(startDate),
+        endDate: dateToMs(endDate, true),
+      });
+      setLocalHistory(nextHistory || { inventory: [], events: [] });
+    } finally {
+      if (showLoading) setLoading(false);
+    }
   }
+
+  // Polling for live updates
+  useEffect(() => {
+    let active = true;
+    
+    async function poll() {
+      if (!active) return;
+      // Only auto-poll if no custom date filter is active
+      if (!startDate && !endDate) {
+        await reloadHistory(false);
+      }
+    }
+
+    const timer = setInterval(poll, refreshIntervalMs);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [deviceId, refreshIntervalMs, startDate, endDate]);
 
   async function handlePeripheralAction(item, action) {
     setPendingKey(`${action}:${item.key}`);

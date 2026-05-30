@@ -37,6 +37,7 @@ vi.mock('../services/clientApi.js', () => ({
 vi.mock('../services/settingsApi.js', () => ({
   getTelemetrySettings: vi.fn(() => Promise.resolve({ intervalMs: 5000 })),
   updateTelemetrySettings: vi.fn(() => Promise.resolve({ intervalMs: 5000 })),
+  getUtilityConfig: vi.fn(() => Promise.resolve({ enabledIds: [] })),
 }));
 
 vi.mock('../services/analyticsApi.js', () => ({
