@@ -37,7 +37,7 @@ function classifyDomain(domain = "") {
   return "uncategorized";
 }
 
-async function insertEvent(connection, {
+export async function insertEvent(connection, {
   clientId,
   eventType,
   severity = "info",
