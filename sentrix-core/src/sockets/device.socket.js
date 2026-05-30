@@ -15,6 +15,7 @@ import {
   saveSoftwareInventory,
 } from "../services/behavior.service.js";
 import { isMacBlocked } from "../services/security.service.js";
+import { grantRegistrationGrace } from "../services/heartbeat.service.js";
 
 async function broadcastUpdate(io) {
   io.to("dashboards").emit("devices:update", await getClientSummary());
@@ -41,6 +42,7 @@ export function registerDeviceSocket(io) {
         agentId = payload.agentId || payload.id;
         console.log(`[SOCKET] Received agent:register for ID: ${agentId}`);
         const client = await registerClient(payload);
+        grantRegistrationGrace(client.id);
         socket.join("agents");
         socket.join(`agent:${client.id}`);
         socket.emit("settings:telemetry", await getTelemetrySettings());
@@ -79,23 +81,28 @@ export function registerDeviceSocket(io) {
     });
 
     socket.on("agent:heartbeat", async (payload = {}, callback) => {
-      const id = payload.agentId || agentId;
-      const metrics = payload.metrics || payload.payload || null;
+      try {
+        const id = payload.agentId || agentId;
+        const metrics = payload.metrics || payload.payload || null;
 
-      if (!id) {
-        callback?.({ success: false, message: "Agent is not registered." });
-        return;
+        if (!id) {
+          callback?.({ success: false, message: "Agent is not registered." });
+          return;
+        }
+
+        const client = await touchClientHeartbeat(id, metrics);
+
+        if (!client) {
+          callback?.({ success: false, message: "Agent is not registered." });
+          return;
+        }
+
+        await broadcastUpdate(io);
+        callback?.({ success: true });
+      } catch (error) {
+        console.error(`[SOCKET] Heartbeat error for ID ${agentId}:`, error.message);
+        callback?.({ success: false, message: error.message });
       }
-
-      const client = await touchClientHeartbeat(id, metrics);
-
-      if (!client) {
-        callback?.({ success: false, message: "Agent is not registered." });
-        return;
-      }
-
-      await broadcastUpdate(io);
-      callback?.({ success: true });
     });
 
     socket.on("agent:events", async (payload = {}, callback) => {
