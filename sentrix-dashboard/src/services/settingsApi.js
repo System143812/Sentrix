@@ -32,3 +32,17 @@ export async function triggerPruning() {
   });
   return result.data;
 }
+
+export async function getUtilityConfig() {
+  const result = await fetchJson("/api/settings/utilities");
+  return result.data;
+}
+
+export async function updateUtilityConfig(enabledIds) {
+  const result = await fetchJson("/api/settings/utilities", {
+    method: "PATCH",
+    body: JSON.stringify({ enabledIds }),
+  });
+  return result.data;
+}
+
