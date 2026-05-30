@@ -1,5 +1,7 @@
 import pool from "../../lib/database.js";
 import { withDeadlockRetry, toNumber, toJson } from "../../utils/db.utils.js";
+import { insertEvent as insertGlobalEvent } from "../behavior.service.js";
+import { logAuditEvent } from "../audit.service.js";
 
 function normalizeKey(value = "") {
   return String(value || "unknown")
@@ -66,7 +68,7 @@ export function buildPeripheralSnapshot(details = {}) {
   return [...snapshot.values()];
 }
 
-async function savePeripheralTracking(connection, clientId, details, now) {
+async function savePeripheralTracking(connection, clientId, details, now, client = {}) {
   const snapshot = buildPeripheralSnapshot(details);
   const snapshotByKey = new Map(snapshot.map((item) => [item.key, item]));
 
@@ -114,19 +116,42 @@ async function savePeripheralTracking(connection, clientId, details, now) {
         `,
         [clientId, item.key, item.name, item.category, item.vendor, now, now, toJson({ externalId: item.externalId })],
       );
+
+      await insertGlobalEvent(connection, {
+        clientId,
+        eventType: "peripheral_connected",
+        title: "Peripheral Connected",
+        description: `${item.name} (${item.category}) was connected to the device.`,
+        metadata: { key: item.key, category: item.category, vendor: item.vendor },
+        createdAt: now,
+      });
+
+      // Mirror to main audit log
+      await logAuditEvent({
+        action: "peripheral_connected",
+        targetType: "client",
+        targetId: clientId,
+        targetLabel: client.hostname || clientId,
+        macAddress: client.mac,
+        details: { peripheral: item.name, category: item.category, key: item.key },
+        actor: { email: "System Engine", role: "Automated" },
+      });
     }
   }
 
-  // Graceful missing detection (120s)
-  const GRACE_PERIOD_MS = 120_000;
+  // Missing detection
+  // If a peripheral was previously 'connected' but is absent from the current agent snapshot,
+  // we mark it as disconnected immediately to ensure real-time accuracy.
   for (const row of existingRows) {
     if (
       snapshotByKey.has(row.peripheral_key) ||
       ["missing", "resolved", "archived"].includes(row.status)
     ) continue;
-    if (Number(row.last_seen_at || 0) > now - GRACE_PERIOD_MS) continue;
 
     const missingOffline = Number(row.last_seen_at || 0) < now - 300_000;
+    const eventType = missingOffline ? "missing_after_offline" : "disconnected";
+
+    console.log(`[HARDWARE] Marking peripheral ${row.peripheral_key} as ${eventType} for client ${clientId}`);
 
     await connection.query(
       `
@@ -145,11 +170,32 @@ async function savePeripheralTracking(connection, clientId, details, now) {
       `,
       [
         clientId, row.peripheral_key, row.name, row.category, row.vendor,
-        missingOffline ? "missing_after_offline" : "disconnected",
+        eventType,
         now, row.last_seen_at,
         toJson({ lastSeenAt: row.last_seen_at }),
       ],
     );
+
+    await insertGlobalEvent(connection, {
+      clientId,
+      eventType: `peripheral_${eventType}`,
+      severity: "warning",
+      title: eventType === "disconnected" ? "Peripheral Disconnected" : "Peripheral Missing",
+      description: `${row.name} (${row.category}) is now ${eventType.replace(/_/g, " ")}.`,
+      metadata: { key: row.peripheral_key, category: row.category, lastSeenAt: row.last_seen_at },
+      createdAt: now,
+    });
+
+    // Mirror to main audit log
+    await logAuditEvent({
+      action: `peripheral_${eventType}`,
+      targetType: "client",
+      targetId: clientId,
+      targetLabel: client.hostname || clientId,
+      macAddress: client.mac,
+      details: { peripheral: row.name, category: row.category, key: row.peripheral_key, lastSeenAt: row.last_seen_at },
+      actor: { email: "System Engine", role: "Automated" },
+    });
   }
 }
 
@@ -180,6 +226,8 @@ export async function saveHardwareDetails(clientId, details = {}) {
   const specs = details.specs || {};
   const peripherals = details.peripherals || {};
   const now = Date.now();
+
+  const client = await pool.query(`SELECT hostname, mac FROM clients WHERE id = ?`, [clientId]).then(([rows]) => rows[0]);
 
   return withDeadlockRetry(async () => {
     const connection = await pool.getConnection();
@@ -223,15 +271,15 @@ export async function saveHardwareDetails(clientId, details = {}) {
         ],
       );
 
-      // Child tables ingestion
+      // Child tables ingestion - Ensure they clear even if empty
       const disks = Array.isArray(specs.disks) ? specs.disks : [];
       if (disks.length > 0) {
         await connection.query(
           `INSERT INTO client_hardware_disks (client_id, name, disk_type, size_gb, updated_at) VALUES ?`,
           [disks.map(d => [clientId, d.name || null, d.type || null, toNumber(d.sizeGb), now])]
         );
-        await connection.query(`DELETE FROM client_hardware_disks WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
       }
+      await connection.query(`DELETE FROM client_hardware_disks WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
 
       const adapters = Array.isArray(specs.networkAdapters) ? specs.networkAdapters : [];
       if (adapters.length > 0) {
@@ -239,8 +287,8 @@ export async function saveHardwareDetails(clientId, details = {}) {
           `INSERT INTO client_network_adapters (client_id, name, mac, ip4, adapter_type, updated_at) VALUES ?`,
           [adapters.map(a => [clientId, a.name || null, a.mac || null, a.ip4 || null, a.type || null, now])]
         );
-        await connection.query(`DELETE FROM client_network_adapters WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
       }
+      await connection.query(`DELETE FROM client_network_adapters WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
 
       const usbDevices = Array.isArray(details.usbDevices) ? details.usbDevices : [];
       if (usbDevices.length > 0) {
@@ -248,8 +296,8 @@ export async function saveHardwareDetails(clientId, details = {}) {
           `INSERT INTO client_usb_devices (client_id, name, device_type, vendor, external_id, updated_at) VALUES ?`,
           [usbDevices.map(u => [clientId, u.name || null, u.type || null, u.manufacturer || u.vendor || null, u.deviceId || u.id || null, now])]
         );
-        await connection.query(`DELETE FROM client_usb_devices WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
       }
+      await connection.query(`DELETE FROM client_usb_devices WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
 
       const gpus = Array.isArray(peripherals.graphicsCards) ? peripherals.graphicsCards : [];
       if (gpus.length > 0) {
@@ -257,8 +305,8 @@ export async function saveHardwareDetails(clientId, details = {}) {
           `INSERT INTO client_graphics_cards (client_id, model, vendor, vram_mb, updated_at) VALUES ?`,
           [gpus.map(g => [clientId, g.model || null, g.vendor || null, toNumber(g.vram), now])]
         );
-        await connection.query(`DELETE FROM client_graphics_cards WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
       }
+      await connection.query(`DELETE FROM client_graphics_cards WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
 
       const displays = Array.isArray(peripherals.displays) ? peripherals.displays : [];
       if (displays.length > 0) {
@@ -266,10 +314,10 @@ export async function saveHardwareDetails(clientId, details = {}) {
           `INSERT INTO client_displays (client_id, model, resolution, updated_at) VALUES ?`,
           [displays.map(d => [clientId, d.model || null, d.resolution || null, now])]
         );
-        await connection.query(`DELETE FROM client_displays WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
       }
+      await connection.query(`DELETE FROM client_displays WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
 
-      await savePeripheralTracking(connection, clientId, details, now);
+      await savePeripheralTracking(connection, clientId, details, now, client);
 
       await connection.commit();
     } catch (error) {
@@ -349,61 +397,96 @@ export async function getClientPeripheralHistory(clientId, options = {}) {
 
 async function setPeripheralLifecycle(clientId, key, status, eventType, note = "") {
   const now = Date.now();
-  const [[row]] = await pool.query(
-    `
-    SELECT *
-    FROM client_peripheral_inventory
-    WHERE client_id = ? AND peripheral_key = ?
-    LIMIT 1
-    `,
-    [clientId, key],
-  );
+  
+  return withDeadlockRetry(async () => {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
 
-  if (!row) return null;
+      const [[row]] = await connection.query(
+        `
+        SELECT *
+        FROM client_peripheral_inventory
+        WHERE client_id = ? AND peripheral_key = ?
+        FOR UPDATE
+        `,
+        [clientId, key],
+      );
 
-  const resolvedAt = status === "resolved" ? now : null;
-  const archivedAt = status === "archived" ? now : null;
-  await pool.query(
-    `
-    UPDATE client_peripheral_inventory
-    SET status = ?,
-        missing_since = CASE WHEN ? = 'missing' THEN missing_since ELSE NULL END,
-        resolved_at = ?,
-        archived_at = ?,
-        lifecycle_note = ?,
-        updated_at = ?
-    WHERE client_id = ? AND peripheral_key = ?
-    `,
-    [status, status, resolvedAt, archivedAt, note || null, now, clientId, key],
-  );
+      if (!row) {
+        await connection.rollback();
+        return null;
+      }
 
-  await pool.query(
-    `
-    INSERT INTO client_peripheral_events
-      (client_id, peripheral_key, name, category, vendor, event_type, observed_at, last_seen_at, details)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-    [
-      clientId,
-      row.peripheral_key,
-      row.name,
-      row.category,
-      row.vendor,
-      eventType,
-      now,
-      row.last_seen_at,
-      toJson({ note, previousStatus: row.status }),
-    ],
-  );
+      const resolvedAt = status === "resolved" ? now : null;
+      const archivedAt = status === "archived" ? now : null;
+      
+      await connection.query(
+        `
+        UPDATE client_peripheral_inventory
+        SET status = ?,
+            missing_since = CASE WHEN ? = 'missing' THEN missing_since ELSE NULL END,
+            resolved_at = ?,
+            archived_at = ?,
+            lifecycle_note = ?,
+            updated_at = ?
+        WHERE client_id = ? AND peripheral_key = ?
+        `,
+        [status, status, resolvedAt, archivedAt, note || null, now, clientId, key],
+      );
 
-  return {
-    key: row.peripheral_key,
-    name: row.name,
-    category: row.category,
-    vendor: row.vendor,
-    status,
-    updatedAt: now,
-  };
+      await connection.query(
+        `
+        INSERT INTO client_peripheral_events
+          (client_id, peripheral_key, name, category, vendor, event_type, observed_at, last_seen_at, details)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          clientId,
+          row.peripheral_key,
+          row.name,
+          row.category,
+          row.vendor,
+          eventType,
+          now,
+          row.last_seen_at,
+          toJson({ note, previousStatus: row.status }),
+        ],
+      );
+
+      // Mirror to global audit log
+      const titleMap = {
+        resolved: "Peripheral Resolved",
+        archived: "Peripheral Archived",
+        recovered: "Peripheral Recovered",
+      };
+
+      await insertGlobalEvent(connection, {
+        clientId,
+        eventType: `peripheral_${eventType}`,
+        title: titleMap[eventType] || "Peripheral Lifecycle Update",
+        description: `Peripheral ${row.name} (${row.category}) status changed to ${status}.`,
+        metadata: { key: row.peripheral_key, note, status },
+        createdAt: now,
+      });
+
+      await connection.commit();
+      
+      return {
+        key: row.peripheral_key,
+        name: row.name,
+        category: row.category,
+        vendor: row.vendor,
+        status,
+        updatedAt: now,
+      };
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  });
 }
 
 export async function resolvePeripheral(clientId, key, note = "") {
