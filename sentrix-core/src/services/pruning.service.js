@@ -29,6 +29,23 @@ async function pruneTableByTimestamp(table, column, threshold) {
 }
 
 /**
+ * Aggressive TTL pruning for live connections to keep the table size small and reactive.
+ */
+export async function pruneLiveConnections() {
+  const threshold = Date.now() - 90000; // 90 second grace period
+  try {
+    const [result] = await pool.query(
+      `DELETE FROM client_network_connections WHERE recorded_at < ?`,
+      [threshold],
+    );
+    return result.affectedRows || 0;
+  } catch (error) {
+    log(`[PRUNER] Error during live pruning: ${error.message}`);
+    return 0;
+  }
+}
+
+/**
  * Executes a single pruning sweep across all configured tables.
  */
 export async function runPruneSweep() {
@@ -79,6 +96,7 @@ export async function runPruneSweep() {
 }
 
 let pruningTimer = null;
+let livePruningTimer = null;
 
 /**
  * Background service to prune old snapshot data.
@@ -88,6 +106,15 @@ export function startPruningService() {
     clearInterval(pruningTimer);
     pruningTimer = null;
   }
+  if (livePruningTimer) {
+    clearInterval(livePruningTimer);
+    livePruningTimer = null;
+  }
+
+  // Live Pruning: Every 60 seconds
+  livePruningTimer = setInterval(async () => {
+    await pruneLiveConnections();
+  }, 60000);
 
   getPruningSettings().then((settings) => {
     const intervalMs = settings.intervalMinutes * 60 * 1000;
