@@ -256,7 +256,7 @@ export async function saveHardwareDetails(clientId, details = {}) {
       }
       await connection.query(`DELETE FROM client_network_adapters WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
 
-      const usbDevices = Array.isArray(details.usbDevices) ? details.usbDevices : [];
+      const usbDevices = Array.isArray(details.solidUsbDevices) ? details.solidUsbDevices : [];
       if (usbDevices.length > 0) {
         await connection.query(
           `INSERT INTO client_usb_devices (client_id, name, device_type, vendor, external_id, is_built_in, updated_at) VALUES ?`,
@@ -274,11 +274,11 @@ export async function saveHardwareDetails(clientId, details = {}) {
       }
       await connection.query(`DELETE FROM client_graphics_cards WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
 
-      const displays = Array.isArray(peripherals.displays) ? peripherals.displays : [];
+      const displays = Array.isArray(details.solidDisplays) ? details.solidDisplays : [];
       if (displays.length > 0) {
         await connection.query(
           `INSERT INTO client_displays (client_id, model, resolution, updated_at) VALUES ?`,
-          [displays.map(d => [clientId, d.model || null, d.resolution || null, now])]
+          [displays.map(d => [clientId, d.model || d.name || null, d.resolution || null, now])]
         );
       }
       await connection.query(`DELETE FROM client_displays WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
