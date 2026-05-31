@@ -14,14 +14,33 @@ async function getWindowsUsbDevices() {
     // 3. Status Code MUST be 0 (Working correctly). This kills "Compliance Mode" noise globally.
     const script = `
       $ProgressPreference = 'SilentlyContinue'
+      # We allow ErrorCode 0 (OK) and 31 (Driver Issue) to ensure broken physical devices are still tracked.
       $devs = Get-PnpDevice -PresentOnly | Where-Object { 
-        $_.InstanceId -match '^USB|^BTHENUM|^DISPLAY|^HID' -and $_.ConfigManagerErrorCode -eq 0
-      } | Select-Object FriendlyName, InstanceId, Class, Service, Manufacturer
-      if ($devs) { $devs | ConvertTo-Json } else { "[]" }
+        $_.InstanceId -match '^USB|^BTHENUM|^DISPLAY|^HID' -and ($_.ConfigManagerErrorCode -eq 0 -or $_.ConfigManagerErrorCode -eq 31)
+      }
+      if ($devs) {
+        $props = Get-PnpDeviceProperty -InstanceId $devs.InstanceId -KeyName 'DEVPKEY_Device_InLocalMachineContainer' -ErrorAction SilentlyContinue
+        $propMap = @{}
+        foreach ($p in $props) { 
+          if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data }
+        }
+        $results = foreach ($dev in $devs) {
+          $val = $propMap[$dev.InstanceId]
+          [PSCustomObject]@{
+            FriendlyName = $dev.FriendlyName
+            InstanceId = $dev.InstanceId
+            Class = $dev.Class
+            Service = $dev.Service
+            Manufacturer = $dev.Manufacturer
+            IsBuiltIn = if ($null -ne $val) { $val } else { $false }
+          }
+        }
+        $results | ConvertTo-Json -Compress
+      } else { "[]" }
     `.trim();
 
     const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
-      timeout: 15000,
+      timeout: 30000,
       windowsHide: true,
     });
 
@@ -32,13 +51,18 @@ async function getWindowsUsbDevices() {
 
     const physicalMap = new Map();
 
-    const highPriorityClasses = new Set(["mouse", "keyboard", "image", "camera", "biometric", "net", "bluetooth"]);
+    const highPriorityClasses = new Set(["mouse", "keyboard", "image", "camera", "biometric", "net", "bluetooth", "monitor"]);
     
     // Universal Service Filter: Exclude hubs, controllers, and virtual bridges globally.
     // We use a broad regex to catch variant names (usbhub3, pci-express, etc).
     const skipServiceRegex = /hub|^usbccgp|^pci|^vbus|^usbhost|^hidusb|^monitor|^bthpan|^bthenum|^umpass|^swenum|^iwdbus|^mssmbios|^cad/i;
 
     for (const d of devices) {
+      // 0. Zero-Tolerance Edge Filtering (Discard ALL Built-in motherboard components)
+      if (d.IsBuiltIn === true) {
+        continue;
+      }
+
       const className = (d.Class || "").toLowerCase();
       const service = (d.Service || "").toLowerCase();
       const name = (d.FriendlyName || "").toLowerCase();
@@ -49,7 +73,8 @@ async function getWindowsUsbDevices() {
       const isHighPriority = highPriorityClasses.has(className);
       
       // Filter out infrastructure services
-      if (!name || skipServiceRegex.test(service)) {
+      // FIX: Ensure Bluetooth and Monitor services are NOT skipped if they are actual devices
+      if (!name || (skipServiceRegex.test(service) && className !== 'bluetooth' && className !== 'monitor')) {
         continue;
       }
 
@@ -67,10 +92,10 @@ async function getWindowsUsbDevices() {
       const vidPidMatch = instanceId.match(/VID_([0-9A-F]+)&PID_([0-9A-F]+)/i);
       const vidPid = vidPidMatch ? vidPidMatch[0] : null;
 
-      // The identityKey is now primarily the VID/PID if available.
-      // This ensures that the USB node, HID node, and NET node for the same
-      // physical device are all grouped together for deduplication.
-      const identityKey = vidPid || instanceId;
+      // The identityKey now includes the ClassName.
+      // This ensures that composite devices (like a combined WiFi/BT dongle)
+      // report both functions instead of deduplicating them into one.
+      const identityKey = vidPid ? `${vidPid}_${className}` : instanceId;
 
       const isGenericName = name.includes("usb input device") || name.includes("hid-compliant") || name.includes("standard");
 
@@ -90,16 +115,18 @@ async function getWindowsUsbDevices() {
           isHighPriority,
           isGenericName,
           className,
-          service
+          service,
+          isBuiltIn: d.IsBuiltIn
         });
       }
     }
 
     // --- FINAL CROSS-IDENTITY DEDUPLICATION ---
     const finalDevices = [];
-    const vidPidGroups = new Map();
     const bluetoothGroups = new Map();
 
+    // Functional Autonomy: We no longer group by VID/PID alone.
+    // Each unique identityKey (VID_PID_CLASS) is a distinct physical function.
     for (const dev of physicalMap.values()) {
       const instanceId = dev.deviceId.toUpperCase();
       const bthMatch = instanceId.match(/([0-9A-F]{12})(_[0-9A-F]+)?$/i) || instanceId.match(/DEV_([0-9A-F]{12})/i);
@@ -108,15 +135,12 @@ async function getWindowsUsbDevices() {
         const bthAddr = bthMatch[1];
         if (!bluetoothGroups.has(bthAddr)) bluetoothGroups.set(bthAddr, []);
         bluetoothGroups.get(bthAddr).push(dev);
-      } else if (dev.vidPid) {
-        if (!vidPidGroups.has(dev.vidPid)) vidPidGroups.set(dev.vidPid, []);
-        vidPidGroups.get(dev.vidPid).push(dev);
       } else {
         finalDevices.push(dev);
       }
     }
 
-    // Process Bluetooth Groups
+    // Process Bluetooth Groups (Only deduplicate multiple nodes for the SAME Bluetooth Address)
     for (const group of bluetoothGroups.values()) {
       group.sort((a, b) => {
         const aGen = a.name.includes("Service") || a.name.includes("Transport") || a.name.includes("Gateway");
@@ -125,28 +149,6 @@ async function getWindowsUsbDevices() {
         return b.name.length - a.name.length;
       });
       finalDevices.push(group[0]);
-    }
-
-    for (const group of vidPidGroups.values()) {
-      const highPriority = group.filter(d => d.isHighPriority);
-      if (highPriority.length > 0) {
-        const seen = new Set();
-        for (const d of highPriority) {
-          if (!seen.has(d.name)) {
-            finalDevices.push(d);
-            seen.add(d.name);
-          }
-        }
-      } else {
-        const seen = new Set();
-        for (const d of group) {
-          const key = `${d.name}_${d.manufacturer}`;
-          if (!seen.has(key)) {
-            finalDevices.push(d);
-            seen.add(key);
-          }
-        }
-      }
     }
 
     const results = finalDevices.map(({ isHighPriority, isGenericName, className, vidPid, ...rest }) => {
@@ -162,7 +164,8 @@ async function getWindowsUsbDevices() {
         name: finalName,
         type: rest.type,
         manufacturer: rest.manufacturer,
-        deviceId: rest.deviceId
+        deviceId: rest.deviceId,
+        isBuiltIn: rest.isBuiltIn || false
       };
     });
 
@@ -186,6 +189,7 @@ async function getWindowsUsbDevices() {
     usbCache = results;
     return results;
   } catch (error) {
+    console.error("[HARDWARE] getWindowsUsbDevices Error:", error);
     return usbCache;
   }
 }

@@ -11,8 +11,26 @@ async function run() {
       $ProgressPreference = 'SilentlyContinue'
       $devs = Get-PnpDevice -PresentOnly | Where-Object { 
         $_.InstanceId -match '^USB|^BTHENUM|^DISPLAY|^HID' -and $_.ConfigManagerErrorCode -eq 0
-      } | Select-Object FriendlyName, InstanceId, Class, Service, Manufacturer
-      if ($devs) { $devs | ConvertTo-Json } else { "[]" }
+      }
+      if ($devs) {
+        $props = Get-PnpDeviceProperty -InstanceId $devs.InstanceId -KeyName 'DEVPKEY_Device_InLocalMachineContainer' -ErrorAction SilentlyContinue
+        $propMap = @{}
+        foreach ($p in $props) { 
+          if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data }
+        }
+        $results = foreach ($dev in $devs) {
+          $val = $propMap[$dev.InstanceId]
+          [PSCustomObject]@{
+            FriendlyName = $dev.FriendlyName
+            InstanceId = $dev.InstanceId
+            Class = $dev.Class
+            Service = $dev.Service
+            Manufacturer = $dev.Manufacturer
+            IsBuiltIn = if ($null -ne $val) { $val } else { $false }
+          }
+        }
+        $results | ConvertTo-Json -Compress
+      } else { "[]" }
     `.trim();
 
     const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
