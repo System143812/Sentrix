@@ -28,6 +28,8 @@ describe('Agent Profiling Service', () => {
       { name: 'Mechanical Keyboard', type: 'Keyboard', manufacturer: 'Corsair' },
       { name: 'USB Flash Drive', type: 'Storage', manufacturer: 'SanDisk' }
     ]);
+    peripherals.collectSolidUsbDevices.mockResolvedValue([]);
+    peripherals.collectSolidDisplays.mockResolvedValue([]);
 
     const details = await getDeviceDetails();
 
