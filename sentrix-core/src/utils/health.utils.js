@@ -13,7 +13,7 @@ export function average(values = []) {
     .map((value) => (value == null || value === "" ? NaN : Number(value)))
     .filter((value) => Number.isFinite(value));
 
-  if (!usableValues.length) return 0;
+  if (!usableValues.length) return null;
 
   const total = usableValues.reduce((sum, value) => sum + value, 0);
   return Math.round(total / usableValues.length);
