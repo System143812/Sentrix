@@ -1,6 +1,7 @@
+import crypto from "crypto";
 import pool from "../../lib/database.js";
 import { parseJson, toJson, toNumber, withDeadlockRetry } from "../../utils/db.utils.js";
-import { normalizeString } from "./helpers.js"; // Needs to be created or imported
+import { normalizeString } from "./helpers.js";
 
 const SOFTWARE_RISK_PATTERNS = [
   /utorrent|bittorrent|qbittorrent/i,
@@ -41,6 +42,37 @@ export async function insertEvent(connection, {
     `,
     [clientId, eventType, severity, title, description, toJson(metadata), createdAt],
   );
+}
+
+export async function saveDeviceEvents(clientId, events = []) {
+  const validEvents = Array.isArray(events) ? events : [];
+  if (!clientId || validEvents.length === 0) return;
+
+  await withDeadlockRetry(async () => {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      for (const event of validEvents.slice(0, 250)) {
+        await insertEvent(connection, {
+          clientId,
+          eventType: normalizeString(event.eventType || event.type, "event"),
+          severity: ["info", "warning", "critical"].includes(event.severity)
+            ? event.severity
+            : "info",
+          title: normalizeString(event.title, "Device event"),
+          description: normalizeString(event.description),
+          metadata: event.metadata || event.details || null,
+          createdAt: toNumber(event.createdAt || event.timestamp, Date.now()),
+        });
+      }
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  });
 }
 
 export async function saveSoftwareInventory(clientId, software = [], timestamp = Date.now()) {

@@ -1,7 +1,7 @@
 import pool from "../lib/database.js";
 import { parseJson } from "../utils/db.utils.js";
 import { saveDomainSummaries, getDomainSummaries } from "./behavior/network-intelligence.js";
-import { saveSoftwareInventory, getSoftwareInventory, insertEvent } from "./behavior/software-inventory.js";
+import { saveSoftwareInventory, getSoftwareInventory, insertEvent, saveDeviceEvents } from "./behavior/software-inventory.js";
 import { analyzeMetrics, saveHealthSnapshot, recordUptimeStatus, getHealthSummary, getAnomalyAlerts } from "./behavior/health-history.js";
 
 export {
@@ -10,6 +10,7 @@ export {
   saveSoftwareInventory,
   getSoftwareInventory,
   insertEvent,
+  saveDeviceEvents,
   analyzeMetrics,
   saveHealthSnapshot,
   recordUptimeStatus,
