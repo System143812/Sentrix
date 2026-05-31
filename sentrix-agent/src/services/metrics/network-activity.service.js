@@ -2,6 +2,7 @@ import si from "systeminformation";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { promises as dnsPromises } from "dns";
+import crypto from "crypto";
 import { collectSafely, safeString } from "./helpers.js";
 
 const execFileAsync = promisify(execFile);
@@ -24,6 +25,13 @@ const NOISE_DOMAINS = [
   "office.com",
   "office365.com",
   "skype.com",
+  "msn.com",
+  "bing.com",
+  "live.com",
+  "outlook.com",
+  "microsoftonline.com",
+  "oneclient.sfx.ms",
+  "skydrive.wns.windows.com"
 ];
 
 const PRIVATE_IP_RANGES = [
@@ -39,8 +47,10 @@ function getCategory(procName, domain) {
 
   if (BROWSERS.includes(proc)) return "Web";
   if (DEV_TOOLS.some(tool => proc.includes(tool)) || /github|gitlab|npmjs|stackoverflow|bitbucket/.test(dom)) return "Development";
-  if (/amazonaws|azure|cloudflare|akamai|digitalocean|heroku|google-analytics/.test(dom)) return "Cloud";
-  if (["System", "svchost.exe", "lsass.exe", "services.exe"].includes(procName)) return "System";
+  if (/amazonaws|azure|cloudflare|akamai|digitalocean|heroku|google-analytics|google-cloud/.test(dom)) return "Cloud";
+  
+  const systemKeywords = ["system", "svchost.exe", "lsass.exe", "services.exe", "wininit.exe", "csrss.exe", "searchhost.exe"];
+  if (systemKeywords.some(kw => proc.includes(kw))) return "System";
   
   return "App";
 }
@@ -48,6 +58,17 @@ function getCategory(procName, domain) {
 function isPrivateIp(ip) {
   if (!ip) return true;
   return PRIVATE_IP_RANGES.some(regex => regex.test(ip));
+}
+
+function computeHash(connections) {
+  if (!connections || connections.length === 0) return "empty";
+  // Sort for stable hashing
+  const stable = [...connections].sort((a, b) => {
+    const keyA = `${a.process}:${a.domain}:${a.category}`;
+    const keyB = `${b.process}:${b.domain}:${b.category}`;
+    return keyA.localeCompare(keyB);
+  });
+  return crypto.createHash("md5").update(JSON.stringify(stable)).digest("hex");
 }
 
 /**
@@ -145,6 +166,7 @@ function getBaseDomain(domain) {
 }
 
 let LAST_GOOD_ACTIVITY = { activeConnections: [], dnsCache: [] };
+let LAST_HASH = "";
 let FAIL_COUNT = 0;
 const MAX_RETRIES = 3;
 
@@ -159,7 +181,9 @@ export async function collectNetworkActivity() {
     const systemNoise = [
       "System", "svchost.exe", "lsass.exe", "services.exe", "SearchHost.exe", 
       "CompPkgSrv.exe", "Registry", "MemCompression", "MsMpEng.exe", 
-      "SearchIndexer.exe", "mDNSResponder.exe", "WmiPrvSE.exe", "spoolsv.exe"
+      "SearchIndexer.exe", "mDNSResponder.exe", "WmiPrvSE.exe", "spoolsv.exe",
+      "RuntimeBroker.exe", "ShellExperienceHost.exe", "StartMenuExperienceHost.exe",
+      "TextInputHost.exe", "ApplicationFrameHost.exe", "wininit.exe", "csrss.exe"
     ];
 
     for (const conn of connections) {
@@ -171,7 +195,7 @@ export async function collectNetworkActivity() {
 
       // Aggressively skip localhost and private IPs
       if (isPrivateIp(addr)) continue;
-      if (systemNoise.includes(procName)) continue;
+      if (systemNoise.some(noise => procName.toLowerCase().includes(noise.toLowerCase()))) continue;
 
       // 2. SITE DETECTION
       const possibleDomains = Array.from(dnsMap.get(addr) || []);
@@ -213,26 +237,34 @@ export async function collectNetworkActivity() {
     const activeConnections = Array.from(groupedMap.values())
       .slice(0, 100);
 
+    const currentHash = computeHash(activeConnections);
+    const activityChanged = currentHash !== LAST_HASH;
+    LAST_HASH = currentHash;
+
     // Stability Logic: Cache successful results to prevent flickering on intermittent collection failures
-    if (activeConnections.length > 0) {
+    if (activeConnections.length > 0 || !activityChanged) {
       LAST_GOOD_ACTIVITY = { activeConnections, dnsCache: [] };
       FAIL_COUNT = 0;
-      return LAST_GOOD_ACTIVITY;
+      return {
+        activeConnections: activityChanged ? activeConnections : [],
+        dnsCache: [],
+        activityChanged
+      };
     } else {
       // If we got 0 connections, maybe the collection cycle was too slow.
       // Use cache for a few cycles before actually reporting 0.
       if (FAIL_COUNT < MAX_RETRIES && LAST_GOOD_ACTIVITY.activeConnections.length > 0) {
         FAIL_COUNT++;
-        return LAST_GOOD_ACTIVITY;
+        return { activeConnections: [], dnsCache: [], activityChanged: false };
       }
-      return { activeConnections: [], dnsCache: [] };
+      return { activeConnections: [], dnsCache: [], activityChanged: true };
     }
   }, () => {
     // On hard error, fallback to cache if available
     if (FAIL_COUNT < MAX_RETRIES && LAST_GOOD_ACTIVITY.activeConnections.length > 0) {
       FAIL_COUNT++;
-      return LAST_GOOD_ACTIVITY;
+      return { ...LAST_GOOD_ACTIVITY, activityChanged: false };
     }
-    return { activeConnections: [], dnsCache: [] };
+    return { activeConnections: [], dnsCache: [], activityChanged: true };
   });
 }
