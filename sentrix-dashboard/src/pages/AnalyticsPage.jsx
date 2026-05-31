@@ -363,88 +363,178 @@ function MetricCard({
   );
 }
 
-function Sparkline({ points = [], color = "#2563eb", label = "Trend" }) {
-  const width = 520;
-  const height = 180;
+function ModernTrendChart({ points = [], color = "#2563eb", label = "Trend", isPercentage = false }) {
+  const [hoveredPoint, setHoveredPoint] = useState(null);
+  const width = 600;
+  const height = 200;
+  
+  const values = points.map(p => Number(p.value) || 0);
+  const rawMax = Math.max(...values, 0);
+  const chartMax = isPercentage ? 100 : Math.max(rawMax * 1.2, 5);
+  
   const step = points.length > 1 ? width / (points.length - 1) : width;
   const coordinates = points.map((point, index) => ({
     x: index * step,
-    y: height - (clamp(point.value) / 100) * height,
+    y: height - ((Number(point.value) || 0) / chartMax) * height,
+    data: point
   }));
+
   const path = buildSmoothSvgPath(coordinates, step);
   const areaPath = path ? `${path} L ${width} ${height} L 0 ${height} Z` : "";
+  const gradientId = `trend-gradient-${label.replace(/\s+/g, "-").toLowerCase()}`;
 
   return (
-    <div className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm sm:p-6">
-      <svg
-        className="h-56 w-full sm:h-64"
-        preserveAspectRatio="none"
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label={label}
-      >
-        {[36, 72, 108, 144].map((line) => (
-          <line
-            key={line}
-            stroke="currentColor"
-            className="text-slate-100/80"
-            x1="0"
-            x2={width}
-            y1={line}
-            y2={line}
+    <div className="group relative rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+      {/* Header Info */}
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          {label} Analysis
+        </span>
+        {points.length > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-bold uppercase tracking-tight text-emerald-600">
+              Live Feed
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Hover Tooltip Overlay (Moved Outside Overflow) */}
+      {hoveredPoint && (
+        <div 
+          className="pointer-events-none absolute z-50 rounded-lg border border-slate-200 bg-white p-2.5 shadow-2xl transition-all duration-150 ring-4 ring-white/50"
+          style={{ 
+            left: `calc(32px + ${(hoveredPoint.x / width) * 100}%)`, 
+            top: `calc(88px + ${(hoveredPoint.y / height) * 100}%)`,
+            transform: 'translate(-50%, -125%)'
+          }}
+        >
+          <p className="text-[9px] font-bold uppercase text-slate-400 leading-none mb-1">
+            {hoveredPoint.data.label === "Now" ? "Right Now" : hoveredPoint.data.label}
+          </p>
+          <p className="text-sm font-bold text-slate-900 leading-none">
+            {hoveredPoint.data.value}{isPercentage ? "%" : " Alerts"}
+          </p>
+        </div>
+      )}
+
+      {/* Dynamic Y-Axis Labels */}
+      <div className="absolute left-3 top-[88px] flex h-[160px] flex-col justify-between text-[9px] font-bold uppercase tracking-tighter text-slate-300">
+        <span>{Math.round(chartMax)}{!isPercentage && " alerts"}</span>
+        <span>{Math.round(chartMax / 2)}</span>
+        <span>0</span>
+      </div>
+
+      <div className="ml-8 overflow-hidden relative">
+        <svg
+          className="h-48 w-full sm:h-56 cursor-crosshair"
+          preserveAspectRatio="none"
+          viewBox={`0 0 ${width} ${height}`}
+          onMouseLeave={() => setHoveredPoint(null)}
+        >
+          <defs>
+            <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+              <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+
+          {/* Grid Lines */}
+          {[0.25, 0.5, 0.75].map((factor) => (
+            <line
+              key={factor}
+              className="text-slate-100"
+              stroke="currentColor"
+              strokeDasharray="4 4"
+              x1="0"
+              x2={width}
+              y1={height * factor}
+              y2={height * factor}
+            />
+          ))}
+
+          {/* Gradient Fill */}
+          <path
+            className="transition-all duration-700 ease-in-out"
+            d={areaPath}
+            fill={`url(#${gradientId})`}
           />
-        ))}
-        <path
-          className="analytics-area"
-          d={areaPath}
-          fill={color}
-          opacity="0.08"
-        />
-        <path
-          className="analytics-line"
-          d={path}
-          fill="none"
-          key={`${label}-${points.map((point) => point.value).join("-")}`}
-          stroke={color}
-          strokeLinecap="round"
-          strokeWidth="5"
-        />
-        {coordinates.map((point, index) => (
-          <circle
-            className="analytics-point"
-            cx={point.x}
-            cy={point.y}
-            fill="#ffffff"
-            key={`${label}-${index}`}
-            r="5"
-            stroke={TREND_POINT_COLORS[index % TREND_POINT_COLORS.length]}
-            strokeWidth="3"
+
+          {/* Smooth Trend Line */}
+          <path
+            fill="none"
+            stroke={color}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="4"
+            d={path}
+            className="transition-all duration-1000 ease-in-out"
           />
-        ))}
-      </svg>
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        {points.map((point, index) => {
-          const pointColor =
-            TREND_POINT_COLORS[index % TREND_POINT_COLORS.length];
+
+          {/* Invisible hover zones for each point */}
+          {coordinates.map((point, index) => (
+            <rect
+              key={`zone-${index}`}
+              x={point.x - (step/2)}
+              y={0}
+              width={step}
+              height={height}
+              fill="transparent"
+              onMouseEnter={() => setHoveredPoint(point)}
+            />
+          ))}
+
+          {/* Hover highlight circle */}
+          {hoveredPoint && (
+            <g>
+              <circle
+                cx={hoveredPoint.x}
+                cy={hoveredPoint.y}
+                r="8"
+                fill={color}
+                className="opacity-20"
+              />
+              <circle
+                cx={hoveredPoint.x}
+                cy={hoveredPoint.y}
+                r="4"
+                fill={color}
+              />
+              <circle
+                cx={hoveredPoint.x}
+                cy={hoveredPoint.y}
+                r="2"
+                fill="white"
+              />
+            </g>
+          )}
+
+          {/* Live indicator on the last point */}
+          {coordinates.length > 0 && (
+            <circle
+              cx={coordinates[coordinates.length - 1].x}
+              cy={coordinates[coordinates.length - 1].y}
+              r="4"
+              fill={color}
+              className="animate-ping opacity-75"
+            />
+          )}
+        </svg>
+      </div>
+
+      {/* Horizontal Labels */}
+      <div className="ml-8 mt-4 flex justify-between px-2">
+        {points.map((point, i) => {
+          // Show labels every few points to avoid crowding
+          const shouldShow = i === 0 || i === points.length - 1 || (points.length > 8 && i % 3 === 0);
           return (
-            <div
-              className="min-w-0 rounded-lg border bg-white px-3 py-2.5 shadow-sm"
-              key={point.label}
-              style={{
-                borderColor: `${pointColor}33`,
-                backgroundColor: `${pointColor}0d`,
-              }}
+            <span 
+              key={point.label + i} 
+              className={`text-[9px] font-bold uppercase tracking-widest transition-colors ${point.label === "Now" ? "text-emerald-500" : "text-slate-400"} ${!shouldShow ? "opacity-0" : "opacity-100"}`}
             >
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-ui">
-                {point.label}
-              </p>
-              <p
-                className="mt-0.5 text-xs font-bold font-data tabular-nums"
-                style={{ color: pointColor }}
-              >
-                {point.value}%
-              </p>
-            </div>
+              {point.label}
+            </span>
           );
         })}
       </div>
@@ -971,9 +1061,9 @@ function AlertTrendsPanel({ analytics, loading }) {
       tone="rose"
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <Sparkline
+        <ModernTrendChart
           color="#f43f5e"
-          label="Alert count trend"
+          label="Alert spikes"
           points={analytics.alertTrend}
         />
         <div className="space-y-3 font-ui">
