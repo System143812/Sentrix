@@ -59,20 +59,23 @@ export async function processIncomingMetrics(clientId, metrics = {}, timestamp =
 
   const persistence = getSnapshotPersistencePlan(clientId, normalized, timestamp);
   const networkActivity = normalized.networkActivity || {};
+  
+  // Use agent-side changed flag if available, otherwise fallback to persistence plan
+  const activityChanged = networkActivity.activityChanged ?? persistence.networkActivity;
+
   const networkPayload = {
-    activeConnections: persistence.networkActivity
-      ? networkActivity.activeConnections || []
-      : [],
-    dnsCache: persistence.dnsCache ? networkActivity.dnsCache || [] : [],
+    activeConnections: networkActivity.activeConnections || [],
+    dnsCache: networkActivity.dnsCache || [],
+    activityChanged: activityChanged
   };
 
   const snapshotWrites = [];
   if (persistence.processes) {
     snapshotWrites.push(saveProcesses(clientId, normalized.processes, timestamp));
   }
-  if (persistence.networkActivity || persistence.dnsCache) {
-    snapshotWrites.push(saveNetworkActivity(clientId, networkPayload, timestamp));
-  }
+  
+  // Always call saveNetworkActivity; it handles its own internal optimization (TTL refresh vs full upsert)
+  snapshotWrites.push(saveNetworkActivity(clientId, networkPayload, timestamp));
 
   await Promise.all(snapshotWrites);
 
@@ -81,16 +84,21 @@ export async function processIncomingMetrics(clientId, metrics = {}, timestamp =
     await saveMetricSample(clientId, normalized, metrics, timestamp);
   }
 
-  const domainSummaries = (normalized.networkActivity?.activeConnections || [])
-    .filter((connection) => connection.domain || connection.peerAddress)
-    .map((connection) => ({
-      domain: connection.domain || connection.peerAddress,
-      process: connection.process || "System",
-      hits: connection.count || 1,
-    }));
+  // Only update domain summaries if activity actually changed to save DB load
+  if (activityChanged && normalized.networkActivity?.activeConnections?.length > 0) {
+    const domainSummaries = normalized.networkActivity.activeConnections
+      .filter((connection) => connection.domain || connection.peerAddress)
+      .map((connection) => ({
+        domain: connection.domain || connection.peerAddress,
+        process: connection.process || "System",
+        category: connection.category || "App",
+        hits: connection.count || 1,
+      }));
+
+    await saveDomainSummaries(clientId, domainSummaries, timestamp);
+  }
 
   await Promise.allSettled([
-    saveDomainSummaries(clientId, domainSummaries, timestamp),
     saveHealthSnapshot(clientId, normalized, "online", timestamp),
     analyzeMetrics(clientId, normalized, timestamp),
   ]);
