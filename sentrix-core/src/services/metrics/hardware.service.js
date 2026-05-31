@@ -111,7 +111,8 @@ async function savePeripheralTracking(connection, clientId, details, now, client
   for (const row of existingRows) {
     if (
       snapshotByKey.has(row.peripheral_key) ||
-      ["missing", "resolved", "archived"].includes(row.status)
+      ["missing", "resolved", "archived"].includes(row.status) ||
+      (now - Number(row.last_seen_at || 0) < 30000) // 30s status dampening (Shield)
     ) continue;
 
     const missingOffline = Number(row.last_seen_at || 0) < now - 300_000;

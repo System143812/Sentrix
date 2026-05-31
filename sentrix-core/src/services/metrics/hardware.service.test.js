@@ -28,7 +28,7 @@ describe("Hardware Service - Peripheral Tracking", () => {
     pool.query.mockResolvedValue([[{ hostname: "TestPC", mac: "00:11:22:33:44:55" }]]);
   });
 
-  it("should mark a peripheral as missing immediately when it is removed from a successful agent snapshot", async () => {
+  it("should mark a peripheral as missing when it is removed from a snapshot after the 30s dampening window", async () => {
     // 1. Setup: Peripheral exists in the database as 'connected'
     const mockExistingRows = [
       {
@@ -37,7 +37,7 @@ describe("Hardware Service - Peripheral Tracking", () => {
         category: "Mouse",
         vendor: "Logitech",
         status: "connected",
-        last_seen_at: now - 5000, // Only 5 seconds ago (No grace period anymore)
+        last_seen_at: now - 35000, // 35 seconds ago (Exceeds 30s status dampening)
       },
     ];
     mockConnection.query.mockImplementation((sql, params) => {
