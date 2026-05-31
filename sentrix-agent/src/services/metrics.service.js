@@ -10,7 +10,7 @@ import { collectNetworkMetrics } from "./metrics/network.service.js";
 import { collectTemperatureMetrics } from "./metrics/temperature.service.js";
 import { collectProcessMetrics } from "./metrics/processes.service.js";
 import { collectNetworkActivity } from "./metrics/network-activity.service.js";
-import { collectUsbDevices } from "./metrics/peripherals.service.js";
+import { collectUsbDevices, collectSolidUsbDevices, collectSolidDisplays } from "./metrics/peripherals.service.js";
 import { safeString, toNumber } from "./metrics/helpers.js";
 
 const DEFAULT_METRIC_INTERVAL_MS = Number(process.env.METRICS_INTERVAL_MS || 5000);
@@ -146,16 +146,21 @@ export async function getMetrics() {
  */
 export async function getDeviceDetails() {
   const [
-    cpu, memory, memoryLayout, system, bios, baseboard, graphics, disks, usb, networkInterfaces,
+    cpu, memory, memoryLayout, system, bios, baseboard, graphics, disks, usb, 
+    solidUsbDevices, solidDisplays, networkInterfaces,
   ] = await Promise.all([
     si.cpu(), si.mem(), si.memLayout().catch(() => []), si.system().catch(() => ({})),
     si.bios().catch(() => ({})), si.baseboard().catch(() => ({})),
     si.graphics().catch(() => ({ controllers: [], displays: [] })),
-    si.diskLayout().catch(() => []), collectUsbDevices().catch(() => []),
+    si.diskLayout().catch(() => []), 
+    collectUsbDevices().catch(() => []), // RAW for peripheral classification (Untouched)
+    collectSolidUsbDevices().catch(() => []), // Solid for USB Devices module
+    collectSolidDisplays().catch(() => []), // Solid for Displays module
     si.networkInterfaces().catch(() => []),
   ]);
 
   const usbDevices = usb.map(simplifyUsbDevice);
+  const peripherals = classifyPeripherals(usbDevices, graphics);
 
   return {
     specs: {
@@ -183,8 +188,10 @@ export async function getDeviceDetails() {
           type: adapter.type || "Unknown",
         })),
     },
-    peripherals: classifyPeripherals(usbDevices, graphics),
-    usbDevices,
+    peripherals,
+    usbDevices, // Keep this for Peripheral tracking (Untouched)
+    solidUsbDevices,
+    solidDisplays,
     metadata: { timestamp: Date.now(), status: "online" },
   };
 }

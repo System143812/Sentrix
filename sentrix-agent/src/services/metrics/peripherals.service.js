@@ -32,7 +32,7 @@ async function getWindowsUsbDevices() {
             Class = $dev.Class
             Service = $dev.Service
             Manufacturer = $dev.Manufacturer
-            IsBuiltIn = if ($null -ne $val) { $val } else { $false }
+            IsBuiltIn = if ($null -ne $val) { $val } else { $true }
           }
         }
         $results | ConvertTo-Json -Compress
@@ -191,6 +191,151 @@ async function getWindowsUsbDevices() {
   } catch (error) {
     console.error("[HARDWARE] getWindowsUsbDevices Error:", error);
     return usbCache;
+  }
+}
+
+export async function collectSolidUsbDevices() {
+  if (process.platform !== "win32") return await collectUsbDevices();
+
+  try {
+    const script = `
+      $ProgressPreference = 'SilentlyContinue'
+      $devs = Get-PnpDevice -PresentOnly | Where-Object { 
+        $_.InstanceId -match '^USB' -and ($_.ConfigManagerErrorCode -eq 0 -or $_.ConfigManagerErrorCode -eq 31)
+      }
+      if ($devs) {
+        $props = Get-PnpDeviceProperty -InstanceId $devs.InstanceId -KeyName 'DEVPKEY_Device_InLocalMachineContainer' -ErrorAction SilentlyContinue
+        $propMap = @{}
+        foreach ($p in $props) { 
+          if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data }
+        }
+        $results = foreach ($dev in $devs) {
+          $val = $propMap[$dev.InstanceId]
+          [PSCustomObject]@{
+            FriendlyName = $dev.FriendlyName
+            InstanceId = $dev.InstanceId
+            Class = $dev.Class
+            Service = $dev.Service
+            Manufacturer = $dev.Manufacturer
+            IsBuiltIn = if ($null -ne $val) { $val } else { $true }
+          }
+        }
+        $results | ConvertTo-Json -Compress
+      } else { "[]" }
+    `.trim();
+
+    const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
+      timeout: 15000,
+      windowsHide: true,
+    });
+
+    if (!stdout || stdout.trim() === "") return [];
+
+    const raw = JSON.parse(stdout);
+    const skipServiceRegex = /hub|^usbccgp|^pci|^vbus|^usbhost|^hidusb|^monitor|^bthpan|^bthenum|^umpass|^swenum|^iwdbus|^mssmbios|^cad/i;
+    
+    return raw
+      .filter(d => d.IsBuiltIn === false)
+      .filter(d => {
+        const service = (d.Service || "").toLowerCase();
+        const name = (d.FriendlyName || "").toLowerCase();
+        return name && !skipServiceRegex.test(service);
+      })
+      .map(d => ({
+        name: d.FriendlyName,
+        type: d.Class || "USB",
+        manufacturer: d.Manufacturer || "Unknown",
+        deviceId: d.InstanceId,
+        isBuiltIn: false
+      }));
+  } catch (err) {
+    console.error("[HARDWARE] collectSolidUsbDevices Error:", err);
+    return [];
+  }
+}
+
+export async function collectSolidDisplays() {
+  if (process.platform !== "win32") {
+    const graphics = await si.graphics().catch(() => ({ displays: [] }));
+    return (graphics.displays || []).map(d => ({
+      name: d.model || "Display",
+      model: d.model || "Display",
+      resolution: d.resolutionX && d.resolutionY ? `${d.resolutionX}x${d.resolutionY}` : "Unknown",
+      isBuiltIn: false
+    }));
+  }
+
+  try {
+    const script = `
+      $ProgressPreference = 'SilentlyContinue'
+      $devs = Get-PnpDevice -PresentOnly | Where-Object { 
+        $_.Class -eq 'Monitor' -and ($_.ConfigManagerErrorCode -eq 0 -or $_.ConfigManagerErrorCode -eq 31)
+      }
+      if ($devs) {
+        $props = Get-PnpDeviceProperty -InstanceId $devs.InstanceId -KeyName 'DEVPKEY_Device_InLocalMachineContainer' -ErrorAction SilentlyContinue
+        $propMap = @{}
+        foreach ($p in $props) { 
+          if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data }
+        }
+        $results = foreach ($dev in $devs) {
+          $val = $propMap[$dev.InstanceId]
+          [PSCustomObject]@{
+            FriendlyName = $dev.FriendlyName
+            InstanceId = $dev.InstanceId
+            Class = $dev.Class
+            Service = $dev.Service
+            Manufacturer = $dev.Manufacturer
+            IsBuiltIn = if ($null -ne $val) { $val } else { $true }
+          }
+        }
+        $results | ConvertTo-Json -Compress
+      } else { "[]" }
+    `.trim();
+
+    const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
+      timeout: 15000,
+      windowsHide: true,
+    });
+
+    if (!stdout || stdout.trim() === "") return [];
+
+    const raw = JSON.parse(stdout);
+    const graphics = await si.graphics().catch(() => ({ displays: [] }));
+    const siDisplays = graphics.displays || [];
+
+    return raw.map(d => {
+      let finalName = d.FriendlyName;
+      const manufacturer = d.Manufacturer;
+      
+      if (manufacturer && finalName.toLowerCase().startsWith(manufacturer.toLowerCase())) {
+        if (finalName.length > manufacturer.length) {
+          const potentialName = finalName.slice(manufacturer.length).trim();
+          if (potentialName) finalName = potentialName;
+        }
+      }
+
+      if (finalName.toLowerCase() === "generic pnp monitor" && manufacturer && manufacturer !== "(Standard monitor types)") {
+        finalName = `${manufacturer} Monitor`;
+      }
+
+      // Try to find matching resolution from si.graphics
+      const siMatch = siDisplays.find(sd => 
+        (sd.model && sd.model.toLowerCase() === finalName.toLowerCase()) ||
+        (sd.deviceName && sd.deviceName.includes(d.InstanceId))
+      );
+
+      return {
+        name: finalName,
+        model: finalName,
+        manufacturer: d.Manufacturer,
+        resolution: siMatch && siMatch.resolutionX ? `${siMatch.resolutionX}x${siMatch.resolutionY}` : "Unknown",
+        deviceId: d.InstanceId,
+        isBuiltIn: d.IsBuiltIn
+      };
+    });
+  } catch (err) {
+    console.error("[HARDWARE] collectSolidDisplays Error:", err);
+    return [];
   }
 }
 
