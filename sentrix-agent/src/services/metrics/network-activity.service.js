@@ -18,7 +18,37 @@ const NOISE_DOMAINS = [
   "delivery.mp.microsoft.com",
   "azure.com",
   "amazonaws.com",
+  "vortex.data.microsoft.com",
+  "settings-win.data.microsoft.com",
+  "events.data.microsoft.com",
+  "office.com",
+  "office365.com",
+  "skype.com",
 ];
+
+const PRIVATE_IP_RANGES = [
+  /^127\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^192\.168\./, /^169\.254\./, /^::1$/, /^fe80:/
+];
+
+const BROWSERS = ["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe", "iexplore.exe"];
+const DEV_TOOLS = ["node.exe", "npm", "git.exe", "code.exe", "docker.exe", "python.exe", "java.exe", "go.exe", "rustc.exe"];
+
+function getCategory(procName, domain) {
+  const proc = procName.toLowerCase();
+  const dom = (domain || "").toLowerCase();
+
+  if (BROWSERS.includes(proc)) return "Web";
+  if (DEV_TOOLS.some(tool => proc.includes(tool)) || /github|gitlab|npmjs|stackoverflow|bitbucket/.test(dom)) return "Development";
+  if (/amazonaws|azure|cloudflare|akamai|digitalocean|heroku|google-analytics/.test(dom)) return "Cloud";
+  if (["System", "svchost.exe", "lsass.exe", "services.exe"].includes(procName)) return "System";
+  
+  return "App";
+}
+
+function isPrivateIp(ip) {
+  if (!ip) return true;
+  return PRIVATE_IP_RANGES.some(regex => regex.test(ip));
+}
 
 /**
  * Universal Resolution: Scrapes OS DNS cache and matches with ANY active connection.
@@ -106,8 +136,10 @@ function getBaseDomain(domain) {
   if (parts.length <= 2) return domain;
   
   const lastTwo = parts.slice(-2).join(".");
-  if (lastTwo === "googlevideo.com" || lastTwo === "gstatic.com" || lastTwo === "ggpht.com") return "youtube.com";
-  if (lastTwo === "fbcdn.net") return "facebook.com";
+  if (lastTwo === "googlevideo.com" || lastTwo === "gstatic.com" || lastTwo === "ggpht.com" || lastTwo === "google.com") return "google.com";
+  if (lastTwo === "fbcdn.net" || lastTwo === "facebook.com" || lastTwo === "facebook.net") return "facebook.com";
+  if (lastTwo === "twimg.com" || lastTwo === "twitter.com") return "twitter.com";
+  if (lastTwo === "githubusercontent.com") return "github.com";
   
   return lastTwo;
 }
@@ -124,7 +156,11 @@ export async function collectNetworkActivity() {
     ]);
 
     const groupedMap = new Map();
-    const systemNoise = ["System", "svchost.exe", "lsass.exe", "services.exe", "SearchHost.exe", "CompPkgSrv.exe", "Registry", "MemCompression"];
+    const systemNoise = [
+      "System", "svchost.exe", "lsass.exe", "services.exe", "SearchHost.exe", 
+      "CompPkgSrv.exe", "Registry", "MemCompression", "MsMpEng.exe", 
+      "SearchIndexer.exe", "mDNSResponder.exe", "WmiPrvSE.exe", "spoolsv.exe"
+    ];
 
     for (const conn of connections) {
       // 1. UNIVERSAL NOISE FILTERING
@@ -133,24 +169,11 @@ export async function collectNetworkActivity() {
       const addr = conn.peerAddress;
       const procName = conn.process || processMap.get(addr) || "System";
 
-      if (!addr || addr === "0.0.0.0" || addr === "::" || addr === "*" || addr === "127.0.0.1" || addr === "::1") {
-        if (addr === "127.0.0.1" || addr === "::1") {
-          const port = conn.peerPort || conn.localPort || "";
-          const displayDomain = port ? `localhost:${port}` : "localhost";
-          const key = `${procName}:${displayDomain}`;
-          
-          if (!groupedMap.has(key)) {
-            groupedMap.set(key, { process: procName, domain: displayDomain, count: 1, peerAddress: addr, pid: conn.pid });
-          } else {
-            groupedMap.get(key).count++;
-          }
-        }
-        continue;
-      }
-
+      // Aggressively skip localhost and private IPs
+      if (isPrivateIp(addr)) continue;
       if (systemNoise.includes(procName)) continue;
 
-      // 2. SITE DETECTION (Agent uses local cache; Backend handles PTR lookups)
+      // 2. SITE DETECTION
       const possibleDomains = Array.from(dnsMap.get(addr) || []);
       const validDomains = possibleDomains.filter(d => !NOISE_DOMAINS.some(noise => d.includes(noise)));
       
@@ -161,17 +184,21 @@ export async function collectNetworkActivity() {
         const sorted = validDomains.sort((a, b) => a.length - b.length);
         fullDomain = sorted[0];
         displayName = getBaseDomain(fullDomain);
+      } else {
+        // If no DNS match, skip purely numeric system traffic to keep it clean
+        if (procName === "System") continue;
       }
 
-      // 3. GROUPING
-      // We group by Process + Domain + Remote Port to distinguish between services on the same host
+      // 3. GROUPING & CATEGORIZATION
+      const category = getCategory(procName, displayName);
       const port = conn.peerPort || 0;
-      const key = `${procName}:${displayName}:${port}`;
+      const key = `${procName}:${displayName}:${category}`;
       
       if (!groupedMap.has(key)) {
         groupedMap.set(key, {
           process: procName,
           domain: displayName,
+          category: category,
           fullDomain: fullDomain !== displayName ? fullDomain : null,
           peerAddress: addr,
           peerPort: port,
@@ -184,7 +211,7 @@ export async function collectNetworkActivity() {
     }
 
     const activeConnections = Array.from(groupedMap.values())
-      .slice(0, 50);
+      .slice(0, 100);
 
     // Stability Logic: Cache successful results to prevent flickering on intermittent collection failures
     if (activeConnections.length > 0) {
