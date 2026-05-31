@@ -131,7 +131,7 @@ export default function App() {
   );
 }
 
-function DashboardShell({
+export function DashboardShell({
   user,
   activeTab,
   setActiveTab,

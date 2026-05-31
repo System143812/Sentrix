@@ -1328,6 +1328,7 @@ function PeripheralHistoryPanel({ deviceId, history, canControl }) {
 
       <div className="grid gap-6 lg:grid-cols-2 min-w-0 items-stretch">
         <div className="flex flex-col min-w-0">
+          <div className="hidden lg:block h-11" />
           <div className="mb-4 flex flex-wrap gap-2">
             {[
               { id: "active", label: "Active", count: activeInventory.length },
