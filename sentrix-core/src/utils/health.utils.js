@@ -20,6 +20,19 @@ export function average(values = []) {
 }
 
 /**
+ * Calculates the maximum of an array of numeric values.
+ */
+export function maxValue(values = []) {
+  const usableValues = values
+    .map((value) => (value == null || value === "" ? NaN : Number(value)))
+    .filter((value) => Number.isFinite(value));
+
+  if (!usableValues.length) return 0;
+
+  return Math.max(...usableValues);
+}
+
+/**
  * Calculates a unified load percentage for a device based on CPU, RAM, and Disk usage.
  */
 export function getDeviceLoad(client) {
