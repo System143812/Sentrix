@@ -72,23 +72,43 @@ export async function getClientEvents(id, params = {}) {
   return result.data;
 }
 
-export async function getClientDomains(id) {
-  const result = await fetchJson(`/api/clients/${id}/domains`);
+export async function getClientDomains(id, params = {}) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) search.set(key, value);
+  });
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const result = await fetchJson(`/api/clients/${id}/domains${suffix}`);
   return result.data;
 }
 
-export async function getClientSoftware(id) {
-  const result = await fetchJson(`/api/clients/${id}/software`);
+export async function getClientSoftware(id, params = {}) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) search.set(key, value);
+  });
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const result = await fetchJson(`/api/clients/${id}/software${suffix}`);
   return result.data;
 }
 
-export async function getClientHealth(id) {
-  const result = await fetchJson(`/api/clients/${id}/health`);
+export async function getClientHealth(id, params = {}) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) search.set(key, value);
+  });
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const result = await fetchJson(`/api/clients/${id}/health${suffix}`);
   return result.data;
 }
 
-export async function getClientAnomalies(id) {
-  const result = await fetchJson(`/api/clients/${id}/anomalies`);
+export async function getClientAnomalies(id, params = {}) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) search.set(key, value);
+  });
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const result = await fetchJson(`/api/clients/${id}/anomalies${suffix}`);
   return result.data;
 }
 

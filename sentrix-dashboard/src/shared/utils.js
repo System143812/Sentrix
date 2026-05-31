@@ -181,6 +181,12 @@ export function generateId() {
   });
 }
 
+export function dateToMs(value, endOfDay = false) {
+  if (!value) return "";
+  const date = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
+  return Number.isNaN(date.getTime()) ? "" : String(date.getTime());
+}
+
 // SVG Path Functions
 
 /**
