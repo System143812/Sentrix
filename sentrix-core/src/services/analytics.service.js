@@ -3,24 +3,24 @@ import { getGlobalTrendData } from "./metrics/index.js";
 import pool from "../lib/database.js";
 import PDFDocument from "pdfkit-table";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, HeadingLevel, BorderStyle, VerticalAlign } from "docx";
-import { clamp, average, getDeviceLoad, getDeviceIssues, getHealthScore } from "../utils/health.utils.js";
+import { clamp, average, maxValue, getDeviceLoad, getDeviceIssues, getHealthScore } from "../utils/health.utils.js";
 
 
 const ranges = {
   "24h": {
     label: "Last 24 hours",
     durationMs: 24 * 60 * 60 * 1000,
-    buckets: 6,
+    buckets: 12,
   },
   "7d": {
     label: "Last 7 days",
     durationMs: 7 * 24 * 60 * 60 * 1000,
-    buckets: 7,
+    buckets: 14,
   },
   "30d": {
     label: "Last 30 days",
     durationMs: 30 * 24 * 60 * 60 * 1000,
-    buckets: 6,
+    buckets: 15,
   },
 };
 
@@ -37,7 +37,7 @@ function createBuckets(rangeKey, now = Date.now()) {
     const end = start + bucketSizeMs;
 
     return {
-      label: buildBucketLabel(start, rangeKey),
+      label: buildBucketLabel(start, rangeKey, index === range.buckets - 1),
       start,
       end,
       values: {
@@ -57,14 +57,16 @@ function createBuckets(rangeKey, now = Date.now()) {
   });
 }
 
-function buildBucketLabel(timestamp, rangeKey) {
+function buildBucketLabel(timestamp, rangeKey, isLast = false) {
+  if (isLast) return "Now";
   const date = new Date(timestamp);
 
   if (rangeKey === "24h") {
     return date.toLocaleTimeString("en-US", {
       hour: "numeric",
+      minute: "2-digit",
       hour12: true,
-    });
+    }).replace(":00", "");
   }
 
   if (rangeKey === "7d") {
@@ -151,7 +153,7 @@ function buildTrends(clients, samples, rangeKey) {
   metrics.forEach(m => {
     result[m] = buckets.map((bucket) => ({
       label: bucket.label,
-      value: average(bucket.values[m]),
+      value: m === "alerts" ? maxValue(bucket.values[m]) : average(bucket.values[m]),
     }));
   });
 
