@@ -91,6 +91,7 @@ const GLASS_TONES = {
   blue: "border-blue-100/70 bg-blue-50/45 shadow-blue-900/5",
   amber: "border-amber-100/70 bg-amber-50/45 shadow-amber-900/5",
   rose: "border-rose-100/70 bg-rose-50/45 shadow-rose-900/5",
+  red: "border-rose-100/70 bg-rose-50/45 shadow-rose-900/5",
   teal: "border-teal-100/70 bg-teal-50/45 shadow-teal-900/5",
   indigo: "border-indigo-100/70 bg-indigo-50/45 shadow-indigo-900/5",
   slate: "border-slate-200/80 bg-slate-50/70 shadow-slate-900/5",
@@ -401,7 +402,7 @@ function ModernTrendChart({ points = [], color = "#2563eb", label = "Trend", isP
   const gradientId = `trend-gradient-${label.replace(/\s+/g, "-").toLowerCase()}`;
 
   return (
-    <div className="group relative rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+    <div className="group relative min-w-0 rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:shadow-md">
       {/* Header Info */}
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
@@ -417,7 +418,7 @@ function ModernTrendChart({ points = [], color = "#2563eb", label = "Trend", isP
         )}
       </div>
 
-      <div className="ml-8 relative h-48 sm:h-56">
+      <div className="ml-4 sm:ml-8 relative h-48 sm:h-56">
         {/* Hover Tooltip Overlay (Anchored to Point) */}
         {hoveredPoint && (
           <div 
@@ -537,14 +538,20 @@ function ModernTrendChart({ points = [], color = "#2563eb", label = "Trend", isP
       </div>
 
       {/* Horizontal Labels */}
-      <div className="ml-8 mt-4 flex justify-between px-2">
+      <div className="ml-4 sm:ml-8 mt-4 flex justify-between px-2">
         {points.map((point, i) => {
           // Show labels every few points to avoid crowding
-          const shouldShow = i === 0 || i === points.length - 1 || (points.length > 8 && i % 3 === 0);
+          const isEdge = i === 0 || i === points.length - 1;
+          const isStep = points.length > 8 && i % 3 === 0;
+          const shouldShow = isEdge || isStep;
+          
           return (
             <span 
               key={point.label + i} 
-              className={`text-[9px] font-bold uppercase tracking-widest transition-colors ${point.label === "Now" ? "text-emerald-500" : "text-slate-400"} ${!shouldShow ? "opacity-0" : "opacity-100"}`}
+              className={`text-[9px] font-bold uppercase tracking-widest transition-colors 
+                ${point.label === "Now" ? "text-emerald-500" : "text-slate-400"} 
+                ${!shouldShow ? "hidden" : "flex"} 
+                ${!isEdge ? "hidden sm:flex" : "flex"}`}
             >
               {point.label}
             </span>
@@ -572,7 +579,7 @@ function MultiLineTrendChart({
   const chartMax = 100;
 
   return (
-    <div className="group relative rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+    <div className="group relative min-w-0 rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:shadow-md">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
           {label} Analysis
@@ -585,7 +592,7 @@ function MultiLineTrendChart({
         </div>
       </div>
 
-      <div className="relative ml-8 h-56 sm:h-64">
+      <div className="relative ml-4 sm:ml-8 h-56 sm:h-64">
         {/* Shared Tooltip */}
         {hoveredIndex !== null && (
           <div
@@ -702,16 +709,18 @@ function MultiLineTrendChart({
       </div>
 
       {/* X-Axis Labels */}
-      <div className="ml-8 mt-4 flex justify-between px-2">
+      <div className="ml-4 sm:ml-8 mt-4 flex justify-between px-2">
         {firstDataset.map((point, i) => {
-          const shouldShow =
-            i === 0 ||
-            i === pointsCount - 1 ||
-            (pointsCount > 8 && i % 3 === 0);
+          const isEdge = i === 0 || i === pointsCount - 1;
+          const isStep = pointsCount > 8 && i % 3 === 0;
+          const shouldShow = isEdge || isStep;
+          
           return (
             <span
-              className={`text-[9px] font-bold uppercase tracking-widest text-slate-400 ${!shouldShow ? "opacity-0" : "opacity-100"}`}
               key={i}
+              className={`text-[9px] font-bold uppercase tracking-widest text-slate-400 
+                ${!shouldShow ? "hidden" : "flex"} 
+                ${!isEdge ? "hidden sm:flex" : "flex"}`}
             >
               {point.label}
             </span>
