@@ -1,7 +1,59 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="16" fill="#172033"/>
-  <circle cx="32" cy="32" r="17" fill="none" stroke="#ffffff" stroke-width="4"/>
-  <circle cx="32" cy="32" r="8" fill="none" stroke="#ffffff" stroke-width="4"/>
-  <circle cx="32" cy="32" r="3" fill="#ffffff"/>
-  <path d="M32 15v8M49 32h-8M32 49v-8M15 32h8" stroke="#14b8a6" stroke-width="4" stroke-linecap="round"/>
+  <!-- Sleek, trendy rounded slate background -->
+  <rect width="64" height="64" rx="14" fill="#0f172a"/>
+  
+  <!-- Exact copy of the SentrixMark component, scaled to fit -->
+  <g transform="translate(0, 8) scale(0.666)">
+    <!-- 1. Shield Outline (Exact Path) -->
+    <path
+      d="M48 5 76 17v18c0 17-11 27-28 33-17-6-28-16-28-33V17L48 5Z"
+      fill="none"
+      stroke="#ffffff"
+      stroke-linejoin="round"
+      stroke-width="5"
+    />
+    <!-- 2. Shield Inner Fill (Exact Path) -->
+    <path
+      d="M48 14 68 22v14c0 11-7 19-20 24-13-5-20-13-20-24V22l20-8Z"
+      fill="#ffffff"
+      opacity="0.12"
+    />
+    <!-- 3. Upper Data Wave (Exact Path) -->
+    <path
+      d="M8 27h24c8 0 10-9 16-9s8 9 16 9h24"
+      fill="none"
+      stroke="#ffffff"
+      stroke-linecap="round"
+      stroke-width="4"
+    />
+    <!-- 4. Lower Data Wave (Exact Path) -->
+    <path
+      d="M8 45h24c8 0 10 9 16 9s8-9 16-9h24"
+      fill="none"
+      stroke="#ffffff"
+      stroke-linecap="round"
+      stroke-width="4"
+    />
+    <!-- 5. Vertical Logic Connectors (Exact Path) -->
+    <path
+      d="M48 21v30M39 27v18M57 27v18"
+      fill="none"
+      stroke="#ffffff"
+      stroke-linecap="round"
+      stroke-width="3"
+    />
+    <!-- 6. Central Data Node (Exact Rect in Cyan) -->
+    <rect
+      fill="#14b8a6"
+      height="12"
+      rx="3"
+      width="10"
+      x="43"
+      y="31"
+    />
+    <!-- 7. Right-side Edge Nodes (The missing detail for an "Exact Copy") -->
+    <rect fill="#ffffff" height="6" rx="1.5" width="9" x="82" y="17" />
+    <rect fill="#ffffff" height="6" rx="1.5" width="9" x="82" y="33" />
+    <rect fill="#ffffff" height="6" rx="1.5" width="9" x="82" y="49" />
+  </g>
 </svg>
