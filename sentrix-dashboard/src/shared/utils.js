@@ -183,16 +183,32 @@ export function generateId() {
 
 // SVG Path Functions
 
+/**
+ * Generates a smooth SVG path with support for gaps (null values).
+ */
 export function buildSmoothSvgPath(coordinates, step) {
-  return coordinates
-    .map((point, index) => {
-      if (index === 0) return `M ${point.x} ${point.y}`;
+  let path = "";
+  let inPath = false;
 
-      const previous = coordinates[index - 1];
-      const controlOffset = step * 0.42;
-      return `C ${previous.x + controlOffset} ${previous.y}, ${
-        point.x - controlOffset
-      } ${point.y}, ${point.x} ${point.y}`;
-    })
-    .join(" ");
+  coordinates.forEach((point, index) => {
+    const isValueValid = point.y != null && Number.isFinite(point.y);
+
+    if (isValueValid) {
+      if (!inPath) {
+        path += ` M ${point.x} ${point.y}`;
+        inPath = true;
+      } else {
+        const previous = coordinates[index - 1];
+        const controlOffset = step * 0.42;
+        path += ` C ${previous.x + controlOffset} ${previous.y}, ${
+          point.x - controlOffset
+        } ${point.y}, ${point.x} ${point.y}`;
+      }
+    } else {
+      inPath = false;
+    }
+  });
+
+  return path.trim();
 }
+

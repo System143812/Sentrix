@@ -79,8 +79,26 @@ function buildBucketLabel(timestamp, rangeKey, isLast = false) {
   });
 }
 
-function addPointToBucket(buckets, point) {
+function addPointToBucket(buckets, point, fillAll = false) {
   const timestamp = Number(point.timestamp);
+  
+  if (fillAll) {
+    buckets.forEach(bucket => {
+      bucket.values.cpu.push(point.cpu);
+      bucket.values.ram.push(point.ram);
+      bucket.values.disk.push(point.disk);
+      bucket.values.health.push(getHealthScore({ metrics: point, status: "online" }));
+      bucket.values.alerts.push(getDeviceIssues({ metrics: point, status: "online" }).length);
+      bucket.values.cpuTemperature.push(point.cpuTemperature);
+      bucket.values.gpuTemperature.push(point.gpuTemperature);
+      bucket.values.uploadBytesPerSec.push(point.uploadBytesPerSec);
+      bucket.values.downloadBytesPerSec.push(point.downloadBytesPerSec);
+      bucket.values.latencyMs.push(point.latencyMs);
+      bucket.values.packetLoss.push(point.packetLoss);
+    });
+    return;
+  }
+
   const bucket = buckets.find((item, index) => {
     const isLastBucket = index === buckets.length - 1;
     const isAfterStart = timestamp >= item.start;
@@ -137,8 +155,9 @@ function buildTrends(clients, samples, rangeKey) {
   if (relevantSamples.length > 0) {
     relevantSamples.forEach((point) => addPointToBucket(buckets, point));
   } else {
+    // If no history exists, fill all buckets with the current average to show a stable baseline.
     clients.forEach((client) => {
-      addPointToBucket(buckets, buildFallbackPoint(client));
+      addPointToBucket(buckets, buildFallbackPoint(client), true);
     });
   }
 
@@ -160,7 +179,47 @@ function buildTrends(clients, samples, rangeKey) {
   return result;
 }
 
+function buildDeviceTrends(clients, samples, rangeKey) {
+  const result = {};
+  const clientIds = new Set(clients.map(c => c.id));
+  const relevantSamples = samples.filter(s => clientIds.has(s.client_id));
+
+  clients.forEach(client => {
+    const deviceBuckets = createBuckets(rangeKey);
+    const deviceSamples = relevantSamples.filter(s => s.client_id === client.id);
+
+    if (deviceSamples.length > 0) {
+      deviceSamples.forEach(point => addPointToBucket(deviceBuckets, point));
+    } else {
+      // Steady-state fallback: Fill all buckets with current metrics if no history is recorded.
+      addPointToBucket(deviceBuckets, buildFallbackPoint(client), true);
+    }
+
+    result[client.id] = {
+      health: deviceBuckets.map(b => ({ label: b.label, value: average(b.values.health) })),
+      load: deviceBuckets.map(b => {
+        const cpu = average(b.values.cpu);
+        const ram = average(b.values.ram);
+        const disk = average(b.values.disk);
+        
+        if (cpu === null && ram === null && disk === null) {
+          return { label: b.label, value: null };
+        }
+        
+        return { 
+          label: b.label, 
+          value: Math.round(((cpu ?? 0) + (ram ?? 0) + (disk ?? 0)) / 3) 
+        };
+      }),
+    };
+  });
+
+  return result;
+}
+
 function countAlerts(clients) {
+// ... rest of file (skipping to getAnalyticsSummary)
+
   const alerts = clients.flatMap((client) =>
     getDeviceIssues(client).map((issue) => ({
       clientId: client.id,
@@ -290,6 +349,7 @@ export async function getAnalyticsSummary(options = {}) {
   const rangeStartMs = Date.now() - range.durationMs;
   const samples = await getGlobalTrendData(rangeStartMs);
   const trends = buildTrends(clients, samples, rangeKey);
+  const deviceTrends = buildDeviceTrends(clients, samples, rangeKey);
 
   const hasCpuTemperature = clients.some((client) => client.metrics?.temperature?.cpu?.temperatureCelsius != null || client.metrics?.cpuTemperature != null);
   const hasGpuTemperature = clients.some((client) => client.metrics?.temperature?.gpu?.temperatureCelsius != null || client.metrics?.gpuTemperature != null);
@@ -322,12 +382,12 @@ export async function getAnalyticsSummary(options = {}) {
       offline: clients.filter((client) => client.status !== "online").length,
     },
     averages: {
-      cpu: average(clients.map((client) => client.metrics?.cpu)),
-      ram: average(clients.map((client) => client.metrics?.ram)),
-      disk: average(clients.map((client) => client.metrics?.disk)),
-      uptime: average(clients.map((client) => client.metrics?.uptime)),
-      load: average(clients.map(getDeviceLoad)),
-      health: average(clients.map(getHealthScore)),
+      cpu: average(clients.map((client) => client.metrics?.cpu)) ?? 0,
+      ram: average(clients.map((client) => client.metrics?.ram)) ?? 0,
+      disk: average(clients.map((client) => client.metrics?.disk)) ?? 0,
+      uptime: average(clients.map((client) => client.metrics?.uptime)) ?? 0,
+      load: average(clients.map(getDeviceLoad)) ?? 0,
+      health: average(clients.map(getHealthScore)) ?? 0,
       cpuTemperature: average(clients.map((client) => client.metrics?.temperature?.cpu?.temperatureCelsius ?? client.metrics?.cpuTemperature)),
       gpuTemperature: average(clients.map((client) => client.metrics?.temperature?.gpu?.temperatureCelsius ?? client.metrics?.gpuTemperature)),
       uploadBytesPerSec: average(clients.map((client) => client.metrics?.network?.uploadBytesPerSec ?? client.metrics?.uploadBytesPerSec)),
@@ -337,6 +397,7 @@ export async function getAnalyticsSummary(options = {}) {
     },
     alerts,
     trends,
+    deviceTrends,
     groups: buildGroupStats(clients),
     peripherals: peripheralSummary,
     devices: {

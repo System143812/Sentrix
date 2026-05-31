@@ -113,12 +113,28 @@ const TREND_POINT_COLORS = [
   "#10b981",
 ];
 
+const DEVICE_COLORS = [
+  "#3b82f6", // Blue
+  "#10b981", // Emerald
+  "#f59e0b", // Amber
+  "#6366f1", // Indigo
+  "#f43f5e", // Rose
+  "#8b5cf6", // Violet
+  "#14b8a6", // Teal
+  "#f97316", // Orange
+  "#06b6d4", // Cyan
+  "#d946ef", // Fuchsia
+  "#84cc16", // Lime
+  "#475569", // Slate
+];
+
 function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
   const safeData = data || EMPTY_ANALYTICS;
   const totals = safeData.totals || EMPTY_ANALYTICS.totals;
   const averages = safeData.averages || EMPTY_ANALYTICS.averages;
   const alerts = safeData.alerts || EMPTY_ANALYTICS.alerts;
   const trends = safeData.trends || EMPTY_ANALYTICS.trends;
+  const deviceTrends = safeData.deviceTrends || {};
   const devices = safeData.devices || EMPTY_ANALYTICS.devices;
   const dataQuality = safeData.dataQuality || EMPTY_ANALYTICS.dataQuality;
   const deviceRows = devices.rows || [];
@@ -218,6 +234,7 @@ function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
     packetLossTrend: trends.packetLoss || [],
     healthTrend: trends.health || [],
     alertTrend: trends.alerts || [],
+    deviceTrends,
     topAlerts: alerts.byType || [],
     topIssues,
     topDevices: devices.topLoad || [],
@@ -400,35 +417,31 @@ function ModernTrendChart({ points = [], color = "#2563eb", label = "Trend", isP
         )}
       </div>
 
-      {/* Hover Tooltip Overlay (Moved Outside Overflow) */}
-      {hoveredPoint && (
-        <div 
-          className="pointer-events-none absolute z-50 rounded-lg border border-slate-200 bg-white p-2.5 shadow-2xl transition-all duration-150 ring-4 ring-white/50"
-          style={{ 
-            left: `calc(32px + ${(hoveredPoint.x / width) * 100}%)`, 
-            top: `calc(88px + ${(hoveredPoint.y / height) * 100}%)`,
-            transform: 'translate(-50%, -125%)'
-          }}
-        >
-          <p className="text-[9px] font-bold uppercase text-slate-400 leading-none mb-1">
-            {hoveredPoint.data.label === "Now" ? "Right Now" : hoveredPoint.data.label}
-          </p>
-          <p className="text-sm font-bold text-slate-900 leading-none">
-            {hoveredPoint.data.value}{isPercentage ? "%" : " Alerts"}
-          </p>
-        </div>
-      )}
+      <div className="ml-8 relative h-48 sm:h-56">
+        {/* Hover Tooltip Overlay (Anchored to Point) */}
+        {hoveredPoint && (
+          <div 
+            className="pointer-events-none absolute z-50 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 shadow-2xl transition-all duration-100 ring-2 ring-slate-100"
+            style={{ 
+              left: `${(hoveredPoint.x / width) * 100}%`, 
+              top: `${(hoveredPoint.y / height) * 100}%`,
+              transform: 'translate(-50%, calc(-100% - 12px))'
+            }}
+          >
+            {/* Tooltip Tail */}
+            <div className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-slate-200 bg-white" />
+            
+            <p className="relative z-10 text-[9px] font-bold uppercase text-slate-400 leading-none mb-0.5">
+              {hoveredPoint.data.label === "Now" ? "Live" : hoveredPoint.data.label}
+            </p>
+            <p className="relative z-10 text-xs font-bold text-slate-900 leading-none">
+              {hoveredPoint.data.value}{isPercentage ? "%" : " Alerts"}
+            </p>
+          </div>
+        )}
 
-      {/* Dynamic Y-Axis Labels */}
-      <div className="absolute left-3 top-[88px] flex h-[160px] flex-col justify-between text-[9px] font-bold uppercase tracking-tighter text-slate-300">
-        <span>{Math.round(chartMax)}{!isPercentage && " alerts"}</span>
-        <span>{Math.round(chartMax / 2)}</span>
-        <span>0</span>
-      </div>
-
-      <div className="ml-8 overflow-hidden relative">
         <svg
-          className="h-48 w-full sm:h-56 cursor-crosshair"
+          className="h-full w-full cursor-crosshair"
           preserveAspectRatio="none"
           viewBox={`0 0 ${width} ${height}`}
           onMouseLeave={() => setHoveredPoint(null)}
@@ -542,78 +555,203 @@ function ModernTrendChart({ points = [], color = "#2563eb", label = "Trend", isP
   );
 }
 
-function MultiLineChart({ devices = [] }) {
+function MultiLineTrendChart({
+  datasets = [],
+  label = "Trend",
+  isPercentage = true,
+}) {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+  const width = 600;
+  const height = 240;
+
+  // Use the first dataset to determine the number of points and labels
+  const firstDataset = datasets[0]?.points || [];
+  const pointsCount = firstDataset.length;
+  const step = pointsCount > 1 ? width / (pointsCount - 1) : width;
+
+  const chartMax = 100;
+
   return (
-    <div className="rounded-xl border border-slate-200/60 bg-white p-6">
-      {!devices.length ? (
+    <div className="group relative rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          {label} Analysis
+        </span>
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] font-bold uppercase tracking-tight text-emerald-600">
+            Comparative View
+          </span>
+        </div>
+      </div>
+
+      <div className="relative ml-8 h-56 sm:h-64">
+        {/* Shared Tooltip */}
+        {hoveredIndex !== null && (
+          <div
+            className="pointer-events-none absolute z-50 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-2xl ring-1 ring-slate-200/50 backdrop-blur-md"
+            style={{
+              left: `${(hoveredIndex * step) / width > 0.5 ? "auto" : (hoveredIndex * step * 100) / width + "%"}`,
+              right: `${(hoveredIndex * step) / width > 0.5 ? 100 - (hoveredIndex * step * 100) / width + "%" : "auto"}`,
+              top: "10px",
+              marginLeft: (hoveredIndex * step) / width > 0.5 ? "0" : "20px",
+              marginRight: (hoveredIndex * step) / width > 0.5 ? "20px" : "0",
+            }}
+          >
+            <p className="mb-2 border-b border-slate-100 pb-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              {firstDataset[hoveredIndex]?.label === "Now"
+                ? "Live Status"
+                : firstDataset[hoveredIndex]?.label}
+            </p>
+            <div className="space-y-1.5">
+              {datasets.map((ds, i) => {
+                const val = ds.points[hoveredIndex]?.value;
+                return (
+                  <div
+                    className="flex items-center justify-between gap-6"
+                    key={i}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: ds.color }}
+                      />
+                      <span className="max-w-[120px] truncate text-[10px] font-bold text-slate-600">
+                        {ds.hostname}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-900">
+                      {val === null ? "Offline" : `${val}%`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <svg
+          className="h-full w-full cursor-crosshair"
+          onMouseLeave={() => setHoveredIndex(null)}
+          preserveAspectRatio="none"
+          viewBox={`0 0 ${width} ${height}`}
+        >
+          {/* Grid Lines */}
+          {[0, 0.25, 0.5, 0.75, 1].map((factor) => (
+            <line
+              className="text-slate-100"
+              key={factor}
+              stroke="currentColor"
+              strokeDasharray="4 4"
+              x1="0"
+              x2={width}
+              y1={height * factor}
+              y2={height * factor}
+            />
+          ))}
+
+          {/* Hover Vertical Line */}
+          {hoveredIndex !== null && (
+            <line
+              stroke="#e2e8f0"
+              strokeDasharray="4 4"
+              strokeWidth="2"
+              x1={hoveredIndex * step}
+              x2={hoveredIndex * step}
+              y1={0}
+              y2={height}
+            />
+          )}
+
+          {/* Data Paths */}
+          {datasets.map((ds, dsIndex) => {
+            const coords = ds.points.map((p, i) => ({
+              x: i * step,
+              y: p.value === null ? null : height - (p.value / chartMax) * height,
+            }));
+            const d = buildSmoothSvgPath(coords, step);
+
+            return (
+              <path
+                className="transition-all duration-700"
+                d={d}
+                fill="none"
+                key={dsIndex}
+                stroke={ds.color}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={hoveredIndex !== null ? "2" : "3"}
+                style={{ opacity: hoveredIndex !== null ? 0.35 : 0.75 }}
+              />
+            );
+          })}
+
+          {/* Interaction Zones */}
+          {Array.from({ length: pointsCount }).map((_, i) => (
+            <rect
+              fill="transparent"
+              height={height}
+              key={i}
+              onMouseEnter={() => setHoveredIndex(i)}
+              width={step}
+              x={i * step - step / 2}
+              y={0}
+            />
+          ))}
+        </svg>
+      </div>
+
+      {/* X-Axis Labels */}
+      <div className="ml-8 mt-4 flex justify-between px-2">
+        {firstDataset.map((point, i) => {
+          const shouldShow =
+            i === 0 ||
+            i === pointsCount - 1 ||
+            (pointsCount > 8 && i % 3 === 0);
+          return (
+            <span
+              className={`text-[9px] font-bold uppercase tracking-widest text-slate-400 ${!shouldShow ? "opacity-0" : "opacity-100"}`}
+              key={i}
+            >
+              {point.label}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MultiLineChart({ devices = [], analytics }) {
+  const deviceTrends = analytics.deviceTrends || {};
+
+  // Map devices to their datasets for health and load
+  const healthDatasets = devices.map((device, index) => ({
+    hostname: device.hostname,
+    color: DEVICE_COLORS[index % DEVICE_COLORS.length],
+    points: deviceTrends[device.id]?.health || [],
+  }));
+
+  const loadDatasets = devices.map((device, index) => ({
+    hostname: device.hostname,
+    color: DEVICE_COLORS[index % DEVICE_COLORS.length],
+    points: deviceTrends[device.id]?.load || [],
+  }));
+
+  if (!devices.length) {
+    return (
+      <div className="rounded-xl border border-slate-200/60 bg-white p-6">
         <div className="grid min-h-64 place-items-center rounded-lg bg-slate-50 text-xs font-bold uppercase tracking-widest text-slate-400 font-ui">
           Syncing Device Metrics...
         </div>
-      ) : (
-        <div className="grid gap-6 sm:grid-cols-2">
-          {devices.slice(0, 6).map((device) => {
-            const health = getHealthScore(device);
-            const load = getDeviceLoad(device);
+      </div>
+    );
+  }
 
-            return (
-              <div
-                key={device.id}
-                className="group rounded-xl border border-slate-200/60 bg-slate-50/30 p-4 transition-all hover:border-slate-200 hover:bg-white hover:shadow-sm"
-              >
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <span className="truncate text-sm font-bold text-slate-800 tracking-tight font-ui">
-                    {device.hostname}
-                  </span>
-                  <div className="flex shrink-0 gap-1">
-                    <div
-                      className={`h-1.5 w-1.5 rounded-full ${health >= 80 ? "bg-emerald-400" : health >= 60 ? "bg-amber-400" : "bg-rose-400"}`}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <div className="mb-1.5 flex items-center justify-between px-0.5">
-                      <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-ui">
-                        <ShieldCheck
-                          size={12}
-                          className="text-emerald-500/70"
-                        />
-                        Health
-                      </span>
-                      <span className="text-[10px] font-bold text-emerald-600 font-data">
-                        {health}%
-                      </span>
-                    </div>
-                    <ProgressBar
-                      value={clamp(health)}
-                      color="emerald"
-                      height="h-1.5"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="mb-1.5 flex items-center justify-between px-0.5">
-                      <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-ui">
-                        <Zap size={12} className="text-blue-500/70" />
-                        Workload
-                      </span>
-                      <span className="text-[10px] font-bold text-blue-600 font-data">
-                        {load}%
-                      </span>
-                    </div>
-                    <ProgressBar
-                      value={clamp(load)}
-                      color="blue"
-                      height="h-1.5"
-                    />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <MultiLineTrendChart datasets={healthDatasets} label="Fleet Health" />
+      <MultiLineTrendChart datasets={loadDatasets} label="Resource Load" />
     </div>
   );
 }
@@ -1107,16 +1245,16 @@ function AlertTrendsPanel({ analytics, loading }) {
   );
 }
 
-function DeviceComparisonPanel({ devices, loading, rangeKey }) {
+function DeviceComparisonPanel({ devices, analytics, loading }) {
   return (
     <Panel
       icon={Laptop}
       loading={loading}
       title="Device Comparison"
-      subtitle="Selected devices ranked by health"
+      subtitle="Comparative historical analysis of device performance"
       tone="blue"
     >
-      <MultiLineChart devices={devices} rangeKey={rangeKey} />
+      <MultiLineChart analytics={analytics} devices={devices.slice(0, 10)} />
       <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md">
         <div className="hidden grid-cols-[1.5fr_1fr_1fr_120px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100">
           <div>Entity Identity</div>
@@ -1126,10 +1264,11 @@ function DeviceComparisonPanel({ devices, loading, rangeKey }) {
         </div>
         <div className="divide-y divide-slate-100 max-h-[460px] overflow-auto custom-scrollbar">
           {devices.length ? (
-            devices.map((device) => {
+            devices.map((device, index) => {
               const health = getHealthScore(device);
               const load = getDeviceLoad(device);
               const isOutlier = health < 65 || load > 82;
+              const color = DEVICE_COLORS[index % DEVICE_COLORS.length];
 
               return (
                 <article
@@ -1138,8 +1277,11 @@ function DeviceComparisonPanel({ devices, loading, rangeKey }) {
                 >
                   {/* Device Identity */}
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
-                      <Monitor size={18} strokeWidth={2} />
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 shadow-sm transition-transform group-hover:scale-110"
+                      style={{ backgroundColor: `${color}15`, color: color, borderColor: `${color}30` }}
+                    >
+                      <Monitor size={18} strokeWidth={2.5} />
                     </div>
                     <span className="truncate text-sm font-bold text-slate-800 tracking-tight font-ui">
                       {device.hostname}
@@ -2185,6 +2327,7 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
 
         <div className="page-reveal grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <DeviceComparisonPanel
+            analytics={analytics}
             devices={analytics.outliers}
             loading={pageLoading}
             rangeKey={rangeKey}
