@@ -48,91 +48,105 @@ export async function saveProcesses(clientId, processes = [], recordedAt) {
 }
 
 export async function saveNetworkActivity(clientId, activity = {}, recordedAt) {
-  const { activeConnections = [], dnsCache = [] } = activity;
+  const { activeConnections = [], dnsCache = [], activityChanged = true } = activity;
 
   return withDeadlockRetry(async () => {
-    const connection = await pool.getConnection();
+    // OPTIMIZATION: If no activity changed, just refresh the TTL for existing live connections
+    if (!activityChanged) {
+      await pool.query(
+        `UPDATE client_network_connections SET recorded_at = ? WHERE client_id = ?`,
+        [recordedAt, clientId]
+      );
+    } else {
+      const connection = await pool.getConnection();
 
-    try {
-      await connection.beginTransaction();
+      try {
+        await connection.beginTransaction();
 
-      // WRITE-ONLY INGESTION: Switch to Bulk Upsert for massive performance and lock reduction.
-      if (activeConnections.length > 0) {
-        const connValues = activeConnections.map(conn => [
-          clientId,
-          conn.protocol || "TCP",
-          conn.localAddress || null,
-          toNumber(conn.localPort),
-          conn.peerAddress || "",
-          toNumber(conn.peerPort),
-          conn.state || "ESTABLISHED",
-          conn.process || "System",
-          conn.domain || conn.peerAddress || "",
-          toNumber(conn.count, 1),
-          recordedAt
-        ]);
-
-        await connection.query(
-          `
-          INSERT INTO client_network_connections
-            (client_id, protocol, local_address, local_port, remote_address, remote_port, state, process_name, domain, connection_count, recorded_at)
-          VALUES ?
-          ON DUPLICATE KEY UPDATE
-            recorded_at = VALUES(recorded_at),
-            connection_count = VALUES(connection_count),
-            state = VALUES(state),
-            remote_address = VALUES(remote_address)
-          `,
-          [connValues]
-        );
-
-        // PERSISTENT HISTORY: Batch Upsert into activity history
-        const historyValues = activeConnections
-          .filter(c => (c.domain || c.peerAddress) && !(c.domain || c.peerAddress).includes("localhost"))
-          .map(c => [
+        if (activeConnections.length > 0) {
+          const connValues = activeConnections.map(conn => [
             clientId,
-            c.domain || c.peerAddress,
-            c.process || "System",
-            c.fullDomain || null,
-            recordedAt,
-            recordedAt,
-            1 // hit_count
+            conn.protocol || "TCP",
+            conn.localAddress || null,
+            toNumber(conn.localPort),
+            conn.peerAddress || "",
+            toNumber(conn.peerPort),
+            conn.state || "ESTABLISHED",
+            conn.process || "System",
+            conn.domain || conn.peerAddress || "",
+            conn.category || "App",
+            toNumber(conn.count, 1),
+            recordedAt
           ]);
 
-        if (historyValues.length > 0) {
           await connection.query(
             `
-            INSERT INTO client_activity_history
-              (client_id, domain, process_name, full_domain, first_seen_at, last_seen_at, hit_count)
+            INSERT INTO client_network_connections
+              (client_id, protocol, local_address, local_port, remote_address, remote_port, state, process_name, domain, category, connection_count, recorded_at)
             VALUES ?
             ON DUPLICATE KEY UPDATE
-              last_seen_at = VALUES(last_seen_at),
-              hit_count = hit_count + 1,
-              process_name = COALESCE(VALUES(process_name), process_name),
-              full_domain = COALESCE(VALUES(full_domain), full_domain)
+              recorded_at = VALUES(recorded_at),
+              connection_count = VALUES(connection_count),
+              state = VALUES(state),
+              category = VALUES(category),
+              remote_address = VALUES(remote_address)
             `,
-            [historyValues]
+            [connValues]
           );
+
+          // PERSISTENT HISTORY: Batch Upsert into activity history
+          const historyValues = activeConnections
+            .filter(c => (c.domain || c.peerAddress) && !(c.domain || c.peerAddress).includes("localhost"))
+            .map(c => [
+              clientId,
+              c.domain || c.peerAddress,
+              c.process || "System",
+              c.category || "App",
+              c.fullDomain || null,
+              recordedAt,
+              recordedAt,
+              1 // hit_count
+            ]);
+
+          if (historyValues.length > 0) {
+            await connection.query(
+              `
+              INSERT INTO client_activity_history
+                (client_id, domain, process_name, category, full_domain, first_seen_at, last_seen_at, hit_count)
+              VALUES ?
+              ON DUPLICATE KEY UPDATE
+                last_seen_at = VALUES(last_seen_at),
+                hit_count = hit_count + 1,
+                process_name = COALESCE(VALUES(process_name), process_name),
+                category = VALUES(category),
+                full_domain = COALESCE(VALUES(full_domain), full_domain)
+              `,
+              [historyValues]
+            );
+          }
         }
+
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
       }
+    }
 
-      await connection.commit();
-
-      // Background tasks (non-transactional)
-      const uniqueIps = new Set();
+    // Background tasks (non-transactional) - only if activity changed or we have DNS cache
+    const uniqueIps = new Set();
+    if (activityChanged) {
       for (const conn of activeConnections) {
         if (conn.peerAddress && !conn.peerAddress.includes(":") && conn.peerAddress !== "127.0.0.1") {
           uniqueIps.add(conn.peerAddress);
         }
       }
-      for (const ip of uniqueIps) {
-        DnsService.resolveIp(ip).catch(() => {});
-      }
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
+    }
+    
+    for (const ip of uniqueIps) {
+      DnsService.resolveIp(ip).catch(() => {});
     }
 
     const validDnsCache = dnsCache.filter((dns) => dns.domain && dns.resolvedAddress);
@@ -308,6 +322,7 @@ export async function getLatestClientNetworkActivity(clientId) {
       state: c.state,
       process: c.process_name,
       domain: c.service_label || c.resolved_hostname || c.domain,
+      category: c.category,
       serviceLabel: c.service_label,
       organization: c.organization,
       isCloud: Boolean(c.is_cloud),
@@ -331,6 +346,7 @@ export async function getClientActivityHistory(clientId) {
     SELECT 
       COALESCE(intel.service_label, intel.hostname, h.domain) as effective_domain,
       h.process_name,
+      h.category,
       MAX(h.full_domain) as full_domain,
       MIN(h.first_seen_at) as first_seen_at,
       MAX(h.last_seen_at) as last_seen_at,
@@ -340,7 +356,7 @@ export async function getClientActivityHistory(clientId) {
     FROM client_activity_history h
     LEFT JOIN dns_intelligence intel ON h.domain = intel.ip
     WHERE h.client_id = ? 
-    GROUP BY effective_domain, h.process_name
+    GROUP BY effective_domain, h.process_name, h.category
     ORDER BY last_seen_at DESC 
     LIMIT 200
     `,
@@ -350,6 +366,7 @@ export async function getClientActivityHistory(clientId) {
   return rows.map(r => ({
     domain: r.effective_domain,
     process: r.process_name,
+    category: r.category,
     fullDomain: r.full_domain,
     firstSeenAt: r.first_seen_at,
     lastSeenAt: r.last_seen_at,
