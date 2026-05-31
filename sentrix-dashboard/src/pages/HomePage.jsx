@@ -40,7 +40,7 @@ const HOME_TIPS = [
   "Use the Broadcast tool to send urgent notifications to students across the lab.",
   "You can target entire groups for remote actions like Shutdown or Restart.",
   "Check the Analytics tab to monitor software usage and identify common assets.",
-  "The Activity Monitor helps you track real-time network interactions on any device.",
+  "Network Intelligence helps you track real-time and historical domain interactions on any device.",
   "Device peripherals are tracked automatically; check the Logs for security alerts.",
   "Archive devices you no longer use to keep your registered list clean.",
   "The 'Sync' button forces a real-time update of all connected device metrics.",

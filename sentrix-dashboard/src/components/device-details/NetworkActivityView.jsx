@@ -6,6 +6,13 @@ import {
   Cpu,
   LoaderCircle,
   ShieldAlert,
+  Cloud,
+  Terminal,
+  Box,
+  Code2,
+  ShieldCheck,
+  Search,
+  RadioTower,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useEffect, useMemo, useState } from "react";
 import { SearchFilterBar } from "../SearchFilterBar.jsx";
@@ -13,6 +20,14 @@ import { useTelemetryInterval } from "../../hooks/useTelemetryInterval.js";
 import * as clientApi from "../../services/clientApi.js";
 import { matchesSearch } from "../../shared/utils.js";
 import { ProcessEndConfirmDialog } from "./shared/Dialogs.jsx";
+
+const CATEGORY_ICONS = {
+  Web: Globe2,
+  Development: Code2,
+  Cloud: Cloud,
+  System: ShieldCheck,
+  App: Box,
+};
 
 const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses, onToggle }) => {
   const listRef = useRef(null);
@@ -235,16 +250,16 @@ export function ActivityMonitor({ connections, history, error }) {
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
-            <Globe2 size={18} strokeWidth={2.5} />
+            <RadioTower size={18} strokeWidth={2.5} />
           </span>
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
-              Activity Monitor
+              Network Intelligence
             </h4>
             <div className="group relative">
               <CircleHelp size={14} strokeWidth={2.5} className="cursor-help text-slate-300 hover:text-slate-500 transition-colors" />
               <div className="pointer-events-none absolute top-full left-1/2 z-20 mt-3 hidden w-64 -translate-x-1/2 rounded-xl bg-slate-900 p-4 text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
-                <p className="font-bold text-blue-400 mb-1">Network Visibility</p>
+                <p className="font-bold text-blue-400 mb-1">Network Intelligence</p>
                 Tracks real-time and historical network interactions. It maps outbound connections to hostnames (DNS) and identifies which applications (processes) are communicating with external services.
                 <div className="absolute bottom-full left-1/2 -ml-1.5 border-[6px] border-transparent border-b-slate-900" />
               </div>
@@ -300,75 +315,99 @@ export function ActivityMonitor({ connections, history, error }) {
           ref={showHistory ? historyListRef : activeListRef}
           key={showHistory ? "history-list" : "active-list"}
         >
-          {!showHistory && visibleItems.length > 0 ? visibleItems.map((item) => (
-            <div
-              className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md"
-              key={item.id ? `conn-${item.id}` : `conn-${item.process}-${item.domain}-${item.peerAddress}-${item.peerPort}`}
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className={`truncate text-sm font-bold font-ui ${item.domain?.includes('localhost') ? 'text-blue-600' : 'text-slate-900'}`}>
-                      {item.domain || item.peerAddress}
-                    </p>
-                    {item.isCloud && (
-                      <span className="rounded bg-blue-50 px-1 py-0.5 text-[7px] font-bold text-blue-600 uppercase border border-blue-100">Cloud</span>
-                    )}
-                  </div>
-                  {item.organization && item.organization !== item.domain && (
-                    <p className="mt-0.5 truncate text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                      {item.organization}
-                    </p>
-                  )}
-                </div>
-                <div className="flex shrink-0 flex-wrap gap-1.5">
-                  {item.count > 1 && (
-                    <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 uppercase">
-                      {item.count} hits
+          {!showHistory && visibleItems.length > 0 ? visibleItems.map((item) => {
+            const Icon = CATEGORY_ICONS[item.category] || Box;
+            return (
+              <div
+                className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md"
+                key={item.id ? `conn-${item.id}` : `conn-${item.process}-${item.domain}-${item.peerAddress}-${item.peerPort}`}
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 group-hover:bg-white group-hover:text-slate-600 group-hover:border-slate-200 transition-colors">
+                      <Icon size={14} strokeWidth={2.5} />
                     </span>
-                  )}
-                  <span className="rounded-md border border-emerald-100 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 uppercase">
-                    Live
-                  </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className={`truncate text-sm font-bold font-ui ${item.domain?.includes('localhost') ? 'text-blue-600' : 'text-slate-900'}`}>
+                          {item.domain || item.peerAddress}
+                        </p>
+                        {item.isCloud && (
+                          <span className="rounded bg-blue-50 px-1 py-0.5 text-[7px] font-bold text-blue-600 uppercase border border-blue-100">Cloud</span>
+                        )}
+                      </div>
+                      {item.organization && item.organization !== item.domain && (
+                        <p className="mt-0.5 truncate text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                          {item.organization}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-1.5 sm:flex-col sm:items-end">
+                    {item.count > 1 && (
+                      <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 uppercase">
+                        {item.count} hits
+                      </span>
+                    )}
+                    <span className="rounded-md border border-emerald-100 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 uppercase">
+                      Live
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-50 pt-2 ml-11">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Via</span>
+                    <span className="text-[11px] font-bold text-slate-700 font-data truncate">{item.process}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">Port</span>
+                    <span className="text-[11px] font-bold text-slate-600 font-data tabular-nums">{item.peerPort}</span>
+                  </div>
                 </div>
               </div>
-              <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-50 pt-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Via</span>
-                  <span className="text-[11px] font-bold text-slate-700 font-data truncate">{item.process}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">Port</span>
-                  <span className="text-[11px] font-bold text-slate-600 font-data tabular-nums">{item.peerPort}</span>
-                </div>
-              </div>
-            </div>
-          )) : !showHistory ? (
+            );
+          }) : !showHistory ? (
             <div className="flex h-full items-center justify-center py-12">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 font-ui">No active activity detected.</p>
             </div>
           ) : null}
-          {showHistory && visibleItems.length > 0 ? visibleItems.map((item) => (
-            <div
-              className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md opacity-90"
-              key={`hist-${item.domain}-${item.process}`}
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="truncate text-sm font-bold text-slate-700 font-ui">
-                  {item.domain}
-                </p>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter font-data">
-                  {new Date(item.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-50 pt-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Via</span>
-                  <span className="text-[11px] font-bold text-slate-600 font-data truncate">{item.process}</span>
+          {showHistory && visibleItems.length > 0 ? visibleItems.map((item) => {
+            const Icon = CATEGORY_ICONS[item.category] || Box;
+            return (
+              <div
+                className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md opacity-90"
+                key={`hist-${item.domain}-${item.process}`}
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 group-hover:bg-white group-hover:text-slate-600 group-hover:border-slate-200 transition-colors">
+                      <Icon size={14} strokeWidth={2.5} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-slate-700 font-ui">
+                        {item.domain}
+                      </p>
+                      <p className="mt-0.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">{item.category || 'App'}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter font-data">
+                      {new Date(item.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    {item.hitCount > 1 && (
+                      <span className="text-[9px] font-bold text-slate-300 uppercase">{item.hitCount} total hits</span>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-50 pt-2 ml-11">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Via</span>
+                    <span className="text-[11px] font-bold text-slate-600 font-data truncate">{item.process}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )) : showHistory ? (
+            );
+          }) : showHistory ? (
             <div className="flex h-full items-center justify-center py-12">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 font-ui">No history archived yet.</p>
             </div>
