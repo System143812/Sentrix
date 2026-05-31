@@ -84,7 +84,7 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-bold text-slate-900 leading-tight font-ui">
+                  <p className="truncate text-sm font-bold text-slate-900 leading-tight font-ui">
                     {process.name}
                   </p>
                   <p className="truncate text-[10px] text-slate-500 mt-1 font-data">
@@ -534,7 +534,20 @@ export function NetworkActivityView({ device }) {
   }
 
   return (
-    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+    <div className="relative grid min-w-0 items-start gap-6 lg:grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+      {/* Loading Overlay for refreshes */}
+      {loading && processes.length > 0 && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-white/40 backdrop-blur-[1px] transition-all">
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-2xl">
+            <LoaderCircle size={32} className="animate-spin text-blue-600" />
+            <div className="text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-800">Refreshing Stream</p>
+              <p className="mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-tight">Syncing active process & network data...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ProcessEndConfirmDialog
         count={confirmEnd ? selectedProcesses.length : 0}
         loading={actionLoading}
