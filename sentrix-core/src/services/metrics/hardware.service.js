@@ -12,14 +12,11 @@ function normalizeKey(value = "") {
 }
 
 export function buildPeripheralSnapshot(details = {}) {
-  const peripherals = details.peripherals || {};
   const usbDevices = Array.isArray(details.usbDevices) ? details.usbDevices : [];
-  const displays = Array.isArray(peripherals.displays) ? peripherals.displays : [];
-  const networkAdapters = Array.isArray(details.specs?.networkAdapters) ? details.specs.networkAdapters : [];
-  
   const snapshot = new Map();
 
-  // 1. Process USB Peripherals (Trusting Agent's deduplication)
+  // 1. Process Peripherals (Agent-filtered source of truth)
+  // This list already includes Mice, Keyboards, Monitors, WiFi, etc.
   for (const usb of usbDevices) {
     const key = `usb:${normalizeKey(usb.deviceId || usb.name)}`;
     if (!snapshot.has(key)) {
@@ -29,27 +26,13 @@ export function buildPeripheralSnapshot(details = {}) {
         category: usb.type || "USB",
         vendor: usb.manufacturer || usb.vendor || "Unknown",
         externalId: usb.deviceId || null,
-      });
-    }
-  }
-
-  // 2. Process Displays
-  for (const display of displays) {
-    const key = `display:${normalizeKey(display.model || "display")}-${normalizeKey(display.resolution || "")}`;
-    if (!snapshot.has(key)) {
-      snapshot.set(key, {
-        key,
-        name: display.model || "Display",
-        category: "Display",
-        vendor: null,
-        externalId: display.resolution || null,
+        isBuiltIn: usb.isBuiltIn || false,
       });
     }
   }
 
   return [...snapshot.values()];
 }
-
 async function savePeripheralTracking(connection, clientId, details, now, client = {}) {
   const snapshot = buildPeripheralSnapshot(details);
   const snapshotByKey = new Map(snapshot.map((item) => [item.key, item]));
@@ -72,21 +55,22 @@ async function savePeripheralTracking(connection, clientId, details, now, client
     await connection.query(
       `
       INSERT INTO client_peripheral_inventory
-        (client_id, peripheral_key, name, category, vendor, external_id, status, first_seen_at, last_seen_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'connected', ?, ?, ?)
+        (client_id, peripheral_key, name, category, vendor, external_id, status, is_built_in, first_seen_at, last_seen_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'connected', ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         name = VALUES(name),
         category = VALUES(category),
         vendor = VALUES(vendor),
         external_id = VALUES(external_id),
         status = 'connected',
+        is_built_in = VALUES(is_built_in),
         last_seen_at = VALUES(last_seen_at),
         missing_since = NULL,
         resolved_at = NULL,
         missing_detected_offline = 0,
         updated_at = VALUES(updated_at)
       `,
-      [clientId, item.key, item.name, item.category, item.vendor, item.externalId, now, now, now],
+      [clientId, item.key, item.name, item.category, item.vendor, item.externalId, item.isBuiltIn ? 1 : 0, now, now, now],
     );
 
     if (!existing || existing.status === "missing") {
@@ -275,8 +259,8 @@ export async function saveHardwareDetails(clientId, details = {}) {
       const usbDevices = Array.isArray(details.usbDevices) ? details.usbDevices : [];
       if (usbDevices.length > 0) {
         await connection.query(
-          `INSERT INTO client_usb_devices (client_id, name, device_type, vendor, external_id, updated_at) VALUES ?`,
-          [usbDevices.map(u => [clientId, u.name || null, u.type || null, u.manufacturer || u.vendor || null, u.deviceId || u.id || null, now])]
+          `INSERT INTO client_usb_devices (client_id, name, device_type, vendor, external_id, is_built_in, updated_at) VALUES ?`,
+          [usbDevices.map(u => [clientId, u.name || null, u.type || null, u.manufacturer || u.vendor || null, u.deviceId || u.id || null, u.isBuiltIn ? 1 : 0, now])]
         );
       }
       await connection.query(`DELETE FROM client_usb_devices WHERE client_id = ? AND updated_at < ?`, [clientId, now]);
@@ -351,6 +335,7 @@ export async function getClientPeripheralHistory(clientId, options = {}) {
       vendor: row.vendor,
       externalId: row.external_id,
       status: row.status,
+      isBuiltIn: Boolean(row.is_built_in),
       firstSeenAt: row.first_seen_at,
       lastSeenAt: row.last_seen_at,
       missingSince: row.missing_since,
@@ -558,6 +543,7 @@ export async function getClientHardware(clientId) {
       type: u.device_type,
       vendor: u.vendor,
       id: u.external_id,
+      isBuiltIn: Boolean(u.is_built_in),
     })),
     graphicsCards: graphicsCards.map((g) => ({
       model: g.model,
