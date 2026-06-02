@@ -5,6 +5,12 @@ import {
   authorizeDevice 
 } from "./security.service.js";
 
+let ioInstance = null;
+
+export function initAuditService(io) {
+  ioInstance = io;
+}
+
 function getRequestIp(req) {
   if (!req) return "127.0.0.1";
   return (
@@ -39,7 +45,11 @@ export async function logAuditEvent({
   if (!action) return;
 
   const user = actor || req?.user || {};
-  await pool.query(
+  const createdAt = Date.now();
+  const ipAddress = getRequestIp(req);
+  const mac = macAddress || getRequestMac(req);
+
+  const [result] = await pool.query(
     `
     INSERT INTO audit_logs
       (actor_id, actor_email, actor_role, action, target_type, target_id, target_label, ip_address, mac_address, details, created_at)
@@ -53,12 +63,36 @@ export async function logAuditEvent({
       targetType,
       targetId,
       targetLabel,
-      getRequestIp(req),
-      macAddress || getRequestMac(req),
+      ipAddress,
+      mac,
       details ? JSON.stringify(details) : null,
-      Date.now(),
+      createdAt,
     ],
   );
+
+  if (ioInstance) {
+    // Fetch the full log with joins to ensure consistent real-time data
+    const logs = await getAuditLogs({ limit: 1 });
+    if (logs.length > 0 && logs[0].id === result.insertId) {
+      ioInstance.to("dashboards").emit("audit:new", logs[0]);
+    } else {
+      // Fallback to basic data if fetching fails or isn't latest
+      ioInstance.to("dashboards").emit("audit:new", {
+        id: result.insertId,
+        actorId: user.id || null,
+        actorEmail: user.email || null,
+        actorRole: user.role || null,
+        action,
+        targetType,
+        targetId,
+        targetLabel,
+        ipAddress,
+        macAddress: mac,
+        details: details || {},
+        createdAt,
+      });
+    }
+  }
 }
 
 export async function getAuditLogs({ limit = 200, action = "", actor = "", startDate = "", endDate = "" } = {}) {
