@@ -8,7 +8,17 @@ import {
   updateUserPassword,
 } from "../services/user.services.js";
 import { logAuditEvent } from "../services/audit.service.js";
-import { isUserBlocked } from "../services/security.service.js";
+import { 
+  isUserRateLimited, 
+  banDevice, 
+  getRequestIp, 
+  getRequestMac, 
+  resolveMacFromIp, 
+  authorizeDevice,
+  recordSecurityIncident,
+  getSecurityIncidentCount,
+  clearSecurityIncidents
+} from "../services/security.service.js";
 
 const secret = process.env.JWT_SECRET || "sentrix-secret";
 
@@ -28,6 +38,25 @@ export async function login(req, res, next) {
     const user = await getUserForAuth(email);
 
     if (!user || !(await validatePassword(user, password))) {
+      const ip = getRequestIp(req);
+      const mac = getRequestMac(req) || await resolveMacFromIp(ip);
+      
+      // 1. Log persistent incident
+      await recordSecurityIncident(req, 'login_failure');
+
+      // 2. Check persistent counts (Last 30 mins)
+      const ipCount = await getSecurityIncidentCount(ip);
+      const macCount = mac ? await getSecurityIncidentCount(mac) : 0;
+
+      console.log(`[AUTH] Failed login from IP: ${ip} (Persistent Count: ${ipCount}), MAC: ${mac || "Unknown"} (Persistent Count: ${macCount})`);
+
+      // 3. Trigger Ban if EITHER counter hits limit (10)
+      if (ipCount >= 10 || macCount >= 10) {
+        console.warn(`[SECURITY] Threshold reached. Banning device: IP=${ip}, MAC=${mac || 'Unknown'}`);
+        await banDevice(req, { reason: "Too many failed login attempts." });
+        await clearSecurityIncidents(req);
+      }
+
       await logAuditEvent({
         req,
         actor: { email, role: "unknown" },
@@ -46,9 +75,12 @@ export async function login(req, res, next) {
         .json({ success: false, message: "Account disabled." });
     }
 
-    if (await isUserBlocked(user)) {
+    if (await isUserRateLimited(user)) {
       return res.status(403).json({ success: false, message: "Failed" });
     }
+
+    // Success - reset all failure counters for this device
+    await clearSecurityIncidents(req);
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
@@ -57,6 +89,9 @@ export async function login(req, res, next) {
     );
 
     res.cookie("sentrix_token", token, getCookieOptions());
+
+    // Auto-trust the device upon successful login
+    await authorizeDevice(req, { label: user.email, type: 'user', identifier: user.id });
 
     await logAuditEvent({
       req,

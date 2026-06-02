@@ -1,6 +1,6 @@
 import { getAllClients, markClientOffline, getClientSummary } from "./client.services.js";
 
-const HEARTBEAT_TIMEOUT_MS = Number(process.env.HEARTBEAT_TIMEOUT_MS || 90000);
+const HEARTBEAT_TIMEOUT_MS = Number(process.env.HEARTBEAT_TIMEOUT_MS || 30000);
 const REGISTRATION_GRACE_MS = 60000;
 
 const missedChecks = new Map();
