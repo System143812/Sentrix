@@ -13,6 +13,8 @@ const { default: createApp } = await import("./app.js");
 const { ensureDatabaseSchema } = await import("./lib/schema.js");
 const { registerDeviceSocket } = await import("./sockets/device.socket.js");
 const { startOfflineWatcher } = await import("./services/heartbeat.service.js");
+const { initAuditService } = await import("./services/audit.service.js");
+const { initSecurityService } = await import("./services/security.service.js");
 const { startDiscoveryScheduler } =
   await import("./services/discovery/index.js");
 const { startPruningService } = await import("./services/pruning.service.js");
@@ -56,6 +58,8 @@ const io = new Server(server, {
 
 app.set("io", io);
 registerDeviceSocket(io);
+initAuditService(io);
+initSecurityService(io);
 startOfflineWatcher(io);
 startDiscoveryScheduler(io);
 startPruningService();

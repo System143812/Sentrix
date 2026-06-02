@@ -4,6 +4,12 @@ import util from "util";
 
 const execAsync = util.promisify(exec);
 
+let ioInstance = null;
+
+export function initSecurityService(io) {
+  ioInstance = io;
+}
+
 export function normalizeMac(value = "") {
   return String(value || "")
     .trim()
@@ -174,6 +180,10 @@ export async function authorizeDevice(reqOrData, { label, type, identifier }) {
       [mac, `MAC of ${label}`, now]
     );
   }
+
+  if (ioInstance) {
+    ioInstance.to("dashboards").emit("authority:update", { category: "whitelist" });
+  }
 }
 
 export async function isMacRateLimited(mac) {
@@ -282,6 +292,10 @@ export async function revokeAuthority(id, { revokedBy = null, reason = "" } = {}
     );
   }
 
+  if (ioInstance) {
+    ioInstance.to("dashboards").emit("authority:update", { category: subject.category });
+  }
+
   return {
     ...subject,
     active: 0,
@@ -328,6 +342,10 @@ export async function banDevice(req, { reason = "Automated rate-limit ban" } = {
       `,
       [mac, `Rate Limited MAC: ${mac}`, reason, now]
     );
+  }
+
+  if (ioInstance) {
+    ioInstance.to("dashboards").emit("authority:update", { category: "rate_limit" });
   }
 }
 
