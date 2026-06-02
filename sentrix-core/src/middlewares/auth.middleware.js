@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { isUserBlocked } from "../services/security.service.js";
+import { isUserRateLimited } from "../services/security.service.js";
 
 const secret = process.env.JWT_SECRET || "sentrix-secret";
 
@@ -19,7 +19,7 @@ export async function authenticate(req, res, next) {
 
   try {
     const payload = jwt.verify(token, secret);
-    if (await isUserBlocked(payload)) {
+    if (await isUserRateLimited(payload)) {
       return res.status(403).json({ success: false, message: "Failed" });
     }
     req.user = payload;
