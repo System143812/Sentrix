@@ -5,7 +5,10 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import router from "./routes/main.route.js";
 import { notFound, errorHandler } from "./middlewares/error.middleware.js";
-import { assertRequestAllowed } from "./services/security.service.js";
+import jwt from "jsonwebtoken";
+import { isUserRateLimited, isRequestRateLimited, isRequestAuthorized } from "./services/security.service.js";
+
+const JWT_SECRET = process.env.JWT_SECRET || "sentrix-secret";
 
 function getClientUrls() {
   const urls =
@@ -70,9 +73,42 @@ function createApp() {
 
   app.use(async (req, res, next) => {
     try {
-      await assertRequestAllowed(req);
-      next();
-    } catch {
+      // Pre-auth: Try to identify the user if a token is present
+      const authHeader = req.headers.authorization || "";
+      const token = (authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null) || req.cookies?.sentrix_token;
+
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, JWT_SECRET);
+          if (decoded && !(await isUserRateLimited(decoded))) {
+            req.user = decoded;
+          }
+        } catch (err) {
+          // Token invalid or expired, proceed as guest for now
+        }
+      }
+
+      if (await isRequestRateLimited(req)) {
+        return res.status(403).json({ success: false, message: "Blocked" });
+      }
+
+      const path = req.path.toLowerCase();
+      // Ensure we check for both the raw path and the /api prefixed path
+      const isOpenPath =
+        path.includes("/auth/login") ||
+        path.includes("/auth/logout") ||
+        path.includes("/auth/register") ||
+        path.includes("/auth/me") ||
+        path.includes("/health");
+
+      if (isOpenPath) return next();
+
+      if (await isRequestAuthorized(req)) return next();
+
+      console.warn(`[SECURITY] Unauthorized access attempt to: ${req.method} ${req.originalUrl} from IP: ${req.ip}`);
+      res.status(403).json({ success: false, message: "Unauthorized" });
+    } catch (error) {
+      console.error("[SECURITY] Middleware error:", error);
       res.status(403).json({ success: false, message: "Failed" });
     }
   });
