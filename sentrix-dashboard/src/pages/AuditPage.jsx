@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { ClipboardList, RefreshCcw, LoaderCircle, ShieldAlert, X, User, Monitor, Globe, Clock, ShieldBan, CheckCircle2, Plus } from "lucide-react";
+import { io } from "socket.io-client";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { SearchFilterBar } from "../components/SearchFilterBar.jsx";
 import { DateFilterBar } from "../components/DateFilterBar.jsx";
 import { matchesSearch, labelAction } from "../shared/utils.js";
 import * as auditApi from "../services/auditApi.js";
+import { getApiUrl } from "../services/api.js";
 import { Pagination } from "../components/Pagination.jsx";
 import { usePaginationState } from "../hooks/usePaginationState.js";
+import { BlurOverlay } from "../components/BlurOverlay.jsx";
+
+const apiUrl = getApiUrl();
 
 const getActionColor = (action = "") => {
   const a = action.toLowerCase();
@@ -15,8 +20,6 @@ const getActionColor = (action = "") => {
   if (a.includes("login") || a.includes("start") || a.includes("deploy") || a.includes("create")) return "text-emerald-600 bg-emerald-50 border-emerald-100";
   return "text-indigo-600 bg-indigo-50 border-indigo-100";
 };
-
-import { BlurOverlay } from "../components/BlurOverlay.jsx";
 
 export function AuditPage() {
   const [activeTab, setActiveTab] = useState("logs");
@@ -141,6 +144,36 @@ export function AuditPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [query, activeTab]);
+
+  useEffect(() => {
+    const socket = io(apiUrl, {
+      withCredentials: true,
+      query: { role: "dashboard" },
+    });
+
+    socket.on("audit:new", (newLog) => {
+      setLogs((prev) => {
+        // Prevent duplicates and only add if within current view range (if filtering by date)
+        if (prev.some((l) => l.id === newLog.id)) return prev;
+        
+        // If we have date filters, check if new log fits
+        if (startDate && newLog.createdAt < new Date(`${startDate}T00:00:00.000`).getTime()) return prev;
+        if (endDate && newLog.createdAt > new Date(`${endDate}T23:59:59.999`).getTime()) return prev;
+
+        return [newLog, ...prev].slice(0, 500); // Keep buffer manageable
+      });
+    });
+
+    socket.on("authority:update", ({ category }) => {
+      // Background refresh if current tab matches the category updated
+      if (activeTab === "whitelist" && category === "whitelist") loadAuthority();
+      if (activeTab === "ratelimit" && category === "rate_limit") loadAuthority();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [apiUrl, activeTab, startDate, endDate]);
 
   return (
     <div className="page-reveal space-y-6">
