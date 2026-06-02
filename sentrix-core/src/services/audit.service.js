@@ -1,5 +1,9 @@
 import pool from "../lib/database.js";
-import { blockAuditSubject } from "./security.service.js";
+import { 
+  getSecurityIdentities as getIdentities, 
+  revokeAuthority as revoke, 
+  authorizeDevice 
+} from "./security.service.js";
 
 function getRequestIp(req) {
   if (!req) return "127.0.0.1";
@@ -89,18 +93,23 @@ export async function getAuditLogs({ limit = 200, action = "", actor = "", start
       audit_logs.*,
       users.id AS registered_user_id,
       users.role AS registered_user_role,
-      blocked_mac.id AS blocked_mac_id,
-      blocked_user.id AS blocked_user_id
+      b_mac.category AS mac_category,
+      b_user.category AS user_category,
+      b_ip.category AS ip_category
     FROM audit_logs
     LEFT JOIN users ON users.email = audit_logs.actor_email
-    LEFT JOIN blocked_subjects blocked_mac
-      ON blocked_mac.subject_type = 'mac'
-      AND blocked_mac.identifier = UPPER(REPLACE(REPLACE(audit_logs.mac_address, ':', ''), '-', ''))
-      AND blocked_mac.active = 1
-    LEFT JOIN blocked_subjects blocked_user
-      ON blocked_user.subject_type = 'user'
-      AND blocked_user.identifier IN (users.id, audit_logs.actor_email)
-      AND blocked_user.active = 1
+    LEFT JOIN security_authority b_mac
+      ON b_mac.subject_type = 'mac'
+      AND b_mac.identifier = UPPER(REPLACE(REPLACE(audit_logs.mac_address, ':', ''), '-', ''))
+      AND b_mac.active = 1
+    LEFT JOIN security_authority b_user
+      ON b_user.subject_type = 'user'
+      AND b_user.identifier IN (users.id, audit_logs.actor_email)
+      AND b_user.active = 1
+    LEFT JOIN security_authority b_ip
+      ON b_ip.subject_type = 'ip'
+      AND b_ip.identifier = audit_logs.ip_address
+      AND b_ip.active = 1
     ${where}
     ORDER BY audit_logs.created_at DESC
     LIMIT ${safeLimit}
@@ -121,12 +130,46 @@ export async function getAuditLogs({ limit = 200, action = "", actor = "", start
     macAddress: row.mac_address,
     registeredUserId: row.registered_user_id,
     registeredUserRole: row.registered_user_role,
-    blocked: Boolean(row.blocked_mac_id || row.blocked_user_id),
+    isWhitelisted: row.mac_category === 'whitelist' || row.user_category === 'whitelist' || row.ip_category === 'whitelist',
+    isThrottled: row.mac_category === 'rate_limit' || row.user_category === 'rate_limit' || row.ip_category === 'rate_limit',
     details: typeof row.details === "string" ? JSON.parse(row.details || "{}") : row.details,
     createdAt: row.created_at,
   }));
 }
 
-export async function blockLogSubject(logId, { reason = "", blockedBy = null } = {}) {
-  return blockAuditSubject(logId, { reason, blockedBy });
+export async function authorizeLogSubject(logId, { reason = "", authorizedBy = null }) {
+  const [[log]] = await pool.query("SELECT * FROM audit_logs WHERE id = ? LIMIT 1", [logId]);
+  if (!log) throw new Error("Log entry not found.");
+
+  const type = log.actor_id ? 'user' : (log.mac_address ? 'mac' : 'ip');
+  const identifier = log.actor_id || log.mac_address || log.ip_address;
+  const label = log.actor_email || log.target_label || `Device at ${log.ip_address}`;
+
+  await authorizeDevice({ ip: log.ip_address, mac: log.mac_address }, {
+    label,
+    type,
+    identifier
+  });
+
+  await logAuditEvent({
+    action: "AUTHORIZE_DEVICE",
+    targetType: type,
+    targetId: identifier,
+    targetLabel: label,
+    details: { reason, source_log_id: logId, authorized_by: authorizedBy },
+  });
+
+  return { type, identifier, label };
+}
+
+export async function getBlockedSubjects(category) {
+  return getIdentities(category);
+}
+
+export async function revokeAuthorityRecord(id, { revokedBy = null, reason = "" } = {}) {
+  return revoke(id, { revokedBy, reason });
+}
+
+export async function authorizeAuditDevice(req, data) {
+  return authorizeDevice(req, data);
 }

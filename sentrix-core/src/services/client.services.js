@@ -1,4 +1,5 @@
 import { ClientRepository } from "./client.repository.js";
+import { authorizeDevice } from "./security.service.js";
 import {
   getClientHardware,
   saveHardwareDetails,
@@ -39,6 +40,13 @@ export async function registerClient(clientData) {
   const existing = await getClientById(id);
   console.log(`[CORE] Registering agent: ${id} (${clientData.hostname})`);
   const now = Date.now();
+
+  // Auto-authorize the device
+  await authorizeDevice({
+    ip: clientData.ip,
+    mac: clientData.mac,
+    headers: { "x-sentrix-agent-id": id }
+  }, { label: clientData.hostname, type: 'agent_id', identifier: id });
 
   // 1. Determine which metrics/details to use. 
   // If the registration packet is empty (typical on restart), keep what we already have.

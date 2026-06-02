@@ -77,6 +77,7 @@ export async function runPruneSweep() {
       ["client_graphics_cards", "updated_at", settings.retentionDays.hardware, hardwareThreshold],
       ["client_displays", "updated_at", settings.retentionDays.hardware, hardwareThreshold],
       ["audit_logs", "created_at", settings.retentionDays.audit, auditThreshold],
+      ["security_incidents", "created_at", settings.retentionDays.telemetry, telemetryThreshold],
     ];
 
     let total = 0;

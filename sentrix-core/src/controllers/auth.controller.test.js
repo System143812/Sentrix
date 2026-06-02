@@ -9,7 +9,15 @@ import { errorHandler } from '../middlewares/error.middleware.js';
 vi.mock('../services/user.services.js');
 vi.mock('../services/audit.service.js');
 vi.mock('../services/security.service.js', () => ({
-  isUserBlocked: vi.fn().mockResolvedValue(false),
+  isUserRateLimited: vi.fn().mockResolvedValue(false),
+  getRequestIp: vi.fn().mockReturnValue('127.0.0.1'),
+  getRequestMac: vi.fn().mockReturnValue(null),
+  resolveMacFromIp: vi.fn().mockResolvedValue(null),
+  banDevice: vi.fn().mockResolvedValue(true),
+  authorizeDevice: vi.fn().mockResolvedValue(true),
+  recordSecurityIncident: vi.fn().mockResolvedValue(true),
+  getSecurityIncidentCount: vi.fn().mockResolvedValue(0),
+  clearSecurityIncidents: vi.fn().mockResolvedValue(true),
 }));
 vi.mock('../middlewares/auth.middleware.js', () => ({
   authenticate: (req, res, next) => {
