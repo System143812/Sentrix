@@ -11,10 +11,31 @@ export async function getAuditLogs(params = {}) {
   return result.data;
 }
 
-export async function blockAuditLogSubject(id, reason = "") {
-  const result = await fetchJson(`/api/audit/${id}/block`, {
+export async function authorizeLogSubject(id, reason = "") {
+  const result = await fetchJson(`/api/audit/${id}/authorize`, {
     method: "POST",
     body: JSON.stringify({ reason }),
+  });
+  return result.data;
+}
+
+export async function getAuthorityRecords(category = "rate_limit") {
+  const result = await fetchJson(`/api/audit/authority?category=${category}`);
+  return result.data;
+}
+
+export async function revokeAuthority(id, reason = "") {
+  const result = await fetchJson(`/api/audit/authority/${id}/revoke`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+  return result.data;
+}
+
+export async function addToWhitelist(data) {
+  const result = await fetchJson("/api/audit/whitelist", {
+    method: "POST",
+    body: JSON.stringify(data),
   });
   return result.data;
 }
