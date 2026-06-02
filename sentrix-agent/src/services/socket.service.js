@@ -11,7 +11,13 @@ export function connectToCore({ serverUrl, profile, onStatus, onTelemetrySetting
   let lastHeartbeatPacket = null;
 
   const socket = io(serverUrl, {
-    query: { role: "agent" },
+    query: {
+      role: "agent",
+      agentId: profile.agentId,
+    },
+    extraHeaders: {
+      "X-Sentrix-Agent-ID": profile.agentId,
+    },
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 10000,

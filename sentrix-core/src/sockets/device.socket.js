@@ -14,7 +14,7 @@ import {
   saveDomainSummaries,
   saveSoftwareInventory,
 } from "../services/behavior.service.js";
-import { isMacBlocked } from "../services/security.service.js";
+import { isRequestRateLimited, isRequestAuthorized } from "../services/security.service.js";
 import { grantRegistrationGrace } from "../services/heartbeat.service.js";
 
 async function broadcastUpdate(io) {
@@ -22,6 +22,39 @@ async function broadcastUpdate(io) {
 }
 
 export function registerDeviceSocket(io) {
+  io.use(async (socket, next) => {
+    const req = {
+      headers: socket.handshake.headers,
+      socket: socket.conn.transport.socket || {},
+      ip: socket.handshake.address,
+      user: socket.request.user,
+    };
+
+    console.log(`[SOCKET] Handshake attempt from IP: ${req.ip}, Role: ${socket.handshake.query.role}, AgentID: ${req.headers["x-sentrix-agent-id"] || "MISSING"}`);
+
+    try {
+      if (await isRequestRateLimited(req)) {
+        console.warn(`[SOCKET] Connection blocked by rate limit: IP=${req.ip}`);
+        return next(new Error("Blocked"));
+      }
+
+      const role = socket.handshake.query.role;
+      if (role === "dashboard") return next();
+
+      const authorized = await isRequestAuthorized(req);
+      if (authorized) {
+        console.log(`[SOCKET] Handshake authorized for IP: ${req.ip}`);
+        return next();
+      }
+
+      console.warn(`[SOCKET] Handshake UNAUTHORIZED for IP: ${req.ip}, AgentID: ${req.headers["x-sentrix-agent-id"] || "MISSING"}`);
+      next(new Error("Unauthorized"));
+    } catch (error) {
+      console.error(`[SOCKET] Handshake error:`, error.message);
+      next(new Error("Failed"));
+    }
+  });
+
   io.on("connection", async (socket) => {
     const role = socket.handshake.query.role || "unknown";
     let agentId = null;
@@ -34,23 +67,18 @@ export function registerDeviceSocket(io) {
 
     socket.on("agent:register", async (payload = {}, callback) => {
       try {
-        if (await isMacBlocked(payload.mac)) {
-          callback?.({ success: false, message: "Failed" });
-          socket.disconnect(true);
-          return;
-        }
         agentId = payload.agentId || payload.id;
-        console.log(`[SOCKET] Received agent:register for ID: ${agentId}`);
+        console.log(`[SOCKET] Received agent:register for ID: ${agentId} from IP: ${socket.handshake.address}`);
         const client = await registerClient(payload);
         grantRegistrationGrace(client.id);
         socket.join("agents");
         socket.join(`agent:${client.id}`);
         socket.emit("settings:telemetry", await getTelemetrySettings());
         await broadcastUpdate(io);
-        console.log(`[SOCKET] Agent registered and broadcasted: ${client.id}`);
+        console.log(`[SOCKET] Agent registered successfully: ${client.id} (Status: ${client.status})`);
         callback?.({ success: true, data: client });
       } catch (error) {
-        console.error(`[SOCKET] Registration error for ID ${agentId}:`, error.message);
+        console.error(`[SOCKET] Registration error for ID ${agentId || 'unknown'}:`, error.message);
         callback?.({ success: false, message: error.message });
       }
     });
@@ -67,7 +95,7 @@ export function registerDeviceSocket(io) {
         );
 
         if (!client) {
-          console.warn(`[SOCKET] Metrics update ignored: Agent ${id} not registered.`);
+          console.warn(`[SOCKET] Metrics update ignored: Agent ${id} not registered or not found.`);
           callback?.({ success: false, message: "Agent is not registered." });
           return;
         }
@@ -75,7 +103,7 @@ export function registerDeviceSocket(io) {
         await broadcastUpdate(io);
         callback?.({ success: true });
       } catch (err) {
-        console.error(`[SOCKET] Metrics error:`, err.message);
+        console.error(`[SOCKET] Metrics error for ID ${agentId || 'unknown'}:`, err.message);
         callback?.({ success: false, message: err.message });
       }
     });
@@ -86,6 +114,7 @@ export function registerDeviceSocket(io) {
         const metrics = payload.metrics || payload.payload || null;
 
         if (!id) {
+          console.warn(`[SOCKET] Heartbeat ignored: No agent ID provided in payload or session.`);
           callback?.({ success: false, message: "Agent is not registered." });
           return;
         }
@@ -93,6 +122,7 @@ export function registerDeviceSocket(io) {
         const client = await touchClientHeartbeat(id, metrics);
 
         if (!client) {
+          console.warn(`[SOCKET] Heartbeat ignored: Agent ${id} not found in database.`);
           callback?.({ success: false, message: "Agent is not registered." });
           return;
         }
@@ -100,7 +130,7 @@ export function registerDeviceSocket(io) {
         await broadcastUpdate(io);
         callback?.({ success: true });
       } catch (error) {
-        console.error(`[SOCKET] Heartbeat error for ID ${agentId}:`, error.message);
+        console.error(`[SOCKET] Heartbeat error for ID ${agentId || 'unknown'}:`, error.message);
         callback?.({ success: false, message: error.message });
       }
     });
