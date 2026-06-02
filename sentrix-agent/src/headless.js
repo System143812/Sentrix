@@ -186,14 +186,21 @@ async function start() {
   await collectAndSendSoftwareInventory();
   startHelperWatchdog();
 
+  let lastHeartbeatSentAt = 0;
+
   metricsTimer = setInterval(collectAndSendMetrics, metricsIntervalMs);
   detailsTimer = setInterval(() => refreshDetails(), detailsIntervalMs);
   softwareTimer = setInterval(collectAndSendSoftwareInventory, softwareInventoryIntervalMs);
+
+  // Aggressive standalone heartbeat: ignores whether metrics are "ready" to keep the socket alive
   setInterval(() => {
-    if (Date.now() - lastMetricsSentAt >= heartbeatIntervalMs) {
+    const now = Date.now();
+    // Send heartbeat if it's been longer than the interval, regardless of metrics status
+    if (now - lastHeartbeatSentAt >= heartbeatIntervalMs) {
       socketClient.sendHeartbeat(lastMetrics);
+      lastHeartbeatSentAt = now;
     }
-  }, heartbeatIntervalMs);
+  }, 2000); // Check every 2s for more precision
 }
 
 process.on("SIGINT", () => {
