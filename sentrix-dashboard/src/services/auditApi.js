@@ -19,6 +19,14 @@ export async function authorizeLogSubject(id, reason = "") {
   return result.data;
 }
 
+export async function blockAuditLogSubject(id, reason = "") {
+  const result = await fetchJson(`/api/audit/${id}/block`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+  return result.data;
+}
+
 export async function getAuthorityRecords(category = "rate_limit") {
   const result = await fetchJson(`/api/audit/authority?category=${category}`);
   return result.data;
