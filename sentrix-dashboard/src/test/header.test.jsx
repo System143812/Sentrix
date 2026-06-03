@@ -84,8 +84,8 @@ describe('Header Verification', () => {
     expect(screen.getByText(mockUser.email)).toBeInTheDocument();
   });
 
-  it('should show live status when connected', () => {
+  it('should show connected status when connected', () => {
     render(<WrappedDashboard />);
-    expect(screen.getByText(/Live/i)).toBeInTheDocument();
+    expect(screen.getByText(/Connected/i)).toBeInTheDocument();
   });
 });
