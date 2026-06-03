@@ -14,7 +14,7 @@ export function PageHeader({
   return (
     <Card
       padding="0"
-      className={`relative overflow-hidden shadow-md transition-all duration-300 ${
+      className={`relative overflow-hidden shadow-sm transition-all duration-300 ${
         backgroundImage ? "border-none bg-slate-900" : ""
       }`}
     >

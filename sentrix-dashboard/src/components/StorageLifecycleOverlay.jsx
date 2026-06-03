@@ -37,9 +37,9 @@ function ConfirmActionDialog({ isOpen, onClose, onConfirm, title, description, i
 
   return (
     <BlurOverlay onClose={onClose}>
-      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-line bg-white shadow-2xl">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-line bg-white shadow-sm">
         <div className="p-8 text-center">
-          <div className={`mx-auto mb-6 grid h-16 w-16 place-items-center rounded-2xl border ${tones[tone]}`}>
+          <div className={`mx-auto mb-6 grid h-16 w-16 place-items-center rounded-lg border ${tones[tone]}`}>
             <Icon size={32} />
           </div>
           <h3 className="text-xl font-bold text-ink">{title}</h3>
@@ -50,7 +50,7 @@ function ConfirmActionDialog({ isOpen, onClose, onConfirm, title, description, i
           <button
             onClick={onClose}
             disabled={loading}
-            className="flex-1 rounded-xl px-4 py-3 text-sm font-bold text-slate-400 transition hover:text-slate-600 disabled:opacity-50"
+            className="flex-1 rounded-lg px-4 py-3 text-sm font-bold text-slate-400 transition hover:text-slate-600 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -58,7 +58,7 @@ function ConfirmActionDialog({ isOpen, onClose, onConfirm, title, description, i
           <button
             onClick={onConfirm}
             disabled={loading}
-            className={`flex-[1.5] flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white shadow-lg transition active:scale-[0.98] disabled:opacity-50 ${buttonTones[tone]}`}
+            className={`flex-[1.5] flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold text-white shadow-lg transition active:scale-[0.98] disabled:opacity-50 ${buttonTones[tone]}`}
           >
             {loading ? (
               <>
@@ -307,7 +307,7 @@ export function StorageLifecycleOverlay({ isOpen, onClose, isNetworkAdmin }) {
         <div className="flex items-center gap-6">
           <button 
             onClick={handleClose}
-            className="group flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 transition hover:bg-slate-200 hover:text-ink"
+            className="group flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 transition hover:bg-slate-200 hover:text-ink"
             title="Close Drawer"
           >
             <ChevronDown size={20} className="transition group-hover:translate-y-0.5" />
@@ -334,9 +334,9 @@ export function StorageLifecycleOverlay({ isOpen, onClose, isNetworkAdmin }) {
           ) : (
             <div className="grid gap-12">
               {/* Status Bar / Countdown */}
-              <div className="flex items-center justify-between rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 sm:p-6 shadow-sm">
+              <div className="flex items-center justify-between rounded-lg border border-emerald-100 bg-emerald-50/50 p-4 sm:p-6 shadow-sm">
                 <div className="flex items-center gap-4">
-                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-100 text-emerald-600 shadow-sm">
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-100 text-emerald-600 shadow-sm">
                     <Clock size={20} />
                   </span>
                   <div>
@@ -352,7 +352,7 @@ export function StorageLifecycleOverlay({ isOpen, onClose, isNetworkAdmin }) {
 
               {/* Intro Info */}
               <section className="grid gap-6 sm:grid-cols-2">
-                <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+                <div className="rounded-lg border border-line bg-white p-6 shadow-sm">
                   <h3 className="flex items-center gap-2 text-sm font-bold text-ink uppercase tracking-wider">
                     <CheckCircle2 size={16} className="text-emerald-500" />
                     How pruning works
@@ -361,7 +361,7 @@ export function StorageLifecycleOverlay({ isOpen, onClose, isNetworkAdmin }) {
                     Sentrix automatically scans and removes data points older than your specified retention period. This prevents the database from ballooning in size and ensures that real-time queries remain fast and responsive.
                   </p>
                 </div>
-                <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+                <div className="rounded-lg border border-line bg-white p-6 shadow-sm">
                   <h3 className="flex items-center gap-2 text-sm font-bold text-ink uppercase tracking-wider">
                     <AlertCircle size={16} className="text-amber-500" />
                     Destructive Action
@@ -391,14 +391,14 @@ export function StorageLifecycleOverlay({ isOpen, onClose, isNetworkAdmin }) {
                     return (
                       <div 
                         key={cat.id}
-                        className={`group relative flex flex-col gap-6 rounded-2xl border p-6 transition-all sm:flex-row sm:items-center ${
+                        className={`group relative flex flex-col gap-6 rounded-lg border p-6 transition-all sm:flex-row sm:items-center ${
                           enabled 
                             ? 'border-line bg-white shadow-sm hover:border-slate-300' 
                             : 'border-slate-100 bg-slate-50/50 opacity-60 hover:opacity-80'
                         }`}
                       >
                         <div className="flex flex-1 items-start gap-4">
-                          <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-slate-100 bg-slate-50 shadow-sm transition-colors ${enabled ? iconColors[cat.tone] : 'text-slate-400'}`}>
+                          <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-slate-100 bg-slate-50 shadow-sm transition-colors ${enabled ? iconColors[cat.tone] : 'text-slate-400'}`}>
                             <CatIcon size={24} strokeWidth={2} />
                           </span>
                           <div className="min-w-0">
@@ -408,7 +408,7 @@ export function StorageLifecycleOverlay({ isOpen, onClose, isNetworkAdmin }) {
                         </div>
 
                         <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-1.5 ring-1 ring-slate-200">
+                          <div className="flex items-center gap-2 rounded-lg bg-slate-100 p-1.5 ring-1 ring-slate-200">
                             <input 
                               type="number"
                               min="0"
@@ -424,7 +424,7 @@ export function StorageLifecycleOverlay({ isOpen, onClose, isNetworkAdmin }) {
                           <button
                             onClick={() => handleToggleCategory(cat.id)}
                             disabled={!isNetworkAdmin}
-                            className={`flex h-10 w-24 items-center justify-center rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all ${
+                            className={`flex h-10 w-24 items-center justify-center rounded-lg border text-[10px] font-bold uppercase tracking-widest transition-all ${
                               enabled 
                                 ? 'border-emerald-500/20 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white' 
                                 : 'border-slate-200 bg-white text-slate-400 hover:bg-slate-100 hover:text-ink'
@@ -450,13 +450,13 @@ export function StorageLifecycleOverlay({ isOpen, onClose, isNetworkAdmin }) {
                   <button
                     onClick={handleManualTrigger}
                     disabled={!isNetworkAdmin || actionLoading}
-                    className="group relative flex h-24 items-center justify-between rounded-2xl border border-line bg-white p-6 shadow-sm transition-all hover:shadow-md active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
+                    className="group relative flex h-24 items-center justify-between rounded-lg border border-line bg-white p-6 shadow-sm transition-all hover:shadow-sm active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
                   >
                     <div className="text-left">
                       <p className="font-bold text-ink tracking-tight">Trigger Full Sweep</p>
                       <p className="mt-1 text-[11px] font-medium text-slate-400">Run pruning on all active targets now.</p>
                     </div>
-                    <span className="grid h-12 w-12 place-items-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                    <span className="grid h-12 w-12 place-items-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                       {actionLoading ? <RefreshCw size={24} className="animate-spin" /> : <Zap size={24} />}
                     </span>
                   </button>
@@ -464,13 +464,13 @@ export function StorageLifecycleOverlay({ isOpen, onClose, isNetworkAdmin }) {
                   <button
                     onClick={handleWipeTelemetry}
                     disabled={!isNetworkAdmin || actionLoading}
-                    className="group relative flex h-24 items-center justify-between rounded-2xl border border-rose-100 bg-rose-50/30 p-6 shadow-sm transition-all hover:shadow-md hover:bg-rose-50 active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
+                    className="group relative flex h-24 items-center justify-between rounded-lg border border-rose-100 bg-rose-50/30 p-6 shadow-sm transition-all hover:shadow-sm hover:bg-rose-50 active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
                   >
                     <div className="text-left">
                       <p className="font-bold text-rose-600 tracking-tight">Wipe Session History</p>
                       <p className="mt-1 text-[11px] font-medium text-rose-400">Clear all telemetry older than 24h.</p>
                     </div>
-                    <span className="grid h-12 w-12 place-items-center rounded-xl bg-rose-100 text-rose-600 ring-1 ring-rose-200 group-hover:bg-rose-600 group-hover:text-white transition-colors">
+                    <span className="grid h-12 w-12 place-items-center rounded-lg bg-rose-100 text-rose-600 ring-1 ring-rose-200 group-hover:bg-rose-600 group-hover:text-white transition-colors">
                       <Trash2 size={24} />
                     </span>
                   </button>

@@ -57,33 +57,40 @@ import { RemoteControlView } from "./device-details/RemoteControlView.jsx";
 
 function DetailViewSwitch({ activeView, onChange, canControl }) {
   const buttons = [
-    { id: "specification", label: "Specification", icon: Monitor },
-    { id: "networkActivity", label: "Network Intelligence", icon: RadioTower },
-    { id: "behavior", label: "Timeline & Assets", icon: History },
-    ...(canControl ? [{ id: "remoteControl", label: "Remote Controls", icon: Terminal }] : []),
+    { id: "specification", label: "Specs", icon: Monitor },
+    { id: "networkActivity", label: "Network", icon: RadioTower },
+    { id: "behavior", label: "History", icon: History },
+    ...(canControl ? [{ id: "remoteControl", label: "Remote", icon: Terminal }] : []),
   ];
 
+  const totalButtons = buttons.length;
+  const activeIndex = buttons.findIndex(b => b.id === activeView);
+
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+    <div className="relative mb-6 flex items-center p-1 rounded-lg border border-slate-200 overflow-hidden w-full max-w-2xl shadow-sm">
+      {/* Animated Active Pill Indicator */}
+      <div 
+        className="absolute h-[calc(100%-8px)] rounded-md bg-slate-900 transition-all duration-300 ease-in-out shadow-sm"
+        style={{
+          left: `calc(8px + ${activeIndex} * (100% - 8px) / ${totalButtons})`,
+          width: `calc((100% - 8px) / ${totalButtons} - 8px)`,
+        }}
+      />
+
       {buttons.map((button) => {
         const Icon = button.icon;
         const selected = activeView === button.id;
 
         return (
           <button
-            className={`btn-minimal h-10 px-4 transition-all ${
-              selected
-                ? "!border-slate-900 !bg-slate-900 !text-white shadow-lg shadow-slate-900/15 hover:!border-slate-900 hover:!bg-slate-900 hover:!text-white"
-                : "!bg-white text-slate-500 hover:!border-slate-300 hover:!bg-slate-50 hover:!text-slate-900"
-            }`}
             key={button.id}
             onClick={() => onChange(button.id)}
-            title={button.label}
-            type="button"
-            aria-label={button.label}
+            className={`relative z-10 flex flex-1 items-center justify-center gap-2.5 h-9 px-3 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all duration-200 whitespace-nowrap ${
+              selected ? 'text-white' : 'text-slate-500 hover:text-slate-800'
+            }`}
           >
-            <Icon size={16} strokeWidth={2.5} />
-            <span className="hidden text-xs font-semibold uppercase tracking-wider sm:inline">{button.label}</span>
+            <Icon size={14} strokeWidth={1.5} className="shrink-0" />
+            <span className="hidden sm:inline">{button.label}</span>
           </button>
         );
       })}
@@ -231,7 +238,7 @@ export function DeviceTable({
         onConfirm={confirmArchive}
       />
 
-      <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+      <div className="overflow-hidden rounded-lg border border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-sm">
         <div className="hidden border-b border-slate-200/60 bg-slate-50/50 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 xl:grid xl:grid-cols-[48px_minmax(160px,1fr)_minmax(130px,0.8fr)_minmax(240px,1.3fr)_minmax(180px,0.9fr)_100px_auto] xl:items-center xl:gap-8">
           <div />
           <div>Device</div>
@@ -259,7 +266,7 @@ export function DeviceTable({
                 >
                   <div className="flex items-center justify-between lg:block">
                     <button
-                      className={`grid h-11 w-11 place-items-center rounded-xl border shadow-sm transition-all duration-300 active:scale-95 sm:h-10 sm:w-10 ${
+                      className={`grid h-11 w-11 place-items-center rounded-lg border shadow-sm transition-all duration-300 active:scale-95 sm:h-10 sm:w-10 ${
                         expanded
                           ? "rotate-180 border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/20"
                           : "border-slate-200 bg-white text-slate-400 hover:border-slate-400 hover:text-slate-900"
@@ -299,7 +306,7 @@ export function DeviceTable({
                     </span>
                   </div>
 
-                  <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/50 p-4 lg:border-0 lg:bg-transparent lg:p-0">
+                  <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50/50 p-4 lg:border-0 lg:bg-transparent lg:p-0">
                     <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-400 xl:hidden">
                       Network Identity
                     </span>
@@ -339,7 +346,7 @@ export function DeviceTable({
                       Assigned Group
                     </span>
                     <select
-                      className="h-11 w-full min-w-0 cursor-pointer rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 outline-none shadow-sm transition hover:border-slate-300 focus:border-slate-900 focus:ring-4 focus:ring-slate-100/50 lg:h-10 lg:w-44 lg:px-3 lg:text-xs"
+                      className="h-11 w-full min-w-0 cursor-pointer rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 outline-none shadow-sm transition hover:border-slate-300 focus:border-slate-900 focus:ring-4 focus:ring-slate-100/50 lg:h-10 lg:w-44 lg:px-3 lg:text-xs"
                       onClick={(e) => e.stopPropagation()}
                       onChange={async (event) => {
                         try {
@@ -379,7 +386,7 @@ export function DeviceTable({
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">Management</span>
                     <div className="group relative">
                       <button
-                        className="grid h-10 w-10 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-100 active:scale-95 lg:h-9 lg:w-9"
+                        className="grid h-10 w-10 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-100 active:scale-95 lg:h-9 lg:w-9"
                         onClick={(e) => {
                           e.stopPropagation();
                           setPendingArchive(device);
@@ -389,7 +396,7 @@ export function DeviceTable({
                       >
                         <Archive size={18} strokeWidth={2.5} />
                       </button>
-                      <span className="pointer-events-none absolute bottom-full right-0 z-20 mb-3 hidden w-48 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl lg:group-hover:block">
+                      <span className="pointer-events-none absolute bottom-full right-0 z-20 mb-3 hidden w-48 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-sm lg:group-hover:block">
                         Archive this device from the registered list
                         <div className="absolute right-3 top-full border-[6px] border-transparent border-t-slate-900" />
                       </span>
