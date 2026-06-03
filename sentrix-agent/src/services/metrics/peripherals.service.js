@@ -8,31 +8,28 @@ let usbCache = [];
 
 async function getWindowsUsbDevices() {
   try {
-    // Universal Physical Rule:
-    // 1. Filter for external buses (USB, Bluetooth, Display) AND the HID logical layer.
-    // 2. Capture FriendlyName, InstanceId, Class, Service, and Manufacturer.
-    // 3. Status Code MUST be 0 (Working correctly). This kills "Compliance Mode" noise globally.
     const script = `
       $ProgressPreference = 'SilentlyContinue'
-      # We allow ErrorCode 0 (OK) and 31 (Driver Issue) to ensure broken physical devices are still tracked.
       $devs = Get-PnpDevice -PresentOnly | Where-Object { 
         $_.InstanceId -match '^USB|^BTHENUM|^DISPLAY|^HID' -and ($_.ConfigManagerErrorCode -eq 0 -or $_.ConfigManagerErrorCode -eq 31)
       }
       if ($devs) {
+        # Optimized: Batch retrieve properties in ONE call
         $props = Get-PnpDeviceProperty -InstanceId $devs.InstanceId -KeyName 'DEVPKEY_Device_InLocalMachineContainer' -ErrorAction SilentlyContinue
         $propMap = @{}
-        foreach ($p in $props) { 
-          if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data }
+        if ($props) {
+            foreach ($p in $props) { if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data } }
         }
+
         $results = foreach ($dev in $devs) {
-          $val = $propMap[$dev.InstanceId]
+          $isBuiltIn = if ($propMap.ContainsKey($dev.InstanceId)) { $propMap[$dev.InstanceId] } else { $true }
           [PSCustomObject]@{
             FriendlyName = $dev.FriendlyName
             InstanceId = $dev.InstanceId
             Class = $dev.Class
             Service = $dev.Service
             Manufacturer = $dev.Manufacturer
-            IsBuiltIn = if ($null -ne $val) { $val } else { $true }
+            IsBuiltIn = $isBuiltIn
           }
         }
         $results | ConvertTo-Json -Compress
@@ -40,7 +37,7 @@ async function getWindowsUsbDevices() {
     `.trim();
 
     const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
-      timeout: 30000,
+      timeout: 45000, // Increased to 45s to avoid SIGTERM on slow WMI
       windowsHide: true,
     });
 
@@ -206,18 +203,18 @@ export async function collectSolidUsbDevices() {
       if ($devs) {
         $props = Get-PnpDeviceProperty -InstanceId $devs.InstanceId -KeyName 'DEVPKEY_Device_InLocalMachineContainer' -ErrorAction SilentlyContinue
         $propMap = @{}
-        foreach ($p in $props) { 
-          if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data }
+        if ($props) {
+            foreach ($p in $props) { if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data } }
         }
         $results = foreach ($dev in $devs) {
-          $val = $propMap[$dev.InstanceId]
+          $isBuiltIn = if ($propMap.ContainsKey($dev.InstanceId)) { $propMap[$dev.InstanceId] } else { $true }
           [PSCustomObject]@{
             FriendlyName = $dev.FriendlyName
             InstanceId = $dev.InstanceId
             Class = $dev.Class
             Service = $dev.Service
             Manufacturer = $dev.Manufacturer
-            IsBuiltIn = if ($null -ne $val) { $val } else { $true }
+            IsBuiltIn = $isBuiltIn
           }
         }
         $results | ConvertTo-Json -Compress
@@ -225,7 +222,7 @@ export async function collectSolidUsbDevices() {
     `.trim();
 
     const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
-      timeout: 15000,
+      timeout: 25000,
       windowsHide: true,
     });
 
@@ -274,18 +271,18 @@ export async function collectSolidDisplays() {
       if ($devs) {
         $props = Get-PnpDeviceProperty -InstanceId $devs.InstanceId -KeyName 'DEVPKEY_Device_InLocalMachineContainer' -ErrorAction SilentlyContinue
         $propMap = @{}
-        foreach ($p in $props) { 
-          if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data }
+        if ($props) {
+            foreach ($p in $props) { if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data } }
         }
         $results = foreach ($dev in $devs) {
-          $val = $propMap[$dev.InstanceId]
+          $isBuiltIn = if ($propMap.ContainsKey($dev.InstanceId)) { $propMap[$dev.InstanceId] } else { $true }
           [PSCustomObject]@{
             FriendlyName = $dev.FriendlyName
             InstanceId = $dev.InstanceId
             Class = $dev.Class
             Service = $dev.Service
             Manufacturer = $dev.Manufacturer
-            IsBuiltIn = if ($null -ne $val) { $val } else { $true }
+            IsBuiltIn = $isBuiltIn
           }
         }
         $results | ConvertTo-Json -Compress
@@ -293,7 +290,7 @@ export async function collectSolidDisplays() {
     `.trim();
 
     const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
-      timeout: 15000,
+      timeout: 25000,
       windowsHide: true,
     });
 

@@ -112,7 +112,7 @@ export async function generateFullLogo() {
   ctx.fill();
 
   // Calculate positions for centered content
-  ctx.font = "bold 42px Helvetica";
+  ctx.font = "bold 42px Arial, sans-serif";
   const text = "SENTRIX";
   const textMetrics = ctx.measureText(text);
   const textWidth = textMetrics.width;
