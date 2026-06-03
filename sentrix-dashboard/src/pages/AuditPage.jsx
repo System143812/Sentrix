@@ -28,7 +28,7 @@ export function AuditPage() {
   const [query, setQuery] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [pendingAuthorize, setPendingAuthorize] = useState(null);
+  const [pendingBlock, setPendingBlock] = useState(null);
   const [pendingRevoke, setPendingRevoke] = useState(null);
   const [isAddingWhitelist, setIsAddingWhitelist] = useState(false);
   const [newWhitelist, setNewWhitelist] = useState({ label: "", type: "ip", identifier: "" });
@@ -78,7 +78,7 @@ export function AuditPage() {
     setLoading(true);
     setError("");
     try {
-      const category = activeTab === "whitelist" ? "whitelist" : "rate_limit";
+      const category = activeTab === "whitelist" ? "whitelist" : (activeTab === "perimeter" ? "blacklist" : "rate_limit");
       setAuthorityRecords(await auditApi.getAuthorityRecords(category));
     } catch (err) {
       setError(err.message || `Unable to load ${activeTab} data.`);
@@ -92,17 +92,21 @@ export function AuditPage() {
     else loadAuthority();
   }, [activeTab]);
 
-  async function confirmAuthorization() {
-    if (!pendingAuthorize) return;
+  async function confirmBlock() {
+    if (!pendingBlock) return;
+    if (!reason.trim()) {
+      setError("Please provide a reason for blocking this identity.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      await auditApi.authorizeLogSubject(pendingAuthorize.id, reason);
-      setPendingAuthorize(null);
+      await auditApi.blockAuditLogSubject(pendingBlock.id, reason);
+      setPendingBlock(null);
       setReason("");
       await loadLogs();
     } catch (err) {
-      setError(err.message || "Unable to authorize this subject.");
+      setError(err.message || "Unable to block this identity.");
     } finally {
       setLoading(false);
     }
@@ -168,6 +172,7 @@ export function AuditPage() {
       // Background refresh if current tab matches the category updated
       if (activeTab === "whitelist" && category === "whitelist") loadAuthority();
       if (activeTab === "ratelimit" && category === "rate_limit") loadAuthority();
+      if (activeTab === "perimeter" && category === "blacklist") loadAuthority();
     });
 
     return () => {
@@ -243,32 +248,32 @@ export function AuditPage() {
         </div>
       </BlurOverlay>
 
-      {/* Authorize Modal */}
-      <BlurOverlay isOpen={!!pendingAuthorize} onClose={() => setPendingAuthorize(null)} className="z-[80]" containerClassName="w-full max-w-lg">
+      {/* Block Confirmation Modal */}
+      <BlurOverlay isOpen={!!pendingBlock} onClose={() => setPendingBlock(null)} className="z-[80]" containerClassName="w-full max-w-lg">
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
           <div className="flex items-start gap-4">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600">
-              <ShieldAlert size={24} />
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600">
+              <ShieldBan size={24} />
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-bold text-slate-900">Authorize this subject?</h3>
+              <h3 className="text-lg font-bold text-slate-900">Block this identity?</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Granting authority will add this identifier to the trusted whitelist.
+                This will add the device to the <strong>Security Perimeter</strong> and permanently block all API access until manually unblocked.
               </p>
             </div>
-            <button className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-900" onClick={() => setPendingAuthorize(null)} type="button">
+            <button className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-900" onClick={() => setPendingBlock(null)} type="button">
               <X size={18} />
             </button>
           </div>
           <textarea
             className="mt-5 min-h-24 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium outline-none focus:border-slate-900"
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Reason for authorizing (Optional)"
+            placeholder="Reason for blocking (Required)"
             value={reason}
           />
           <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button className="btn-minimal h-10 px-4" onClick={() => setPendingAuthorize(null)} type="button">Cancel</button>
-            <button className="h-10 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white shadow-lg shadow-emerald-900/10 hover:bg-emerald-700 disabled:opacity-50" onClick={confirmAuthorization} type="button">Authorize</button>
+            <button className="btn-minimal h-10 px-4" onClick={() => setPendingBlock(null)} type="button">Cancel</button>
+            <button className="h-10 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white shadow-lg shadow-rose-900/10 hover:bg-rose-700 disabled:opacity-50" onClick={confirmBlock} type="button" disabled={!reason.trim()}>Block Identity</button>
           </div>
         </div>
       </BlurOverlay>
@@ -277,14 +282,14 @@ export function AuditPage() {
       <BlurOverlay isOpen={!!pendingRevoke} onClose={() => setPendingRevoke(null)} className="z-[80]" containerClassName="w-full max-w-lg">
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
           <div className="flex items-start gap-4">
-            <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border ${activeTab === 'whitelist' ? 'border-rose-100 bg-rose-50 text-rose-600' : 'border-emerald-100 bg-emerald-50 text-emerald-600'}`}>
-              {activeTab === 'whitelist' ? <ShieldBan size={24} /> : <CheckCircle2 size={24} />}
+            <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border ${activeTab === 'whitelist' || activeTab === 'perimeter' ? 'border-rose-100 bg-rose-50 text-rose-600' : 'border-emerald-100 bg-emerald-50 text-emerald-600'}`}>
+              {(activeTab === 'whitelist' || activeTab === 'perimeter') ? <ShieldBan size={24} /> : <CheckCircle2 size={24} />}
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-bold text-slate-900">{activeTab === 'whitelist' ? 'Revoke Trust?' : 'Restore Access?'}</h3>
+              <h3 className="text-lg font-bold text-slate-900">{(activeTab === 'whitelist' || activeTab === 'perimeter') ? 'Revoke Trust?' : 'Restore Access?'}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                {activeTab === 'whitelist' 
-                  ? `Are you sure you want to remove <strong>${pendingRevoke?.label}</strong> from the whitelist?`
+                {(activeTab === 'whitelist' || activeTab === 'perimeter') 
+                  ? `Are you sure you want to remove <strong>${pendingRevoke?.label}</strong> from the ${activeTab === 'whitelist' ? 'whitelist' : 'perimeter'}?`
                   : `Are you sure you want to restore access for <strong>${pendingRevoke?.label}</strong>?`}
               </p>
             </div>
@@ -295,13 +300,13 @@ export function AuditPage() {
           <textarea
             className="mt-5 min-h-24 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium outline-none focus:border-slate-900"
             onChange={(event) => setReason(event.target.value)}
-            placeholder={`Reason for ${activeTab === 'whitelist' ? 'revoking' : 'restoring'} (Required)`}
+            placeholder={`Reason for ${activeTab === 'whitelist' || activeTab === 'perimeter' ? 'revoking' : 'restoring'} (Required)`}
             value={reason}
           />
           <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button className="btn-minimal h-10 px-4" onClick={() => setPendingRevoke(null)} type="button">Cancel</button>
-            <button className={`h-10 rounded-lg px-4 text-sm font-bold text-white shadow-lg disabled:opacity-50 ${activeTab === 'whitelist' ? 'bg-rose-600 shadow-rose-900/10 hover:bg-rose-700' : 'bg-emerald-600 shadow-emerald-900/10 hover:bg-emerald-700'}`} onClick={confirmRevoke} type="button" disabled={!reason.trim()}>
-              {activeTab === 'whitelist' ? 'Revoke' : 'Restore'}
+            <button className={`h-10 rounded-lg px-4 text-sm font-bold text-white shadow-lg disabled:opacity-50 ${(activeTab === 'whitelist' || activeTab === 'perimeter') ? 'bg-rose-600 shadow-rose-900/10 hover:bg-rose-700' : 'bg-emerald-600 shadow-emerald-900/10 hover:bg-emerald-700'}`} onClick={confirmRevoke} type="button" disabled={!reason.trim()}>
+              {(activeTab === 'whitelist' || activeTab === 'perimeter') ? 'Revoke' : 'Restore'}
             </button>
           </div>
         </div>
@@ -362,6 +367,16 @@ export function AuditPage() {
           }`}
         >
           Trusted Fleet
+        </button>
+        <button
+          onClick={() => setActiveTab("perimeter")}
+          className={`px-6 py-4 text-sm font-bold transition-all border-b-2 ${
+            activeTab === "perimeter"
+              ? "border-rose-600 text-rose-600"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          Security Perimeter
         </button>
         <button
           onClick={() => setActiveTab("ratelimit")}
@@ -498,18 +513,23 @@ export function AuditPage() {
                       </span>
                       <button
                         className={`inline-flex h-9 items-center gap-2 rounded-lg border px-4 text-[10px] font-bold uppercase tracking-widest transition-all active:scale-[0.97] ${
-                          log.isWhitelisted
+                          log.isWhitelisted || log.isThrottled
                             ? "border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm shadow-emerald-600/5 cursor-default"
                             : "border-rose-100 bg-rose-50 text-rose-600 shadow-sm shadow-rose-600/5 hover:bg-rose-100 hover:border-rose-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         }`}
-                        disabled={log.isWhitelisted || (!log.macAddress && !log.actorEmail)}
-                        onClick={() => { setPendingAuthorize(log); setReason(""); }}
+                        disabled={log.isWhitelisted || log.isThrottled || (!log.macAddress && !log.actorEmail)}
+                        onClick={() => { setPendingBlock(log); setReason(""); }}
                         type="button"
                       >
                         {log.isWhitelisted ? (
                           <>
                             <CheckCircle2 size={14} strokeWidth={3} />
-                            Whitelisted
+                            Authorized
+                          </>
+                        ) : log.isThrottled ? (
+                          <>
+                            <ShieldBan size={14} strokeWidth={3} />
+                            Hard Blocked
                           </>
                         ) : (
                           <>
@@ -538,8 +558,8 @@ export function AuditPage() {
             <div className="hidden grid-cols-[1.5fr_1fr_1.8fr_1.2fr_130px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100">
               <div>{activeTab === 'whitelist' ? 'Security Identity' : 'Throttled Identity'}</div>
               <div>Category</div>
-              <div>{activeTab === 'whitelist' ? 'Trust Context' : 'Throttle Reason'}</div>
-              <div>{activeTab === 'whitelist' ? 'Authorized On' : 'Throttled On'}</div>
+              <div>{activeTab === 'whitelist' ? 'Trust Context' : (activeTab === 'perimeter' ? 'Block Reason' : 'Throttle Reason')}</div>
+              <div>{activeTab === 'whitelist' ? 'Authorized On' : (activeTab === 'perimeter' ? 'Blocked On' : 'Throttled On')}</div>
               <div className="text-right">Authority</div>
             </div>
             <div className="divide-y divide-slate-100">
@@ -555,7 +575,7 @@ export function AuditPage() {
                         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors group-hover:bg-white ${
                           activeTab === 'whitelist' 
                             ? 'border-emerald-100 bg-emerald-50/50 text-emerald-600' 
-                            : 'border-amber-100 bg-amber-50/50 text-amber-600'
+                            : (activeTab === 'perimeter' ? 'border-rose-100 bg-rose-50/50 text-rose-600' : 'border-amber-100 bg-amber-50/50 text-amber-600')
                         }`}>
                           {subject.subject_type === 'user' ? <User size={18} /> : subject.subject_type === 'agent_id' ? <ShieldBan size={18} /> : <Monitor size={18} />}
                         </div>
@@ -579,7 +599,7 @@ export function AuditPage() {
                     {/* 3. Context/Reason */}
                     <div className="min-w-0">
                       <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
-                        {activeTab === 'whitelist' ? 'Trust Context' : 'Throttle Reason'}
+                        {activeTab === 'whitelist' ? 'Trust Context' : (activeTab === 'perimeter' ? 'Block Reason' : 'Throttle Reason')}
                       </span>
                       <p className="text-xs font-medium text-slate-600 line-clamp-2 italic leading-relaxed">
                         "{subject.reason || (activeTab === 'whitelist' ? 'Automated Agent Registration' : 'No reason provided')}"
@@ -610,17 +630,17 @@ export function AuditPage() {
                       </span>
                       <button
                         className={`inline-flex h-9 items-center gap-2 rounded-lg border px-4 text-[10px] font-bold uppercase tracking-widest transition-all active:scale-[0.97] ${
-                          activeTab === 'whitelist' 
+                          (activeTab === 'whitelist' || activeTab === 'perimeter') 
                             ? 'border-rose-100 bg-rose-50 text-rose-600 shadow-sm shadow-rose-600/5 hover:bg-rose-100 hover:border-rose-200' 
                             : 'border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm shadow-emerald-600/5 hover:bg-emerald-100 hover:border-emerald-200'
                         }`}
                         onClick={() => { setPendingRevoke(subject); setReason(""); }}
                         type="button"
                       >
-                        {activeTab === 'whitelist' ? (
+                        {(activeTab === 'whitelist' || activeTab === 'perimeter') ? (
                           <>
                             <ShieldBan size={14} strokeWidth={3} />
-                            Revoke Trust
+                            {(activeTab === 'whitelist' ? 'Revoke Trust' : 'Unblock Asset')}
                           </>
                         ) : (
                           <>
@@ -635,12 +655,12 @@ export function AuditPage() {
               ) : (
                 <div className="p-12 text-center">
                   <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl ${
-                    activeTab === 'whitelist' ? 'bg-emerald-50 text-emerald-200' : 'bg-amber-50 text-amber-200'
+                    activeTab === 'whitelist' ? 'bg-emerald-50 text-emerald-200' : (activeTab === 'perimeter' ? 'bg-rose-50 text-rose-200' : 'bg-amber-50 text-amber-200')
                   }`}>
-                    {activeTab === 'whitelist' ? <ShieldBan size={28} /> : <CheckCircle2 size={28} />}
+                    {(activeTab === 'whitelist' || activeTab === 'perimeter') ? <ShieldBan size={28} /> : <CheckCircle2 size={28} />}
                   </div>
                   <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
-                    {loading ? "Refreshing Security Cache..." : activeTab === 'whitelist' ? "Your Trusted Fleet is Empty" : "No Throttled Subjects Found"}
+                    {loading ? "Refreshing Security Cache..." : activeTab === 'whitelist' ? "Your Trusted Fleet is Empty" : (activeTab === 'perimeter' ? "No Manually Blocked Devices" : "No Throttled Subjects Found")}
                   </p>
                 </div>
               )}
