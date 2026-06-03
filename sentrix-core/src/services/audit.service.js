@@ -128,24 +128,19 @@ export async function getAuditLogs({ limit = 200, action = "", actor = "", start
       audit_logs.*,
       users.id AS registered_user_id,
       users.role AS registered_user_role,
-      b_mac.category AS mac_category,
-      b_user.category AS user_category,
-      b_ip.category AS ip_category
+      MAX(b.category) AS authority_category,
+      MAX(b.block_target) AS authority_target
     FROM audit_logs
     LEFT JOIN users ON users.email = audit_logs.actor_email
-    LEFT JOIN security_authority b_mac
-      ON b_mac.subject_type = 'mac'
-      AND b_mac.identifier = UPPER(REPLACE(REPLACE(audit_logs.mac_address, ':', ''), '-', ''))
-      AND b_mac.active = 1
-    LEFT JOIN security_authority b_user
-      ON b_user.subject_type = 'user'
-      AND b_user.identifier IN (users.id, audit_logs.actor_email)
-      AND b_user.active = 1
-    LEFT JOIN security_authority b_ip
-      ON b_ip.subject_type = 'ip'
-      AND b_ip.identifier = audit_logs.ip_address
-      AND b_ip.active = 1
+    LEFT JOIN security_authority b
+      ON b.active = 1
+      AND (
+        (b.mac_address IS NOT NULL AND b.mac_address = UPPER(REPLACE(REPLACE(audit_logs.mac_address, ':', ''), '-', '')))
+        OR (b.ip_address IS NOT NULL AND b.ip_address = audit_logs.ip_address)
+        OR (b.subject_type = 'user' AND b.identifier IN (users.id, audit_logs.actor_email))
+      )
     ${where}
+    GROUP BY audit_logs.id
     ORDER BY audit_logs.created_at DESC
     LIMIT ${safeLimit}
     `,
@@ -165,8 +160,11 @@ export async function getAuditLogs({ limit = 200, action = "", actor = "", start
     macAddress: row.mac_address,
     registeredUserId: row.registered_user_id,
     registeredUserRole: row.registered_user_role,
-    isWhitelisted: row.mac_category === 'whitelist' || row.user_category === 'whitelist' || row.ip_category === 'whitelist',
-    isThrottled: row.mac_category === 'rate_limit' || row.user_category === 'rate_limit' || row.ip_category === 'rate_limit',
+    isWhitelisted: row.authority_category === 'whitelist',
+    isThrottled: (row.authority_category === 'rate_limit' || row.authority_category === 'blacklist') && 
+                  (row.authority_target === 'all' || 
+                   (row.authority_target === 'ip' && row.ip_address) || 
+                   (row.authority_target === 'mac' && row.mac_address)),
     details: typeof row.details === "string" ? JSON.parse(row.details || "{}") : row.details,
     createdAt: row.created_at,
   }));
@@ -227,8 +225,8 @@ export async function getBlockedSubjects(category) {
   return getIdentities(category);
 }
 
-export async function revokeAuthorityRecord(id, { revokedBy = null, reason = "" } = {}) {
-  return revoke(id, { revokedBy, reason });
+export async function revokeAuthorityRecord(id, { revokedBy = null, reason = "", target = "all" } = {}) {
+  return revoke(id, { revokedBy, reason, target });
 }
 
 export async function authorizeAuditDevice(req, data) {

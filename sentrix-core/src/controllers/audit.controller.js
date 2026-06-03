@@ -63,22 +63,28 @@ export async function addToWhitelist(req, res, next) {
 
 export async function revokeAuthority(req, res, next) {
   try {
-    const { reason = "" } = req.body;
+    const { reason = "", target = "all" } = req.body;
     const result = await auditService.revokeAuthorityRecord(req.params.id, {
       revokedBy: req.user?.id || null,
       reason,
+      target
     });
 
     const isWhitelist = result.category === "whitelist";
+    let actionLabel = result.label;
+    if (target === "ip" && result.ip_address) actionLabel = `IP: ${result.ip_address}`;
+    else if (target === "mac" && result.mac_address) actionLabel = `MAC: ${result.mac_address}`;
+    else if (target === "all" && result.ip_address && result.mac_address) actionLabel = `${result.ip_address} & ${result.mac_address}`;
 
     await auditService.logAuditEvent({
       req,
       action: isWhitelist ? "REVOKE_TRUST" : "RESTORE_ACCESS",
       targetType: result.subject_type,
       targetId: result.identifier,
-      targetLabel: result.label,
+      targetLabel: isWhitelist ? result.label : `Restored ${actionLabel}`,
       details: {
         reason,
+        target,
         previous_reason: result.reason,
         recorded_at: result.recorded_at,
         category: result.category,

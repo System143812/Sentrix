@@ -68,21 +68,24 @@ export async function resolveMacFromIp(ip) {
 export async function isRequestRateLimited(req) {
   const ip = getRequestIp(req);
   const headerMac = normalizeMac(getRequestMac(req));
-  // If MAC is missing from headers, try to resolve it via discovery logs/ARP
   const mac = headerMac || await resolveMacFromIp(ip);
   
-  // Strict check: If ANY identifier associated with this request is actively banned, block it.
+  const userIds = [req.user?.id, req.user?.email].filter(Boolean);
+  
   const [rows] = await pool.query(
     `
     SELECT id FROM security_authority
     WHERE category IN ('rate_limit', 'blacklist') AND active = 1
       AND (
-        (subject_type = 'ip' AND identifier = ? AND identifier IS NOT NULL AND identifier != '')
-        OR (subject_type = 'mac' AND identifier = ? AND identifier IS NOT NULL AND identifier != '')
+        (ip_address = ? AND (block_target = 'ip' OR block_target = 'all'))
+        OR (mac_address = ? AND (block_target = 'mac' OR block_target = 'all'))
+        OR (subject_type = 'ip' AND identifier = ? AND (block_target = 'ip' OR block_target = 'all'))
+        OR (subject_type = 'mac' AND identifier = ? AND (block_target = 'mac' OR block_target = 'all'))
+        OR (subject_type = 'user' AND identifier IN (?))
       )
     LIMIT 1
     `,
-    [ip, mac]
+    [ip, mac, ip, mac, userIds.length > 0 ? userIds : ['__NONE__']]
   );
   return rows.length > 0;
 }
@@ -91,9 +94,9 @@ export async function isRequestAuthorized(req) {
   const ip = getRequestIp(req);
   const headerMac = normalizeMac(getRequestMac(req));
   const agentId = req.headers?.["x-sentrix-agent-id"];
-  
-  // Fallback MAC for authorization too
   const mac = headerMac || await resolveMacFromIp(ip);
+  
+  const userIds = [req.user?.id, req.user?.email].filter(Boolean);
   
   console.log(`[SECURITY] Checking authorization for IP: ${ip}, MAC: ${mac || "UNKNOWN"}, AgentID: ${agentId || "MISSING"}`);
 
@@ -103,13 +106,16 @@ export async function isRequestAuthorized(req) {
     SELECT id, category FROM security_authority
     WHERE category = 'whitelist' AND active = 1
       AND (
-        (subject_type = 'ip' AND identifier = ? AND identifier IS NOT NULL AND identifier != '')
-        OR (subject_type = 'mac' AND identifier = ? AND identifier IS NOT NULL AND identifier != '')
-        OR (subject_type = 'agent_id' AND identifier = ? AND identifier IS NOT NULL AND identifier != '')
+        (ip_address = ?)
+        OR (mac_address = ?)
+        OR (subject_type = 'agent_id' AND identifier = ?)
+        OR (subject_type = 'ip' AND identifier = ?)
+        OR (subject_type = 'mac' AND identifier = ?)
+        OR (subject_type = 'user' AND identifier IN (?))
       )
     LIMIT 1
     `,
-    [ip, mac, agentId]
+    [ip, mac, agentId, ip, mac, userIds.length > 0 ? userIds : ['__NONE__']]
   );
   if (whitelistRows.length > 0) {
     console.log(`[SECURITY] Authorized via whitelist: IP=${ip}, MAC=${mac}, AgentID=${agentId}`);
@@ -124,11 +130,8 @@ export async function isRequestAuthorized(req) {
     );
     if (client) {
       console.log(`[SECURITY] Auto-authorizing known Agent: ${agentId} (${client.hostname})`);
-      // Auto-whitelist this new IP/MAC
       await authorizeDevice(req, { label: client.hostname, type: 'agent_id', identifier: agentId });
       return true;
-    } else {
-      console.log(`[SECURITY] AgentID ${agentId} not found in clients table.`);
     }
   }
 
@@ -148,38 +151,20 @@ export async function authorizeDevice(reqOrData, { label, type, identifier }) {
   const mac = normalizeMac(reqOrData.mac || getRequestMac(reqOrData)) || await resolveMacFromIp(ip);
   const now = Date.now();
 
-  // Whitelist the primary identifier
+  // Unified Whitelist Entry
   await pool.query(
     `
-    INSERT INTO security_authority (subject_type, identifier, label, category, recorded_at, active)
-    VALUES (?, ?, ?, 'whitelist', ?, 1)
-    ON DUPLICATE KEY UPDATE active = 1, category = 'whitelist', label = VALUES(label)
+    INSERT INTO security_authority (subject_type, identifier, label, category, ip_address, mac_address, recorded_at, active)
+    VALUES (?, ?, ?, 'whitelist', ?, ?, ?, 1)
+    ON DUPLICATE KEY UPDATE 
+      active = 1, 
+      category = 'whitelist', 
+      label = VALUES(label),
+      ip_address = IFNULL(VALUES(ip_address), ip_address),
+      mac_address = IFNULL(VALUES(mac_address), mac_address)
     `,
-    [type, identifier, label, now]
+    [type, identifier, label, ip !== "127.0.0.1" ? ip : null, mac, now]
   );
-
-  // Whitelist current network identifiers for fast check
-  if (ip && ip !== "127.0.0.1" && ip !== "::1") {
-    await pool.query(
-      `
-      INSERT INTO security_authority (subject_type, identifier, label, category, recorded_at, active)
-      VALUES ('ip', ?, ?, 'whitelist', ?, 1)
-      ON DUPLICATE KEY UPDATE active = 1, category = 'whitelist'
-      `,
-      [ip, `IP of ${label}`, now]
-    );
-  }
-
-  if (mac) {
-    await pool.query(
-      `
-      INSERT INTO security_authority (subject_type, identifier, label, category, recorded_at, active)
-      VALUES ('mac', ?, ?, 'whitelist', ?, 1)
-      ON DUPLICATE KEY UPDATE active = 1, category = 'whitelist'
-      `,
-      [mac, `MAC of ${label}`, now]
-    );
-  }
 
   if (ioInstance) {
     ioInstance.to("dashboards").emit("authority:update", { category: "whitelist" });
@@ -194,9 +179,9 @@ export async function isMacRateLimited(mac) {
     `
     SELECT id
     FROM security_authority
-    WHERE subject_type = 'mac'
-      AND identifier = ?
+    WHERE mac_address = ?
       AND category = 'rate_limit'
+      AND (block_target = 'mac' OR block_target = 'all')
       AND active = 1
     LIMIT 1
     `,
@@ -238,7 +223,7 @@ export async function assertRequestAllowed(req) {
 export async function getSecurityIdentities(category = 'rate_limit') {
   const [rows] = await pool.query(
     `
-    SELECT id, subject_type, identifier, label, role, reason, added_by, recorded_at, source_log_id, category
+    SELECT id, subject_type, identifier, label, role, reason, added_by, recorded_at, source_log_id, category, ip_address, mac_address, block_target
     FROM security_authority
     WHERE active = 1 AND category = ?
     ORDER BY recorded_at DESC
@@ -248,7 +233,7 @@ export async function getSecurityIdentities(category = 'rate_limit') {
   return rows;
 }
 
-export async function revokeAuthority(id, { revokedBy = null, reason = "" } = {}) {
+export async function revokeAuthority(id, { revokedBy = null, reason = "", target = "all" } = {}) {
   const [[subject]] = await pool.query(
     "SELECT * FROM security_authority WHERE id = ? LIMIT 1",
     [id],
@@ -259,38 +244,39 @@ export async function revokeAuthority(id, { revokedBy = null, reason = "" } = {}
   }
 
   const now = Date.now();
+  let newActive = 0;
+  let newTarget = subject.block_target;
+
+  if (target === "ip") {
+    if (subject.block_target === "all") {
+      newTarget = "mac";
+      newActive = 1;
+    } else if (subject.block_target === "ip") {
+      newActive = 0;
+    }
+  } else if (target === "mac") {
+    if (subject.block_target === "all") {
+      newTarget = "ip";
+      newActive = 1;
+    } else if (subject.block_target === "mac") {
+      newActive = 0;
+    }
+  } else {
+    newActive = 0;
+  }
   
-  // Update the target record
   await pool.query(
     `
     UPDATE security_authority
-    SET active = 0,
+    SET active = ?,
+        block_target = ?,
         revoked_at = ?,
         revoked_by = ?,
         revoke_reason = ?
     WHERE id = ?
     `,
-    [now, revokedBy, reason, id],
+    [newActive, newTarget, now, revokedBy, reason, id],
   );
-
-  // Unified Restore: If this is a rate limit, also restore all related records from the same "ban event"
-  if (subject.category === 'rate_limit') {
-    // We look for other records with the same recorded_at (+/- 2 seconds) 
-    // OR records that match the identifier if it's a MAC/IP cross-reference
-    await pool.query(
-      `
-      UPDATE security_authority
-      SET active = 0,
-          revoked_at = ?,
-          revoked_by = ?,
-          revoke_reason = 'Unified Security Restore'
-      WHERE category = 'rate_limit' 
-        AND active = 1
-        AND recorded_at BETWEEN ? - 2000 AND ? + 2000
-      `,
-      [now, revokedBy, subject.recorded_at, subject.recorded_at]
-    );
-  }
 
   if (ioInstance) {
     ioInstance.to("dashboards").emit("authority:update", { category: subject.category });
@@ -298,7 +284,8 @@ export async function revokeAuthority(id, { revokedBy = null, reason = "" } = {}
 
   return {
     ...subject,
-    active: 0,
+    active: newActive,
+    block_target: newTarget,
     revoked_at: now,
     revoked_by: revokedBy,
     revoke_reason: reason,
@@ -310,39 +297,21 @@ export async function banDevice(req, { reason = "Automated rate-limit ban" } = {
   const mac = normalizeMac(getRequestMac(req)) || await resolveMacFromIp(ip);
   const now = Date.now();
 
-  if (ip && ip !== "127.0.0.1") {
-    await pool.query(
-      `
-      INSERT INTO security_authority (subject_type, identifier, label, category, reason, recorded_at, active)
-      VALUES ('ip', ?, ?, 'rate_limit', ?, ?, 1)
-      ON DUPLICATE KEY UPDATE 
-        active = 1, 
-        category = 'rate_limit', 
-        reason = VALUES(reason), 
-        recorded_at = VALUES(recorded_at),
-        revoked_at = NULL,
-        revoked_by = NULL
-      `,
-      [ip, `Rate Limited IP: ${ip}`, reason, now]
-    );
-  }
-
-  if (mac) {
-    await pool.query(
-      `
-      INSERT INTO security_authority (subject_type, identifier, label, category, reason, recorded_at, active)
-      VALUES ('mac', ?, ?, 'rate_limit', ?, ?, 1)
-      ON DUPLICATE KEY UPDATE 
-        active = 1, 
-        category = 'rate_limit', 
-        reason = VALUES(reason), 
-        recorded_at = VALUES(recorded_at),
-        revoked_at = NULL,
-        revoked_by = NULL
-      `,
-      [mac, `Rate Limited MAC: ${mac}`, reason, now]
-    );
-  }
+  await pool.query(
+    `
+    INSERT INTO security_authority (subject_type, identifier, label, category, ip_address, mac_address, block_target, reason, recorded_at, active)
+    VALUES ('ip', ?, ?, 'rate_limit', ?, ?, 'all', ?, ?, 1)
+    ON DUPLICATE KEY UPDATE 
+      active = 1, 
+      block_target = 'all',
+      category = 'rate_limit', 
+      reason = VALUES(reason), 
+      recorded_at = VALUES(recorded_at),
+      revoked_at = NULL,
+      revoked_by = NULL
+    `,
+    [ip, `Rate Limited Device: ${ip}`, ip !== "127.0.0.1" ? ip : null, mac, reason, now]
+  );
 
   if (ioInstance) {
     ioInstance.to("dashboards").emit("authority:update", { category: "rate_limit" });
@@ -354,41 +323,22 @@ export async function blacklistDevice(reqOrData, { reason = "Manual security blo
   const mac = normalizeMac(reqOrData.mac || getRequestMac(reqOrData)) || await resolveMacFromIp(ip);
   const now = Date.now();
 
-  if (ip && ip !== "127.0.0.1" && ip !== "::1") {
-    await pool.query(
-      `
-      INSERT INTO security_authority (subject_type, identifier, label, category, reason, added_by, recorded_at, active)
-      VALUES ('ip', ?, ?, 'blacklist', ?, ?, ?, 1)
-      ON DUPLICATE KEY UPDATE 
-        active = 1, 
-        category = 'blacklist', 
-        reason = VALUES(reason), 
-        added_by = VALUES(added_by),
-        recorded_at = VALUES(recorded_at),
-        revoked_at = NULL,
-        revoked_by = NULL
-      `,
-      [ip, `Blacklisted IP: ${ip}`, reason, blockedBy, now]
-    );
-  }
-
-  if (mac) {
-    await pool.query(
-      `
-      INSERT INTO security_authority (subject_type, identifier, label, category, reason, added_by, recorded_at, active)
-      VALUES ('mac', ?, ?, 'blacklist', ?, ?, ?, 1)
-      ON DUPLICATE KEY UPDATE 
-        active = 1, 
-        category = 'blacklist', 
-        reason = VALUES(reason), 
-        added_by = VALUES(added_by),
-        recorded_at = VALUES(recorded_at),
-        revoked_at = NULL,
-        revoked_by = NULL
-      `,
-      [mac, `Blacklisted MAC: ${mac}`, reason, blockedBy, now]
-    );
-  }
+  await pool.query(
+    `
+    INSERT INTO security_authority (subject_type, identifier, label, category, ip_address, mac_address, block_target, reason, added_by, recorded_at, active)
+    VALUES ('ip', ?, ?, 'blacklist', ?, ?, 'all', ?, ?, ?, 1)
+    ON DUPLICATE KEY UPDATE 
+      active = 1, 
+      block_target = 'all',
+      category = 'blacklist', 
+      reason = VALUES(reason), 
+      added_by = VALUES(added_by),
+      recorded_at = VALUES(recorded_at),
+      revoked_at = NULL,
+      revoked_by = NULL
+    `,
+    [ip, `Blacklisted Device: ${ip}`, ip !== "127.0.0.1" ? ip : null, mac, reason, blockedBy, now]
+  );
 
   if (ioInstance) {
     ioInstance.to("dashboards").emit("authority:update", { category: "blacklist" });

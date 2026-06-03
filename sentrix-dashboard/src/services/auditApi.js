@@ -32,10 +32,10 @@ export async function getAuthorityRecords(category = "rate_limit") {
   return result.data;
 }
 
-export async function revokeAuthority(id, reason = "") {
+export async function revokeAuthority(id, reason = "", target = "all") {
   const result = await fetchJson(`/api/audit/authority/${id}/revoke`, {
     method: "POST",
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify({ reason, target }),
   });
   return result.data;
 }
