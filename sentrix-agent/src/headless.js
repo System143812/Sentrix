@@ -197,7 +197,10 @@ async function start() {
     const now = Date.now();
     // Send heartbeat if it's been longer than the interval, regardless of metrics status
     if (now - lastHeartbeatSentAt >= heartbeatIntervalMs) {
-      socketClient.sendHeartbeat(lastMetrics);
+      // FIX: If lastMetrics is null (e.g., first collection hanging), send a minimal heartbeat
+      // to let the server know we are ALIVE and just busy.
+      const heartbeatData = lastMetrics || { status: "online", timestamp: now, busy: collectingMetrics || collectingDetails };
+      socketClient.sendHeartbeat(heartbeatData);
       lastHeartbeatSentAt = now;
     }
   }, 2000); // Check every 2s for more precision

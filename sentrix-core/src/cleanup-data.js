@@ -40,9 +40,19 @@ async function clearData() {
     "client_peripherals",
     "client_processes",
     "client_usb_devices",
+    "client_software_inventory",
+    "client_software_events",
+    "client_domain_summaries",
+    "anomaly_alerts",
+    "device_health_snapshots",
+    "dns_intelligence",
+    "event_log",
+    "uptime_logs",
     "clients",
     "client_groups",
-    "discovery_scan_results"
+    "discovery_scan_results",
+    "security_authority",
+    "security_incidents"
   ];
 
   const connection = await pool.getConnection();
