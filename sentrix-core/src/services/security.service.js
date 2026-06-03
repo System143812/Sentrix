@@ -75,7 +75,7 @@ export async function isRequestRateLimited(req) {
   const [rows] = await pool.query(
     `
     SELECT id FROM security_authority
-    WHERE category = 'rate_limit' AND active = 1
+    WHERE category IN ('rate_limit', 'blacklist') AND active = 1
       AND (
         (subject_type = 'ip' AND identifier = ? AND identifier IS NOT NULL AND identifier != '')
         OR (subject_type = 'mac' AND identifier = ? AND identifier IS NOT NULL AND identifier != '')
@@ -346,6 +346,52 @@ export async function banDevice(req, { reason = "Automated rate-limit ban" } = {
 
   if (ioInstance) {
     ioInstance.to("dashboards").emit("authority:update", { category: "rate_limit" });
+  }
+}
+
+export async function blacklistDevice(reqOrData, { reason = "Manual security block", blockedBy = null } = {}) {
+  const ip = reqOrData.ip || getRequestIp(reqOrData);
+  const mac = normalizeMac(reqOrData.mac || getRequestMac(reqOrData)) || await resolveMacFromIp(ip);
+  const now = Date.now();
+
+  if (ip && ip !== "127.0.0.1" && ip !== "::1") {
+    await pool.query(
+      `
+      INSERT INTO security_authority (subject_type, identifier, label, category, reason, added_by, recorded_at, active)
+      VALUES ('ip', ?, ?, 'blacklist', ?, ?, ?, 1)
+      ON DUPLICATE KEY UPDATE 
+        active = 1, 
+        category = 'blacklist', 
+        reason = VALUES(reason), 
+        added_by = VALUES(added_by),
+        recorded_at = VALUES(recorded_at),
+        revoked_at = NULL,
+        revoked_by = NULL
+      `,
+      [ip, `Blacklisted IP: ${ip}`, reason, blockedBy, now]
+    );
+  }
+
+  if (mac) {
+    await pool.query(
+      `
+      INSERT INTO security_authority (subject_type, identifier, label, category, reason, added_by, recorded_at, active)
+      VALUES ('mac', ?, ?, 'blacklist', ?, ?, ?, 1)
+      ON DUPLICATE KEY UPDATE 
+        active = 1, 
+        category = 'blacklist', 
+        reason = VALUES(reason), 
+        added_by = VALUES(added_by),
+        recorded_at = VALUES(recorded_at),
+        revoked_at = NULL,
+        revoked_by = NULL
+      `,
+      [mac, `Blacklisted MAC: ${mac}`, reason, blockedBy, now]
+    );
+  }
+
+  if (ioInstance) {
+    ioInstance.to("dashboards").emit("authority:update", { category: "blacklist" });
   }
 }
 

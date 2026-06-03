@@ -2,7 +2,8 @@ import pool from "../lib/database.js";
 import { 
   getSecurityIdentities as getIdentities, 
   revokeAuthority as revoke, 
-  authorizeDevice 
+  authorizeDevice,
+  blacklistDevice
 } from "./security.service.js";
 
 let ioInstance = null;
@@ -191,6 +192,30 @@ export async function authorizeLogSubject(logId, { reason = "", authorizedBy = n
     targetId: identifier,
     targetLabel: label,
     details: { reason, source_log_id: logId, authorized_by: authorizedBy },
+  });
+
+  return { type, identifier, label };
+}
+
+export async function blockLogSubject(logId, { reason = "Manual security block", blockedBy = null } = {}) {
+  const [[log]] = await pool.query("SELECT * FROM audit_logs WHERE id = ? LIMIT 1", [logId]);
+  if (!log) throw new Error("Log entry not found.");
+
+  const type = log.actor_id ? 'user' : (log.mac_address ? 'mac' : 'ip');
+  const identifier = log.actor_id || log.mac_address || log.ip_address;
+  const label = log.actor_email || log.target_label || `Device at ${log.ip_address}`;
+
+  await blacklistDevice({ ip: log.ip_address, mac: log.mac_address }, {
+    reason,
+    blockedBy
+  });
+
+  await logAuditEvent({
+    action: "BLOCK_IDENTITY",
+    targetType: type,
+    targetId: identifier,
+    targetLabel: label,
+    details: { reason, source_log_id: logId, blocked_by: blockedBy },
   });
 
   return { type, identifier, label };
