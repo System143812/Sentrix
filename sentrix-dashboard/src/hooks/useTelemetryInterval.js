@@ -8,7 +8,10 @@ export function clampTelemetryInterval(value, fallback = DEFAULT_TELEMETRY_INTER
 }
 
 export function useTelemetryInterval(fallback = DEFAULT_TELEMETRY_INTERVAL_MS) {
-  const [intervalMs, setIntervalMs] = useState(() => clampTelemetryInterval(fallback));
+  const [intervalMs, setIntervalMs] = useState(() => {
+    const cached = settingsApi.getCachedTelemetryInterval();
+    return clampTelemetryInterval(cached || fallback);
+  });
 
   useEffect(() => {
     let active = true;
