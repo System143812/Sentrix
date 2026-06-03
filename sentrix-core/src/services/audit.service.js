@@ -172,7 +172,7 @@ export async function getAuditLogs({ limit = 200, action = "", actor = "", start
   }));
 }
 
-export async function authorizeLogSubject(logId, { reason = "", authorizedBy = null }) {
+export async function authorizeLogSubject(logId, { req = null, reason = "", authorizedBy = null } = {}) {
   const [[log]] = await pool.query("SELECT * FROM audit_logs WHERE id = ? LIMIT 1", [logId]);
   if (!log) throw new Error("Log entry not found.");
 
@@ -187,6 +187,7 @@ export async function authorizeLogSubject(logId, { reason = "", authorizedBy = n
   });
 
   await logAuditEvent({
+    req,
     action: "AUTHORIZE_DEVICE",
     targetType: type,
     targetId: identifier,
@@ -197,7 +198,7 @@ export async function authorizeLogSubject(logId, { reason = "", authorizedBy = n
   return { type, identifier, label };
 }
 
-export async function blockLogSubject(logId, { reason = "Manual security block", blockedBy = null } = {}) {
+export async function blockLogSubject(logId, { req = null, reason = "Manual security block", blockedBy = null } = {}) {
   const [[log]] = await pool.query("SELECT * FROM audit_logs WHERE id = ? LIMIT 1", [logId]);
   if (!log) throw new Error("Log entry not found.");
 
@@ -211,6 +212,7 @@ export async function blockLogSubject(logId, { reason = "Manual security block",
   });
 
   await logAuditEvent({
+    req,
     action: "BLOCK_IDENTITY",
     targetType: type,
     targetId: identifier,

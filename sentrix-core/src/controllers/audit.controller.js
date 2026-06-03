@@ -12,6 +12,7 @@ export async function listAuditLogs(req, res, next) {
 export async function authorizeAuditLogSubject(req, res, next) {
   try {
     const result = await auditService.authorizeLogSubject(req.params.id, {
+      req,
       reason: req.body?.reason || "",
       authorizedBy: req.user?.id || null,
     });
@@ -25,6 +26,7 @@ export async function authorizeAuditLogSubject(req, res, next) {
 export async function blockAuditLogSubject(req, res, next) {
   try {
     const result = await auditService.blockLogSubject(req.params.id, {
+      req,
       reason: req.body?.reason || "Manual security block",
       blockedBy: req.user?.id || null,
     });
