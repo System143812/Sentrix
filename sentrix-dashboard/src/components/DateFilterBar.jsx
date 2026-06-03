@@ -22,62 +22,56 @@ export function DateFilterBar({
 }) {
   return (
     <div
-      className={`relative flex flex-col flex-wrap gap-4 rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur-md sm:flex-row sm:items-end sm:justify-between sm:gap-6 ${className}`}
+      className={`relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${className}`}
     >
-      <div className="flex flex-1 flex-col flex-wrap gap-4 sm:flex-row sm:items-center sm:gap-5">
-        <label className="flex flex-1 flex-col gap-2">
-          <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            <CalendarDays size={14} className="text-slate-300" />
-            Start Date
+      <div className="flex flex-1 items-center rounded-lg border border-slate-200 bg-white overflow-hidden">
+        <label className="flex flex-1 items-center h-10 px-3 group">
+          <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">
+            <CalendarDays size={14} strokeWidth={1.5} className="text-slate-300 transition-colors group-focus-within:text-slate-900" />
+            From
           </span>
-          <div className="group relative">
-            <input
-              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-sm font-semibold text-slate-700 outline-none transition-all duration-200 hover:border-slate-300 hover:bg-white focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-900/5"
-              onChange={(event) => onStartDateChange?.(event.target.value)}
-              type="date"
-              value={startDate}
-              max="9999-12-31"
-            />
-          </div>
+          <input
+            className="w-full bg-transparent px-2 text-xs font-bold text-slate-700 outline-none tabular-nums"
+            onChange={(event) => onStartDateChange?.(event.target.value)}
+            type="date"
+            value={startDate}
+            max="9999-12-31"
+          />
         </label>
 
-        <div className="hidden pt-6 text-slate-300 sm:block">
-          <ArrowRight size={16} strokeWidth={3} />
-        </div>
+        <div className="h-4 w-px bg-slate-200 shrink-0" />
 
-        <label className="flex flex-1 flex-col gap-2">
-          <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            <CalendarDays size={14} className="text-slate-300" />
-            End Date
+        <label className="flex flex-1 items-center h-10 px-3 group">
+          <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">
+            <CalendarDays size={14} strokeWidth={1.5} className="text-slate-300 transition-colors group-focus-within:text-slate-900" />
+            To
           </span>
-          <div className="group relative">
-            <input
-              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-sm font-semibold text-slate-700 outline-none transition-all duration-200 hover:border-slate-300 hover:bg-white focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-900/5"
-              onChange={(event) => onEndDateChange?.(event.target.value)}
-              type="date"
-              value={endDate}
-              max="9999-12-31"
-            />
-          </div>
+          <input
+            className="w-full bg-transparent px-2 text-xs font-bold text-slate-700 outline-none tabular-nums"
+            onChange={(event) => onEndDateChange?.(event.target.value)}
+            type="date"
+            value={endDate}
+            max="9999-12-31"
+          />
         </label>
       </div>
 
       <button
-        className={`group relative flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold uppercase tracking-widest transition-all duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto ${
+        className={`group relative flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-6 text-[10px] font-bold uppercase tracking-widest transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto ${
           loading
             ? "bg-slate-100 text-slate-400 border border-slate-200"
-            : "bg-slate-900 text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800 hover:shadow-slate-900/20"
+            : "bg-slate-900 text-white hover:bg-black"
         }`}
         disabled={loading}
         onClick={onApply}
         type="button"
       >
         {loading ? (
-          <Loader2 size={16} className="animate-spin" />
+          <Loader2 size={14} className="animate-spin" />
         ) : (
-          <Filter size={16} className="transition-transform group-hover:rotate-12" />
+          <Filter size={14} strokeWidth={1.5} />
         )}
-        <span>{loading ? "Applying..." : "Apply"}</span>
+        <span>{loading ? "Processing..." : "Filter Range"}</span>
       </button>
     </div>
   );

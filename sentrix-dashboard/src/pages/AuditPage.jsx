@@ -447,48 +447,36 @@ export function AuditPage() {
       />
 
       {/* Premium Slate Tab Navigation - Responsive & Substantial */}
-      <div className="bg-white/40 p-5 rounded-2xl border border-slate-200/50 shadow-sm backdrop-blur-sm flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="relative flex items-center gap-1 p-1.5 bg-slate-900/5 rounded-2xl border border-slate-200/60 backdrop-blur-md overflow-hidden flex-1 max-w-2xl">
-            {/* Animated Active Pill Indicator */}
-            <div 
-              className="absolute h-[calc(100%-12px)] rounded-xl bg-slate-900 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] shadow-md shadow-slate-900/20"
-              style={{
-                left: activeTab === 'logs' ? '6px' : 
-                      activeTab === 'whitelist' ? 'calc(25% + 2px)' : 
-                      activeTab === 'perimeter' ? 'calc(50% + 2px)' : 
-                      'calc(75% + 2px)',
-                width: 'calc(25% - 4px)',
-              }}
-            />
+      <div className="relative flex items-center p-1 bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
+        {/* Animated Active Pill Indicator */}
+        <div 
+          className="absolute h-[calc(100%-8px)] rounded-md bg-slate-900 transition-all duration-300 ease-in-out"
+          style={{
+            left: activeTab === 'logs' ? '4px' : 
+                  activeTab === 'whitelist' ? 'calc(25% + 1px)' : 
+                  activeTab === 'perimeter' ? 'calc(50% + 1px)' : 
+                  'calc(75% + 1px)',
+            width: 'calc(25% - 2px)',
+          }}
+        />
 
-            {[
-              { id: "logs", label: "Logs", icon: ClipboardList },
-              { id: "whitelist", label: "Fleet", icon: CheckCircle2 },
-              { id: "perimeter", label: "Security", icon: ShieldBan },
-              { id: "ratelimit", label: "Throttled", icon: ShieldAlert }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`relative z-10 flex flex-1 items-center justify-center gap-2.5 h-11 px-3 rounded-xl text-[12px] font-bold transition-all duration-500 whitespace-nowrap ${
-                  activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <tab.icon size={16} strokeWidth={activeTab === tab.id ? 2.5 : 2} className="shrink-0" />
-                <span className="hidden md:inline tracking-tight">{tab.label}</span>
-              </button>
-            ))}
-          </div>
-          
-          <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white border border-slate-200/60 rounded-xl shadow-sm whitespace-nowrap">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Secure Authority Active</span>
-          </div>
-        </div>
+        {[
+          { id: "logs", label: "Logs", icon: ClipboardList },
+          { id: "whitelist", label: "Fleet", icon: CheckCircle2 },
+          { id: "perimeter", label: "Security", icon: ShieldBan },
+          { id: "ratelimit", label: "Throttled", icon: ShieldAlert }
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`relative z-10 flex flex-1 items-center justify-center gap-2 h-9 px-3 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all duration-200 whitespace-nowrap ${
+              activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <tab.icon size={14} strokeWidth={1.5} className="shrink-0" />
+            <span className="hidden md:inline">{tab.label}</span>
+          </button>
+        ))}
       </div>
 
       <SearchFilterBar
