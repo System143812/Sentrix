@@ -114,7 +114,7 @@ export function SentrixLogo({
       )}
       {!compact ? (
         <span
-          className={`${logoSize.title} font-bold uppercase tracking-widest ${
+          className={`${logoSize.title} font-medium uppercase tracking-widest ${
             inverse ? "text-white" : "text-ink"
           }`}
           style={{ fontFamily: "'Inter', sans-serif" }}
@@ -137,7 +137,7 @@ export function SentrixLogoLoader({ label = "Loading", compact = false }) {
 
   return (
     <div className="grid place-items-center gap-3 text-center">
-      <span className="grid h-16 w-16 place-items-center rounded-xl border border-line bg-white text-ink shadow-lg shadow-slate-200/50 ring-1 ring-slate-900/5">
+      <span className="grid h-16 w-16 place-items-center rounded-lg border border-line bg-white text-ink shadow-lg shadow-slate-200/50 ring-1 ring-slate-900/5">
         <SentrixMark className="h-12 w-12" loading />
       </span>
       {label ? <p className="text-sm font-semibold text-ink/70">{label}</p> : null}

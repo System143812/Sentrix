@@ -30,6 +30,7 @@ import { SettingsPage } from "../pages/SettingsPage.jsx";
 import { AuditPage } from "../pages/AuditPage.jsx";
 import * as authApi from "../services/authApi.js";
 import * as groupApi from "../services/groupApi.js";
+import * as settingsApi from "../services/settingsApi.js";
 
 const tabs = [
   { id: "home", label: "Home", icon: Home },
@@ -46,12 +47,17 @@ export default function App() {
   const [authError, setAuthError] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [groups, setGroups] = useState([]);
+  const [telemetryInterval, setTelemetryInterval] = useState(5000);
 
   useEffect(() => {
     async function initialize() {
       try {
-        const currentUser = await authApi.getCurrentUser();
+        const [currentUser, telemetry] = await Promise.all([
+          authApi.getCurrentUser(),
+          settingsApi.getTelemetrySettings().catch(() => ({ intervalMs: 5000 })),
+        ]);
         setUser(currentUser);
+        setTelemetryInterval(telemetry?.intervalMs || 5000);
       } catch (error) {
         authApi.clearSavedLogin();
       } finally {
@@ -105,7 +111,7 @@ export default function App() {
     return (
       <main className="min-h-screen bg-mist text-ink">
         <BlurOverlay isOpen={true}>
-          <div className="rounded-lg border border-line bg-white p-6 text-center shadow-xl">
+          <div className="rounded-lg border border-line bg-white p-6 text-center shadow-sm">
             <SentrixLogoLoader label="Checking login status..." />
           </div>
         </BlurOverlay>
@@ -126,6 +132,8 @@ export default function App() {
         groups={groups}
         onGroupsChanged={loadGroups}
         onLogout={handleLogout}
+        telemetryInterval={telemetryInterval}
+        onTelemetryIntervalChanged={setTelemetryInterval}
       />
     </ToastProvider>
   );
@@ -138,6 +146,8 @@ export function DashboardShell({
   groups,
   onGroupsChanged,
   onLogout,
+  telemetryInterval,
+  onTelemetryIntervalChanged,
 }) {
   const {
     dashboardData,
@@ -185,7 +195,7 @@ export function DashboardShell({
           <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
             {/* Left: Brand */}
             <div className="shrink-0">
-              <SentrixLogo />
+              <SentrixLogo size="sm" />
             </div>
 
             {/* Center: Navigation (Always Centered) */}
@@ -200,19 +210,19 @@ export function DashboardShell({
             {/* Right: Actions Cluster */}
             <div className="flex items-center gap-2">
               <span
-                title={connected ? "Live" : "Offline"}
-                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest shadow-sm transition-all ${
+                title={connected ? "Connected" : "Offline"}
+                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest shadow-sm transition-all ${
                   connected
                     ? "border-emerald-100 bg-emerald-50 text-emerald-700"
                     : "border-rose-100 bg-rose-50 text-rose-700"
                 }`}
               >
                 <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-                {connected ? "Live" : "Offline"}
+                {connected ? "Connected" : "Offline"}
               </span>
 
               <div className="group relative">
-                <button className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-500 shadow-sm transition-all hover:border-slate-900 hover:text-slate-900 active:scale-95">
+                <button className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-slate-500 shadow-sm transition-all hover:border-slate-900 hover:text-slate-900 active:scale-95">
                   <UserCircle size={18} strokeWidth={2.5} />
                   <span className="hidden text-[10px] font-bold uppercase tracking-widest sm:inline">
                     {user.role === "network_admin" ? "Network Admin" : "Admin"}
@@ -221,7 +231,7 @@ export function DashboardShell({
                 </button>
                 
                 <div className="invisible absolute right-0 top-full z-[100] mt-2 w-52 origin-top-right scale-95 opacity-0 transition-all duration-200 group-hover:visible group-hover:scale-100 group-hover:opacity-100">
-                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl ring-1 ring-slate-900/5">
+                  <div className="overflow-hidden rounded-lg border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-900/5">
                     <div className="mb-2 px-3 py-2 border-b border-slate-50 bg-slate-50/30">
                       <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Authenticated as</p>
                       <p className="truncate text-xs font-bold text-slate-700 mt-0.5">
@@ -302,6 +312,8 @@ export function DashboardShell({
             user={user}
             groups={groups}
             onGroupsChanged={onGroupsChanged}
+            telemetryInterval={telemetryInterval}
+            onTelemetryIntervalChanged={onTelemetryIntervalChanged}
           />
         )}
 

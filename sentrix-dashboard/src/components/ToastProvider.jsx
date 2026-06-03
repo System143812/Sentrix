@@ -62,7 +62,7 @@ export function ToastProvider({ children }) {
 
           return (
             <div
-              className={`pointer-events-auto flex items-start gap-3 rounded-xl border p-4 shadow-2xl shadow-slate-900/10 ring-1 ring-white/60 backdrop-blur-md ${style.classes}`}
+              className={`pointer-events-auto flex items-start gap-3 rounded-lg border p-4 shadow-sm shadow-slate-900/10 ring-1 ring-white/60 backdrop-blur-md ${style.classes}`}
               key={toast.id}
               role="status"
             >

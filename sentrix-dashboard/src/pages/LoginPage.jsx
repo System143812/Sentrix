@@ -28,7 +28,7 @@ export function LoginPage({ onLogin, error }) {
 
   return (
     <div className="page-reveal flex min-h-screen items-center justify-center bg-mist px-4 py-8 text-ink sm:px-6 lg:px-8">
-      <div className="grid w-full max-w-6xl overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-slate-200/80 lg:min-h-[610px] lg:grid-cols-[1fr_1.05fr]">
+      <div className="grid w-full max-w-6xl overflow-hidden rounded-lg border border-line bg-white shadow-sm shadow-slate-200/80 lg:min-h-[610px] lg:grid-cols-[1fr_1.05fr]">
         <section
           className="order-2 flex min-h-[360px] flex-col justify-between bg-ink bg-cover bg-center p-6 text-white sm:p-8 lg:order-1 lg:p-10"
           style={{
@@ -39,7 +39,7 @@ export function LoginPage({ onLogin, error }) {
           <SentrixLogo inverse />
 
           <div className="my-10">
-            <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15 sm:h-14 sm:w-14">
+            <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/15 sm:h-14 sm:w-14">
               <ShieldCheck size={24} />
             </div>
             <h1 className="max-w-md text-3xl font-bold leading-tight tracking-normal sm:text-4xl">
@@ -65,7 +65,7 @@ export function LoginPage({ onLogin, error }) {
 
         <section className="order-1 flex items-center p-6 sm:p-8 lg:order-2 lg:p-10">
           <div className="mx-auto w-full max-w-md">
-            <p className="text-sm font-semibold text-ocean">Sentrix Console</p>
+            <p className="text-sm font-medium text-ocean">Sentrix Console</p>
             <h2 className="mt-3 text-3xl font-bold tracking-normal sm:text-4xl">
               Welcome back
             </h2>
@@ -74,7 +74,7 @@ export function LoginPage({ onLogin, error }) {
             </p>
 
             <div
-              className="mt-6 flex min-h-36 items-center justify-center rounded-xl border border-line bg-cover bg-center shadow-inner sm:min-h-44 lg:hidden relative overflow-hidden"
+              className="mt-6 flex min-h-36 items-center justify-center rounded-lg border border-line bg-cover bg-center shadow-inner sm:min-h-44 lg:hidden relative overflow-hidden"
               style={{
                 backgroundImage:
                   "url('/login_mobile_header.jpg')",

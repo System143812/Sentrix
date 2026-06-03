@@ -27,7 +27,7 @@ function SummaryCard({ label, value, icon: Icon, tone = "blue", subValue }) {
             </div>
           </div>
           
-          <div className={`rounded-xl border p-3 shadow-sm ${ICON_TONES[tone] || ICON_TONES.blue}`}>
+          <div className={`rounded-lg border p-3 shadow-sm ${ICON_TONES[tone] || ICON_TONES.blue}`}>
             <Icon size={24} strokeWidth={2.5} />
           </div>
         </div>
@@ -103,7 +103,7 @@ export function HomePage({
         }
         backgroundImage="/home_header.jpg"
         action={
-          <span className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-300 backdrop-blur-md border border-white/10 shadow-lg">
+          <span className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-300 backdrop-blur-md border border-white/10 shadow-lg">
             <UserCircle size={14} strokeWidth={2.5} className="text-blue-400" />
             {user?.email}
           </span>
