@@ -33,9 +33,21 @@ export function AuditPage() {
   const [isAddingWhitelist, setIsAddingWhitelist] = useState(false);
   const [newWhitelist, setNewWhitelist] = useState({ label: "", type: "ip", identifier: "" });
   const [reason, setReason] = useState("");
+  const [unblockTarget, setUnblockTarget] = useState({ ip: true, mac: true });
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
+
+  // Sync unblock targets when modal opens
+  useEffect(() => {
+    if (pendingRevoke) {
+      setUnblockTarget({
+        ip: pendingRevoke.block_target === 'all' || pendingRevoke.block_target === 'ip',
+        mac: pendingRevoke.block_target === 'all' || pendingRevoke.block_target === 'mac'
+      });
+    }
+  }, [pendingRevoke]);
+
   const { currentPage, pageSize, setCurrentPage, setPageSize } = usePaginationState("audit", 5);
 
   const filteredLogs = useMemo(
@@ -44,7 +56,7 @@ export function AuditPage() {
   );
 
   const filteredAuthority = useMemo(
-    () => authorityRecords.filter((s) => matchesSearch(s, query, ["label", "identifier", "reason", "role", "subject_type"])),
+    () => authorityRecords.filter((s) => matchesSearch(s, query, ["label", "identifier", "reason", "role", "subject_type", "ip_address", "mac_address"])),
     [authorityRecords, query],
   );
 
@@ -60,13 +72,15 @@ export function AuditPage() {
 
   async function loadLogs() {
     setLoading(true);
+    setLogs([]); // Clear previous logs immediately to prevent leakage
     setError("");
     try {
-      setLogs(await auditApi.getAuditLogs({
+      const data = await auditApi.getAuditLogs({
         limit: 300,
         startDate: startDate ? new Date(`${startDate}T00:00:00.000`).getTime() : "",
         endDate: endDate ? new Date(`${endDate}T23:59:59.999`).getTime() : "",
-      }));
+      });
+      setLogs(data);
     } catch (err) {
       setError(err.message || "Unable to load logs.");
     } finally {
@@ -77,10 +91,12 @@ export function AuditPage() {
   async function loadAuthority() {
     if (activeTab === "logs") return;
     setLoading(true);
+    setAuthorityRecords([]); // Clear records immediately to prevent leakage
     setError("");
     try {
       const category = activeTab === "whitelist" ? "whitelist" : (activeTab === "perimeter" ? "blacklist" : "rate_limit");
-      setAuthorityRecords(await auditApi.getAuthorityRecords(category));
+      const data = await auditApi.getAuthorityRecords(category);
+      setAuthorityRecords(data);
     } catch (err) {
       setError(err.message || `Unable to load ${activeTab} data.`);
     } finally {
@@ -118,9 +134,11 @@ export function AuditPage() {
     setProcessing(true);
     setError("");
     try {
-      await auditApi.revokeAuthority(pendingRevoke.id, reason);
+      const target = (unblockTarget.ip && unblockTarget.mac) ? "all" : (unblockTarget.ip ? "ip" : "mac");
+      await auditApi.revokeAuthority(pendingRevoke.id, reason, target);
       setPendingRevoke(null);
       setReason("");
+      setUnblockTarget({ ip: true, mac: true });
       await loadAuthority();
     } catch (err) {
       setError(err.message || "Unable to revoke authority for this subject.");
@@ -315,10 +333,55 @@ export function AuditPage() {
                 )}
               </p>
             </div>
-            <button className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-900" onClick={() => setPendingRevoke(null)} type="button" disabled={processing}>
+            <button className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-900" onClick={() => { setPendingRevoke(null); setUnblockTarget({ ip: true, mac: true }); }} type="button" disabled={processing}>
               <X size={18} />
             </button>
           </div>
+
+          {/* Granular Unblock Controls */}
+          {activeTab !== 'whitelist' && (pendingRevoke?.ip_address || pendingRevoke?.mac_address) && (
+            <div className="mt-6 p-4 rounded-xl border border-slate-100 bg-slate-50/50 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Select Identity Targets to Restore</p>
+              <div className="flex flex-wrap gap-4">
+                {pendingRevoke?.ip_address && (
+                  <label className={`flex items-center gap-2 cursor-pointer group ${pendingRevoke.block_target === 'mac' ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}>
+                    <input 
+                      type="checkbox" 
+                      className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                      checked={pendingRevoke.block_target === 'mac' ? false : unblockTarget.ip}
+                      onChange={(e) => setUnblockTarget({ ...unblockTarget, ip: e.target.checked })}
+                      disabled={processing || pendingRevoke.block_target === 'mac'}
+                    />
+                    <span className={`text-sm font-bold text-slate-700 group-hover:text-slate-900 ${pendingRevoke.block_target === 'mac' ? 'line-through' : ''}`}>
+                      IP: {pendingRevoke.ip_address}
+                    </span>
+                  </label>
+                )}
+                {pendingRevoke?.mac_address && (
+                  <label className={`flex items-center gap-2 cursor-pointer group ${pendingRevoke.block_target === 'ip' ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}>
+                    <input 
+                      type="checkbox" 
+                      className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                      checked={pendingRevoke.block_target === 'ip' ? false : unblockTarget.mac}
+                      onChange={(e) => setUnblockTarget({ ...unblockTarget, mac: e.target.checked })}
+                      disabled={processing || pendingRevoke.block_target === 'ip'}
+                    />
+                    <span className={`text-sm font-bold text-slate-700 group-hover:text-slate-900 ${pendingRevoke.block_target === 'ip' ? 'line-through' : ''}`}>
+                      MAC: {pendingRevoke.mac_address}
+                    </span>
+                  </label>
+                )}
+              </div>
+              <p className="text-[10px] italic text-slate-400">
+                {pendingRevoke.block_target === 'all' && unblockTarget.ip && unblockTarget.mac ? "Full restoration: Device can reconnect immediately." : 
+                 (unblockTarget.ip || pendingRevoke.block_target === 'mac') && (unblockTarget.mac || pendingRevoke.block_target === 'ip') ? "Full restoration: Restoring remaining identifier." :
+                 unblockTarget.ip ? "Partial: IP will be restored, hardware remains blocked." :
+                 unblockTarget.mac ? "Partial: Hardware will be restored, IP remains blocked." : 
+                 "Select a target to continue."}
+              </p>
+            </div>
+          )}
+
           <textarea
             className="mt-5 min-h-24 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium outline-none focus:border-slate-900"
             onChange={(event) => setReason(event.target.value)}
@@ -327,12 +390,12 @@ export function AuditPage() {
             disabled={processing}
           />
           <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button className="btn-minimal h-10 px-4" onClick={() => setPendingRevoke(null)} type="button" disabled={processing}>Cancel</button>
+            <button className="btn-minimal h-10 px-4" onClick={() => { setPendingRevoke(null); setUnblockTarget({ ip: true, mac: true }); }} type="button" disabled={processing}>Cancel</button>
             <button 
               className={`relative overflow-hidden h-10 rounded-lg px-6 text-sm font-bold text-white shadow-lg disabled:opacity-70 ${(activeTab === 'whitelist' || activeTab === 'perimeter') ? 'bg-rose-600 shadow-rose-900/10 hover:bg-rose-700' : 'bg-emerald-600 shadow-emerald-900/10 hover:bg-emerald-700'}`} 
               onClick={confirmRevoke} 
               type="button" 
-              disabled={!reason.trim() || processing}
+              disabled={!reason.trim() || processing || (!unblockTarget.ip && !unblockTarget.mac && activeTab !== 'whitelist')}
             >
               <div className={`flex items-center justify-center gap-2 ${processing ? 'opacity-0' : 'opacity-100'}`}>
                 <span>
@@ -383,48 +446,49 @@ export function AuditPage() {
         }
       />
 
-      {/* Tab Switcher */}
-      <div className="flex border-b border-slate-200">
-        <button
-          onClick={() => setActiveTab("logs")}
-          className={`px-6 py-4 text-sm font-bold transition-all border-b-2 ${
-            activeTab === "logs"
-              ? "border-slate-900 text-slate-900"
-              : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          Access Logs
-        </button>
-        <button
-          onClick={() => setActiveTab("whitelist")}
-          className={`px-6 py-4 text-sm font-bold transition-all border-b-2 ${
-            activeTab === "whitelist"
-              ? "border-emerald-600 text-emerald-600"
-              : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          Trusted Fleet
-        </button>
-        <button
-          onClick={() => setActiveTab("perimeter")}
-          className={`px-6 py-4 text-sm font-bold transition-all border-b-2 ${
-            activeTab === "perimeter"
-              ? "border-rose-600 text-rose-600"
-              : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          Security Perimeter
-        </button>
-        <button
-          onClick={() => setActiveTab("ratelimit")}
-          className={`px-6 py-4 text-sm font-bold transition-all border-b-2 ${
-            activeTab === "ratelimit"
-              ? "border-amber-600 text-amber-600"
-              : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          Rate Limited List
-        </button>
+      {/* Premium Slate Tab Navigation - Responsive & Substantial */}
+      <div className="bg-white/40 p-5 rounded-2xl border border-slate-200/50 shadow-sm backdrop-blur-sm flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="relative flex items-center gap-1 p-1.5 bg-slate-900/5 rounded-2xl border border-slate-200/60 backdrop-blur-md overflow-hidden flex-1 max-w-2xl">
+            {/* Animated Active Pill Indicator */}
+            <div 
+              className="absolute h-[calc(100%-12px)] rounded-xl bg-slate-900 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] shadow-md shadow-slate-900/20"
+              style={{
+                left: activeTab === 'logs' ? '6px' : 
+                      activeTab === 'whitelist' ? 'calc(25% + 2px)' : 
+                      activeTab === 'perimeter' ? 'calc(50% + 2px)' : 
+                      'calc(75% + 2px)',
+                width: 'calc(25% - 4px)',
+              }}
+            />
+
+            {[
+              { id: "logs", label: "Logs", icon: ClipboardList },
+              { id: "whitelist", label: "Fleet", icon: CheckCircle2 },
+              { id: "perimeter", label: "Security", icon: ShieldBan },
+              { id: "ratelimit", label: "Throttled", icon: ShieldAlert }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative z-10 flex flex-1 items-center justify-center gap-2.5 h-11 px-3 rounded-xl text-[12px] font-bold transition-all duration-500 whitespace-nowrap ${
+                  activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <tab.icon size={16} strokeWidth={activeTab === tab.id ? 2.5 : 2} className="shrink-0" />
+                <span className="hidden md:inline tracking-tight">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+          
+          <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white border border-slate-200/60 rounded-xl shadow-sm whitespace-nowrap">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Secure Authority Active</span>
+          </div>
+        </div>
       </div>
 
       <SearchFilterBar
@@ -462,7 +526,7 @@ export function AuditPage() {
                 paginatedLogs.map((log) => (
                   <article
                     className="group flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px] lg:items-center lg:gap-6"
-                    key={log.id}
+                    key={`log-${log.id}`}
                   >
                     {/* 1. Action & Timestamp */}
                     <div className="min-w-0">
@@ -620,7 +684,21 @@ export function AuditPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-slate-800">{subject.label}</p>
-                          <p className="font-data text-[10px] font-bold text-slate-400 truncate">{subject.identifier}</p>
+                          <div className="flex flex-col gap-0.5 mt-0.5">
+                            {subject.ip_address && (
+                              <p className={`font-data text-[10px] font-bold ${subject.block_target === 'mac' && activeTab !== 'whitelist' ? 'text-slate-300 line-through' : 'text-slate-500'}`}>
+                                IP: {subject.ip_address}
+                              </p>
+                            )}
+                            {subject.mac_address && (
+                              <p className={`font-data text-[10px] font-bold ${subject.block_target === 'ip' && activeTab !== 'whitelist' ? 'text-slate-300 line-through' : 'text-slate-500'}`}>
+                                MAC: {subject.mac_address}
+                              </p>
+                            )}
+                            {!subject.ip_address && !subject.mac_address && (
+                              <p className="font-data text-[10px] font-bold text-slate-400 truncate">{subject.identifier}</p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -630,9 +708,18 @@ export function AuditPage() {
                       <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
                         Identity Category
                       </span>
-                      <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-600">
-                        {subject.subject_type.replace('_', ' ')}
-                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {activeTab !== 'whitelist' && subject.block_target === 'all' && subject.ip_address && subject.mac_address ? (
+                          <>
+                            <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-600">IP</span>
+                            <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-600">MAC</span>
+                          </>
+                        ) : (
+                          <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-600">
+                            {subject.block_target === 'all' ? subject.subject_type.replace('_', ' ') : subject.block_target}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* 3. Context/Reason (Only for Perimeter/RateLimit) */}

@@ -127,7 +127,7 @@ export function Pagination({
       </div>
 
       {/* Right Section: Navigation Controls */}
-      <nav className="flex items-center gap-1 sm:gap-1.5" aria-label="Pagination">
+      <nav className="flex items-center gap-1.5 sm:gap-2" aria-label="Pagination">
         <button
           onClick={() => onPageChange(safeCurrentPage - 1)}
           disabled={safeCurrentPage === 1}
@@ -140,7 +140,7 @@ export function Pagination({
           />
         </button>
 
-        <div className="flex items-center gap-0 sm:gap-0.5 px-0.5 sm:px-1">
+        <div className="flex items-center gap-1 sm:gap-1.5 px-1">
           {getPageNumbers().map((page, index) => {
             const isEllipsis = page === '...';
             // On very small screens, hide some middle numbers to stay professional
@@ -159,11 +159,11 @@ export function Pagination({
                   <button
                     onClick={() => onPageChange(page)}
                     aria-current={safeCurrentPage === page ? 'page' : undefined}
-                    className={`flex h-9 min-w-[34px] sm:h-10 sm:min-w-[38px] items-center justify-center rounded-xl px-1.5 sm:px-2 text-xs font-bold tracking-tight transition-all duration-300 ${
+                    className={`flex h-9 min-w-[34px] sm:h-10 sm:min-w-[38px] items-center justify-center rounded-xl px-2 text-xs font-bold tracking-tight transition-all duration-300 ${
                       isMobileHidden ? 'hidden md:flex' : 'flex'
                     } ${
                       safeCurrentPage === page
-                        ? 'bg-slate-900 text-white shadow-lg shadow-slate-200 ring-2 ring-slate-900 ring-offset-2'
+                        ? 'bg-slate-900 text-white shadow-lg shadow-slate-200 ring-2 ring-slate-900 ring-offset-[3px]'
                         : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                   >
