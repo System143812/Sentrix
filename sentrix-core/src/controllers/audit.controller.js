@@ -22,6 +22,19 @@ export async function authorizeAuditLogSubject(req, res, next) {
   }
 }
 
+export async function blockAuditLogSubject(req, res, next) {
+  try {
+    const result = await auditService.blockLogSubject(req.params.id, {
+      reason: req.body?.reason || "Manual security block",
+      blockedBy: req.user?.id || null,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function listAuthorityRecords(req, res, next) {
   try {
     const { category = "whitelist" } = req.query;
