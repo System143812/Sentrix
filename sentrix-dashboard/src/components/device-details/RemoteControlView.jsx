@@ -137,7 +137,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
         />
       )}
 
-      <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6 shadow-inner">
+      <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 sm:p-6 shadow-inner">
         <h4 className="mb-5 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
           <Terminal size={18} strokeWidth={2.5} className="text-slate-400" />
           Remote Power Controls
@@ -150,7 +150,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
             return (
               <div className="group relative" key={action.id}>
                 <button
-                  className="flex h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-md active:scale-95 disabled:cursor-wait disabled:opacity-50"
+                  className="flex h-24 w-full flex-col items-center justify-center gap-2 rounded-lg border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-sm active:scale-95 disabled:cursor-wait disabled:opacity-50"
                   disabled={Boolean(loadingCommand)}
                   onClick={() => onActionClick(action, 'power')}
                   type="button"
@@ -166,7 +166,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
                     {pending ? "Sending" : action.label}
                   </span>
                 </button>
-                <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-44 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
+                <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-44 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-sm group-hover:block">
                   {action.description}
                   <div className="absolute left-1/2 top-full -ml-1.5 border-[6px] border-transparent border-t-slate-900" />
                 </div>
@@ -176,7 +176,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6 shadow-inner">
+      <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 sm:p-6 shadow-inner">
         <h4 className="mb-5 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
           <Zap size={18} strokeWidth={2.5} className="text-slate-400" />
           Admin Maintenance Tools
@@ -190,7 +190,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
               return (
                 <div className="group relative" key={action.id}>
                   <button
-                    className="flex h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-md active:scale-95 disabled:cursor-wait disabled:opacity-50"
+                    className="flex h-24 w-full flex-col items-center justify-center gap-2 rounded-lg border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-sm active:scale-95 disabled:cursor-wait disabled:opacity-50"
                     disabled={Boolean(loadingCommand)}
                     onClick={() => onActionClick(action, 'utility')}
                     type="button"
@@ -206,7 +206,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
                       {pending ? "Executing" : action.label}
                     </span>
                   </button>
-                  <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-44 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
+                  <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-44 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-sm group-hover:block">
                     {action.description}
                     <div className="absolute left-1/2 top-full -ml-1.5 border-[6px] border-transparent border-t-slate-900" />
                   </div>
@@ -215,7 +215,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
             })
           ) : (
             <div className="col-span-full flex flex-col items-center justify-center py-6 text-center">
-              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-300">
+              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300">
                 <Zap size={24} strokeWidth={2} />
               </div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
@@ -228,7 +228,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
           )}
         </div>
 
-        <div className="mt-6 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3.5 text-xs font-medium leading-5 text-blue-700 shadow-sm">
+        <div className="mt-6 flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50/50 px-4 py-3.5 text-xs font-medium leading-5 text-blue-700 shadow-sm">
           <Info className="mt-0.5 shrink-0 text-blue-400" size={18} strokeWidth={2.5} />
           <p>
             Maintenance shortcuts execute pre-defined system scripts as SYSTEM. These are high-priority operations that do not require user interaction.
