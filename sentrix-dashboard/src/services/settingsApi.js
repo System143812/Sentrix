@@ -1,7 +1,15 @@
 import { fetchJson } from "./api.js";
 
+let telemetryCache = null;
+
+export function getCachedTelemetryInterval() {
+  return telemetryCache?.intervalMs;
+}
+
 export async function getTelemetrySettings() {
+  if (telemetryCache) return telemetryCache;
   const result = await fetchJson("/api/settings/telemetry");
+  telemetryCache = result.data;
   return result.data;
 }
 
@@ -10,6 +18,7 @@ export async function updateTelemetrySettings(intervalMs) {
     method: "PATCH",
     body: JSON.stringify({ intervalMs }),
   });
+  telemetryCache = result.data;
   return result.data;
 }
 
