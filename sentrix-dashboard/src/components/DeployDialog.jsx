@@ -14,7 +14,7 @@ export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading
 
   return (
     <BlurOverlay onClose={onCancel}>
-      <div className="w-full rounded-lg border border-line bg-white p-6 shadow-xl">
+      <div className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-slate-900">

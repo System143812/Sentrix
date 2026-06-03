@@ -47,7 +47,7 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
         <Icon size={12} strokeWidth={2.5} />
         {title} ({list.length})
       </h5>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200/60 bg-white shadow-sm">
         <div className="hidden grid-cols-[44px_1fr_80px_100px_100px] gap-4 border-b border-slate-100 bg-slate-50/50 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-ui lg:grid">
           <div />
           <div>Process Name</div>
@@ -145,10 +145,10 @@ export function ProcessMonitor({ processes, actionLoading, actionMessage, select
   }, [processes, query, sortBy]);
 
   return (
-    <section className="flex h-full max-h-[640px] min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200/60 bg-white p-4 sm:p-6 shadow-sm">
+    <section className="flex h-full max-h-[640px] min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200/60 bg-white p-4 sm:p-6 shadow-sm">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4 border-b border-slate-50 pb-5">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 shadow-sm">
             <CircleStop size={18} strokeWidth={2.5} />
           </span>
           <h4 className="text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
@@ -171,7 +171,7 @@ export function ProcessMonitor({ processes, actionLoading, actionMessage, select
       </div>
 
       {actionMessage.text && (
-        <div className={`mb-5 flex items-center gap-3 rounded-xl border px-4 py-3 text-xs font-bold shadow-sm ${
+        <div className={`mb-5 flex items-center gap-3 rounded-lg border px-4 py-3 text-xs font-bold shadow-sm ${
           actionMessage.type === "error" ? "bg-rose-50 border-rose-200 text-rose-700" :
           actionMessage.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
           "bg-blue-50 border-blue-200 text-blue-700"
@@ -246,10 +246,10 @@ export function ActivityMonitor({ connections, history, error }) {
   };
 
   return (
-    <section className="flex flex-col h-full max-h-[640px] overflow-hidden rounded-xl border border-slate-200/60 bg-white p-4 sm:p-6 shadow-sm">
+    <section className="flex flex-col h-full max-h-[640px] overflow-hidden rounded-lg border border-slate-200/60 bg-white p-4 sm:p-6 shadow-sm">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
             <RadioTower size={18} strokeWidth={2.5} />
           </span>
           <div className="flex items-center gap-2">
@@ -258,7 +258,7 @@ export function ActivityMonitor({ connections, history, error }) {
             </h4>
             <div className="group relative">
               <CircleHelp size={14} strokeWidth={2.5} className="cursor-help text-slate-300 hover:text-slate-500 transition-colors" />
-              <div className="pointer-events-none absolute top-full left-1/2 z-20 mt-3 hidden w-64 -translate-x-1/2 rounded-xl bg-slate-900 p-4 text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
+              <div className="pointer-events-none absolute top-full left-1/2 z-20 mt-3 hidden w-64 -translate-x-1/2 rounded-lg bg-slate-900 p-4 text-[11px] font-medium leading-relaxed text-white shadow-sm group-hover:block">
                 <p className="font-bold text-blue-400 mb-1">Network Intelligence</p>
                 Tracks real-time and historical network interactions. It maps outbound connections to hostnames (DNS) and identifies which applications (processes) are communicating with external services.
                 <div className="absolute bottom-full left-1/2 -ml-1.5 border-[6px] border-transparent border-b-slate-900" />
@@ -267,25 +267,30 @@ export function ActivityMonitor({ connections, history, error }) {
           </div>
         </div>
 
-        <div className="relative flex w-fit items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/50 p-1">
+        <div className="relative flex w-24 items-center p-1 rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+          {/* Animated Active Pill Indicator */}
           <div 
-            className={`absolute h-9 w-9 rounded-md bg-white shadow-sm ring-1 ring-slate-200 transition-all duration-300 ease-in-out ${showHistory ? "translate-x-10" : "translate-x-0"}`}
+            className="absolute h-[calc(100%-8px)] w-9 rounded-md bg-slate-900 transition-all duration-300 ease-in-out shadow-sm"
+            style={{
+              left: showHistory ? 'calc(50% + 4px)' : '8px',
+              width: 'calc(50% - 12px)',
+            }}
           />
           <button
             onClick={() => setShowHistory(false)}
-            className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-md transition-colors duration-300 ${!showHistory ? "text-slate-900" : "text-slate-400 hover:text-slate-600"}`}
+            className={`relative z-10 flex flex-1 h-9 items-center justify-center rounded-md transition-colors duration-300 ${!showHistory ? "text-white" : "text-slate-400 hover:text-slate-800"}`}
             title="Show active sites and connections"
             type="button"
           >
-            <Globe2 size={16} strokeWidth={2.5} />
+            <Globe2 size={16} strokeWidth={1.5} />
           </button>
           <button
             onClick={() => setShowHistory(true)}
-            className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-md transition-colors duration-300 ${showHistory ? "text-slate-900" : "text-slate-400 hover:text-slate-600"}`}
+            className={`relative z-10 flex flex-1 h-9 items-center justify-center rounded-md transition-colors duration-300 ${showHistory ? "text-white" : "text-slate-400 hover:text-slate-800"}`}
             title="Show recent activity history"
             type="button"
           >
-            <History size={16} strokeWidth={2.5} />
+            <History size={16} strokeWidth={1.5} />
           </button>
         </div>
       </div>
@@ -319,7 +324,7 @@ export function ActivityMonitor({ connections, history, error }) {
             const Icon = CATEGORY_ICONS[item.category] || Box;
             return (
               <div
-                className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md"
+                className="group min-w-0 rounded-lg border border-slate-200/60 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-sm"
                 key={item.id ? `conn-${item.id}` : `conn-${item.process}-${item.domain}-${item.peerAddress}-${item.peerPort}`}
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -375,7 +380,7 @@ export function ActivityMonitor({ connections, history, error }) {
             const Icon = CATEGORY_ICONS[item.category] || Box;
             return (
               <div
-                className="group min-w-0 rounded-xl border border-slate-200/60 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md opacity-90"
+                className="group min-w-0 rounded-lg border border-slate-200/60 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-sm opacity-90"
                 key={`hist-${item.domain}-${item.process}`}
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -537,8 +542,8 @@ export function NetworkActivityView({ device }) {
     <div className="relative grid min-w-0 items-start gap-6 lg:grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
       {/* Loading Overlay for refreshes */}
       {loading && processes.length > 0 && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-white/40 backdrop-blur-[1px] transition-all">
-          <div className="flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-2xl">
+        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-white/40 backdrop-blur-[1px] transition-all">
+          <div className="flex flex-col items-center gap-4 rounded-lg border border-slate-200 bg-white/90 p-8 shadow-sm">
             <LoaderCircle size={32} className="animate-spin text-blue-600" />
             <div className="text-center">
               <p className="text-xs font-bold uppercase tracking-widest text-slate-800">Refreshing Stream</p>

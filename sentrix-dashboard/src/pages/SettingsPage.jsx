@@ -44,12 +44,12 @@ function SettingsSection({
   return (
     <Card
       padding="0"
-      className="flex h-full min-w-0 flex-col overflow-hidden border-slate-200/70 bg-white shadow-sm transition hover:shadow-md"
+      className="flex h-full min-w-0 flex-col overflow-hidden border-slate-200/70 bg-white shadow-sm transition hover:shadow-sm"
     >
       <div className="flex flex-1 flex-col p-6">
         <div className="mb-6 flex items-start gap-4">
           <span
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl border shadow-sm ${ICON_TONES[tone]}`}
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg border shadow-sm ${ICON_TONES[tone]}`}
           >
             <Icon size={20} strokeWidth={2.25} />
           </span>
@@ -66,16 +66,21 @@ function SettingsSection({
   );
 }
 
-function ActionButton({ label, icon: Icon, description, tone = "slate", showChevron = true }) {
+function ActionButton({ label, icon: Icon, description, tone = "slate", showChevron = true, disabled = false }) {
   return (
-    <div className="group relative">
+    <div className={`group relative ${disabled ? "cursor-default" : ""}`}>
       <button
-        className="btn-minimal relative h-14 w-full justify-center px-12 py-4"
+        className={`btn-minimal relative h-14 w-full justify-center px-12 py-4 ${
+          disabled ? "pointer-events-none border-slate-100 bg-slate-50/50" : ""
+        }`}
         type="button"
+        disabled={disabled}
       >
         <span className="absolute left-4 flex items-center">
           <span
-            className={`rounded-lg border p-2 shadow-sm transition group-hover:scale-105 ${ICON_TONES[tone]}`}
+            className={`rounded-lg border p-2 shadow-sm transition ${
+              !disabled ? "group-hover:scale-105" : ""
+            } ${ICON_TONES[tone]}`}
           >
             <Icon size={18} strokeWidth={2.5} />
           </span>
@@ -86,37 +91,33 @@ function ActionButton({ label, icon: Icon, description, tone = "slate", showChev
         {showChevron && (
           <ChevronUp
             size={16}
-            className="absolute right-4 text-slate-300 transition group-hover:-translate-y-1 group-hover:text-slate-500"
+            className={`absolute right-4 text-slate-300 transition ${
+              !disabled ? "group-hover:-translate-y-1 group-hover:text-slate-500" : ""
+            }`}
           />
         )}
       </button>
-      <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-60 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2.5 text-center text-[11px] font-medium leading-relaxed text-white shadow-2xl group-hover:block">
-        {description}
-        <div className="absolute left-1/2 top-full -ml-1.5 border-[6px] border-transparent border-t-slate-900" />
-      </div>
+      {!disabled && (
+        <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-60 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2.5 text-center text-[11px] font-medium leading-relaxed text-white shadow-sm group-hover:block">
+          {description}
+          <div className="absolute left-1/2 top-full -ml-1.5 border-[6px] border-transparent border-t-slate-900" />
+        </div>
+      )}
     </div>
   );
 }
 
-function SystemConfigurationCard({ isNetworkAdmin }) {
+function SystemConfigurationCard({ isNetworkAdmin, interval, onIntervalChanged }) {
   const [mode, setMode] = useState("local");
-  const [interval, setInterval] = useState(5000);
   const { notify } = useToast();
 
-  useEffect(() => {
-    settingsApi
-      .getTelemetrySettings()
-      .then((settings) => setInterval(settings.intervalMs || 5000))
-      .catch(() => {});
-  }, []);
-
   async function saveInterval(value) {
-    setInterval(value);
+    onIntervalChanged(value);
     if (!isNetworkAdmin) return;
 
     try {
       const settings = await settingsApi.updateTelemetrySettings(value);
-      setInterval(settings.intervalMs);
+      onIntervalChanged(settings.intervalMs);
       notify("Data collection interval updated.", "success");
     } catch (error) {
       notify(error.message || "Unable to update telemetry interval.", "failed");
@@ -145,7 +146,7 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
 
               return (
                 <button
-                  className={`flex h-20 flex-col items-center justify-center gap-2 rounded-xl border text-xs font-bold uppercase tracking-wide transition ${
+                  className={`flex h-20 flex-col items-center justify-center gap-2 rounded-lg border text-xs font-bold uppercase tracking-wide transition ${
                     active
                       ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/15"
                       : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
@@ -162,11 +163,11 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
             })}
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="flex gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-xs font-medium leading-5 text-slate-600">
+            <div className="flex gap-3 rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-xs font-medium leading-5 text-slate-600">
               <Info size={16} className="shrink-0 text-blue-500" />
               Local mode keeps dashboard actions inside this lab network.
             </div>
-            <div className="flex gap-3 rounded-xl border border-slate-200/60 bg-slate-50/80 p-4 text-xs font-medium leading-5 text-slate-600">
+            <div className="flex gap-3 rounded-lg border border-slate-200/60 bg-slate-50/80 p-4 text-xs font-medium leading-5 text-slate-600">
               <Info size={16} className="shrink-0 text-slate-500" />
               Online mode is reserved for future remote sync controls.
             </div>
@@ -199,7 +200,7 @@ function SystemConfigurationCard({ isNetworkAdmin }) {
               </button>
             ))}
           </div>
-          <div className="mt-4 flex gap-3 rounded-xl border border-slate-200/60 bg-slate-50/70 p-4 text-xs font-medium leading-5 text-slate-500">
+          <div className="mt-4 flex gap-3 rounded-lg border border-slate-200/60 bg-slate-50/70 p-4 text-xs font-medium leading-5 text-slate-500">
             <Info size={16} className="shrink-0 text-blue-500" />
             This schedule is saved globally and sent to connected devices for
             metrics and activity collection.
@@ -285,7 +286,13 @@ function CredentialCard() {
   );
 }
 
-export function SettingsPage({ user, groups = [], onGroupsChanged }) {
+export function SettingsPage({
+  user,
+  groups = [],
+  onGroupsChanged,
+  telemetryInterval,
+  onTelemetryIntervalChanged,
+}) {
   const isNetworkAdmin = user?.role === "network_admin";
   const [admins, setAdmins] = useState([]);
   const [email, setEmail] = useState("");
@@ -402,7 +409,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
         subtitle="Role-based controls for account access and lab grouping."
         backgroundImage="/settings_header.jpg"
         action={
-          <span className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-sm font-bold text-white shadow-xl backdrop-blur">
+          <span className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-sm font-bold text-white shadow-sm backdrop-blur">
             <ShieldCheck size={16} />
             {isNetworkAdmin ? "Network admin" : "Admin"}
           </span>
@@ -422,12 +429,16 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
         </div>
       ) : null}
 
-      <SystemConfigurationCard isNetworkAdmin={isNetworkAdmin} />
+      <SystemConfigurationCard 
+        isNetworkAdmin={isNetworkAdmin} 
+        interval={telemetryInterval}
+        onIntervalChanged={onTelemetryIntervalChanged}
+      />
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-2">
         <Card
           padding="5"
-          className="min-w-0 border-slate-200/70 shadow-sm transition hover:shadow-md"
+          className="min-w-0 border-slate-200/70 shadow-sm transition hover:shadow-sm"
         >
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -437,7 +448,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
               </p>
             </div>
             <span
-              className={`grid h-11 w-11 place-items-center rounded-xl border shadow-sm ${ICON_TONES.blue}`}
+              className={`grid h-11 w-11 place-items-center rounded-lg border shadow-sm ${ICON_TONES.blue}`}
             >
               <Users size={20} />
             </span>
@@ -480,7 +491,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
               .filter((admin) => admin.role === "admin")
               .map((admin) => (
                 <div
-                  className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200/60 bg-slate-50/60 px-4 py-3 transition hover:border-blue-200 hover:bg-white"
+                  className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-200/60 bg-slate-50/60 px-4 py-3 transition hover:border-blue-200 hover:bg-white"
                   key={admin.id}
                 >
                   <div className="min-w-0">
@@ -510,7 +521,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
 
         <Card
           padding="5"
-          className="min-w-0 border-slate-200/70 shadow-sm transition hover:shadow-md"
+          className="min-w-0 border-slate-200/70 shadow-sm transition hover:shadow-sm"
         >
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -520,7 +531,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
               </p>
             </div>
             <span
-              className={`grid h-11 w-11 place-items-center rounded-xl border shadow-sm ${ICON_TONES.teal}`}
+              className={`grid h-11 w-11 place-items-center rounded-lg border shadow-sm ${ICON_TONES.teal}`}
             >
               <Layers size={20} />
             </span>
@@ -557,7 +568,7 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
           <div className="mt-5 grid gap-2">
             {groups.map((group) => (
               <div
-                className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200/60 bg-slate-50/60 px-4 py-3 transition hover:border-teal-200 hover:bg-white"
+                className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-200/60 bg-slate-50/60 px-4 py-3 transition hover:border-teal-200 hover:bg-white"
                 key={group.id}
               >
                 <div className="min-w-0">
@@ -607,13 +618,14 @@ export function SettingsPage({ user, groups = [], onGroupsChanged }) {
           tone="amber"
         >
           <div className="grid gap-3 opacity-70">
-            <div className="relative overflow-hidden rounded-xl border border-slate-200/50 bg-slate-50/30">
+            <div className="relative overflow-hidden rounded-lg border border-slate-200/50 bg-slate-50/30">
               <ActionButton
                 label="Multi-factor sign-in"
                 icon={Fingerprint}
                 description="Prepare multi-factor authentication controls."
                 tone="blue"
                 showChevron={false}
+                disabled={true}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 <span className="rounded-full bg-slate-200/50 px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-widest text-slate-500 border border-slate-300/50 backdrop-blur-sm">

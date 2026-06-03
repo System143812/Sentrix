@@ -43,9 +43,9 @@ function AnalyticsMetricCard({ label, value, icon: Icon, tone = "blue" }) {
   };
 
   return (
-    <div className="group rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
+    <div className="group rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-sm">
       <div className="flex items-center gap-3">
-        <span className={`flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition-transform group-hover:scale-110 ${tones[tone]}`}>
+        <span className={`flex h-10 w-10 items-center justify-center rounded-lg border shadow-sm transition-transform group-hover:scale-110 ${tones[tone]}`}>
           <Icon size={20} strokeWidth={2.5} />
         </span>
         <div className="min-w-0">
@@ -61,7 +61,7 @@ function AnalyticsMetricCard({ label, value, icon: Icon, tone = "blue" }) {
 
 function SkeletonCard() {
   return (
-    <div className="h-24 animate-pulse rounded-xl border border-slate-100 bg-slate-50/50" />
+    <div className="h-24 animate-pulse rounded-lg border border-slate-100 bg-slate-50/50" />
   );
 }
 
@@ -112,7 +112,7 @@ export function BehaviorAnalyticsView({ device }) {
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="relative mb-6">
           <div className="absolute inset-0 animate-ping rounded-full bg-blue-100 opacity-20" />
-          <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+          <div className="relative flex h-16 w-16 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
             <LoaderCircle size={32} className="animate-spin" strokeWidth={2.5} />
           </div>
         </div>
@@ -128,8 +128,8 @@ export function BehaviorAnalyticsView({ device }) {
     <div className="relative grid gap-4 min-w-0 sm:gap-5">
       {/* Loading Overlay for refreshes */}
       {loading && data.events.length > 0 && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-white/60 backdrop-blur-[2px] transition-all overflow-hidden border border-blue-100/50">
-          <div className="flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-white p-8 shadow-2xl ring-1 ring-slate-900/5">
+        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-white/60 backdrop-blur-[2px] transition-all overflow-hidden border border-blue-100/50">
+          <div className="flex flex-col items-center gap-4 rounded-lg border border-slate-200 bg-white p-8 shadow-sm ring-1 ring-slate-900/5">
             <LoaderCircle size={40} className="animate-spin text-blue-600" />
             <div className="text-center">
               <p className="text-sm font-bold uppercase tracking-widest text-slate-900">Synchronizing Data</p>
@@ -180,10 +180,10 @@ export function BehaviorAnalyticsView({ device }) {
 
       <div className="grid gap-4 lg:gap-5 xl:grid-cols-2">
         {/* HISTORICAL TIMELINE */}
-        <section className="flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm overflow-hidden">
+        <section className="flex flex-col rounded-lg border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm overflow-hidden">
           <div className="mb-5 flex items-center justify-between border-b border-slate-50 pb-4">
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg sm:rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+              <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg sm:rounded-lg border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
                 <History size={16} sm:size={18} strokeWidth={2.5} />
               </span>
               <h4 className="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">Timeline</h4>
@@ -207,7 +207,7 @@ export function BehaviorAnalyticsView({ device }) {
                       isCritical ? "bg-rose-500 ring-rose-50" : isWarning ? "bg-amber-500 ring-amber-50" : "bg-blue-500 ring-blue-50"
                     }`} />
                     
-                    <div className="group rounded-xl border border-slate-100 bg-slate-50/30 p-3 sm:p-3.5 transition hover:border-slate-200 hover:bg-white hover:shadow-md">
+                    <div className="group rounded-lg border border-slate-100 bg-slate-50/30 p-3 sm:p-3.5 transition hover:border-slate-200 hover:bg-white hover:shadow-sm">
                       <div className="flex items-start justify-between gap-2 sm:gap-3">
                         <div className="min-w-0 flex-1">
                           <p className={`text-xs sm:text-sm font-bold font-ui break-words leading-snug ${isCritical ? "text-rose-700" : isWarning ? "text-amber-700" : "text-slate-800"}`}>
@@ -230,7 +230,7 @@ export function BehaviorAnalyticsView({ device }) {
                 );
               }) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="mb-4 flex h-12 w-14 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-200">
+                  <div className="mb-4 flex h-12 w-14 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-200">
                     <Search size={24} strokeWidth={2} />
                   </div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Empty period</p>
@@ -241,10 +241,10 @@ export function BehaviorAnalyticsView({ device }) {
         </section>
 
         {/* NETWORK AUDIT */}
-        <section className="flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm overflow-hidden">
+        <section className="flex flex-col rounded-lg border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm overflow-hidden">
           <div className="mb-5 flex items-center justify-between border-b border-slate-50 pb-4">
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg sm:rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+              <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg sm:rounded-lg border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
                 <Globe2 size={16} sm:size={18} strokeWidth={2.5} />
               </span>
               <h4 className="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">Network History</h4>
@@ -258,7 +258,7 @@ export function BehaviorAnalyticsView({ device }) {
             {data.domains.rows.length ? data.domains.rows.map((domain) => {
               const Icon = CATEGORY_ICONS[domain.category] || Box;
               return (
-                <div className="group flex items-center justify-between gap-3 sm:gap-4 rounded-xl border border-slate-50 bg-slate-50/50 p-3 sm:p-3.5 transition hover:border-slate-200 hover:bg-white hover:shadow-md" key={`${domain.domain}-${domain.process}`}>
+                <div className="group flex items-center justify-between gap-3 sm:gap-4 rounded-lg border border-slate-50 bg-slate-50/50 p-3 sm:p-3.5 transition hover:border-slate-200 hover:bg-white hover:shadow-sm" key={`${domain.domain}-${domain.process}`}>
                   <div className="flex min-w-0 flex-1 items-start gap-2.5 sm:gap-3">
                     <span className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-white text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-100 transition-colors">
                       <Icon size={12} sm:size={14} strokeWidth={2.5} />
@@ -290,7 +290,7 @@ export function BehaviorAnalyticsView({ device }) {
               );
             }) : (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="mb-4 flex h-12 w-14 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-200">
+                <div className="mb-4 flex h-12 w-14 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-200">
                   <Activity size={24} strokeWidth={2} />
                 </div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">No activity</p>
@@ -300,10 +300,10 @@ export function BehaviorAnalyticsView({ device }) {
         </section>
 
         {/* SOFTWARE INVENTORY */}
-        <section className="flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm overflow-hidden">
+        <section className="flex flex-col rounded-lg border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm overflow-hidden">
           <div className="mb-5 flex items-center justify-between border-b border-slate-50 pb-4">
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg sm:rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm">
+              <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg sm:rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm">
                 <Layers size={16} sm:size={18} strokeWidth={2.5} />
               </span>
               <h4 className="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">Inventory</h4>
@@ -320,7 +320,7 @@ export function BehaviorAnalyticsView({ device }) {
                   <TriangleAlert size={12} /> Priority Review
                 </p>
                 {riskySoftware.map((software) => (
-                  <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-3 sm:p-3.5 shadow-sm min-w-0" key={software.key}>
+                  <div className="rounded-lg border border-rose-100 bg-rose-50/50 p-3 sm:p-3.5 shadow-sm min-w-0" key={software.key}>
                     <div className="flex items-start justify-between gap-2 sm:gap-3 min-w-0">
                       <div className="min-w-0 flex-1">
                         <p className="text-xs sm:text-sm font-bold text-rose-900 font-ui break-words leading-tight">{software.name}</p>
@@ -339,7 +339,7 @@ export function BehaviorAnalyticsView({ device }) {
               {data.software.inventory.length ? (data.software.inventory || []).map((software) => {
                 if (software.riskLevel !== "normal") return null;
                 return (
-                  <div className="group rounded-xl border border-slate-50 bg-slate-50/50 p-3 sm:p-3.5 transition hover:border-slate-200 hover:bg-white hover:shadow-md min-w-0" key={software.key}>
+                  <div className="group rounded-lg border border-slate-50 bg-slate-50/50 p-3 sm:p-3.5 transition hover:border-slate-200 hover:bg-white hover:shadow-sm min-w-0" key={software.key}>
                     <div className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs sm:text-sm font-bold text-slate-800 font-ui break-words leading-tight">{software.name}</p>
@@ -353,7 +353,7 @@ export function BehaviorAnalyticsView({ device }) {
                 );
               }) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="mb-4 flex h-12 w-14 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-200">
+                  <div className="mb-4 flex h-12 w-14 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-200">
                     <Box size={24} strokeWidth={2} />
                   </div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Empty</p>
@@ -364,10 +364,10 @@ export function BehaviorAnalyticsView({ device }) {
         </section>
 
         {/* HEALTH & ANOMALIES */}
-        <section className="flex flex-col rounded-2xl border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm overflow-hidden">
+        <section className="flex flex-col rounded-lg border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm overflow-hidden">
           <div className="mb-5 flex items-center justify-between border-b border-slate-50 pb-4">
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <span className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg sm:rounded-xl border shadow-sm ${data.anomalies.total > 0 ? "border-rose-100 bg-rose-50 text-rose-600" : "border-emerald-100 bg-emerald-50 text-emerald-600"}`}>
+              <span className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg sm:rounded-lg border shadow-sm ${data.anomalies.total > 0 ? "border-rose-100 bg-rose-50 text-rose-600" : "border-emerald-100 bg-emerald-50 text-emerald-600"}`}>
                 <Zap size={16} sm:size={18} strokeWidth={2.5} />
               </span>
               <h4 className="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">Health Log</h4>
@@ -381,7 +381,7 @@ export function BehaviorAnalyticsView({ device }) {
 
           <div className="custom-scrollbar grid max-h-[400px] sm:max-h-[500px] gap-2.5 sm:gap-3 overflow-auto pr-1">
             {data.anomalies.rows.length ? data.anomalies.rows.map((alert) => (
-              <div className="rounded-xl border border-rose-100 bg-rose-50/40 p-3 sm:p-4 shadow-sm" key={alert.id}>
+              <div className="rounded-lg border border-rose-100 bg-rose-50/40 p-3 sm:p-4 shadow-sm" key={alert.id}>
                 <div className="flex items-start gap-2.5 sm:gap-3">
                   <TriangleAlert size={16} sm:size={18} className="shrink-0 text-rose-600" />
                   <div className="min-w-0 flex-1">

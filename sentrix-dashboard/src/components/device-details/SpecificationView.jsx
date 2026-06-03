@@ -141,7 +141,7 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
   return (
     <div className="device-detail-view">
       <div className="grid gap-4 xl:grid-cols-3">
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+        <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Monitor size={15} strokeWidth={2.5} />
             Device Info
@@ -157,7 +157,7 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
           </dl>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+        <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Cpu size={15} strokeWidth={2.5} />
             Important Specs
@@ -178,7 +178,7 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
           </dl>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+        <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Usb size={15} strokeWidth={2.5} />
             Peripherals
@@ -207,7 +207,7 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+        <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Thermometer size={15} strokeWidth={2.5} />
             Temperature
@@ -225,7 +225,7 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
           </dl>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+        <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Network size={15} strokeWidth={2.5} />
             Network Metrics
@@ -244,7 +244,7 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-3">
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+        <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <MonitorDot size={15} strokeWidth={2.5} />
             Graphics
@@ -264,7 +264,7 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+        <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <HardDrive size={15} strokeWidth={2.5} />
             Disks
@@ -284,7 +284,7 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+        <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Usb size={15} strokeWidth={2.5} />
             USB Devices
@@ -306,7 +306,7 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+        <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Globe2 size={15} strokeWidth={2.5} />
             Network Adapters
@@ -326,7 +326,7 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
+        <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Monitor size={15} strokeWidth={2.5} />
             Displays

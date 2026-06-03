@@ -12,7 +12,7 @@ export function PasswordValidator({ password }) {
   if (!password) return null;
 
   return (
-    <div className="mt-3 grid gap-2 rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-inner">
+    <div className="mt-3 grid gap-2 rounded-lg border border-slate-100 bg-slate-50/50 p-4 shadow-inner">
       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Security Strength</p>
       <div className="grid gap-2 sm:grid-cols-2">
         {requirements.map((req, index) => {

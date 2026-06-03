@@ -258,7 +258,7 @@ function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
 function TooltipIcon({ icon: Icon, label, tone = "teal" }) {
   return (
     <span
-      className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform hover:scale-105 ${ICON_TONES[tone]}`}
+      className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border shadow-sm transition-transform hover:scale-105 ${ICON_TONES[tone]}`}
       title={label}
       aria-label={label}
     >
@@ -296,7 +296,7 @@ function Panel({
   return (
     <Card
       padding="0"
-      className="analytics-panel relative flex h-full min-w-0 flex-col overflow-hidden bg-white border-slate-200/60 shadow-sm transition-all hover:shadow-md"
+      className="analytics-panel relative flex h-full min-w-0 flex-col overflow-hidden bg-white border-slate-200/60 shadow-sm transition-all hover:shadow-sm"
     >
       <ModuleLoader loading={loading} />
       <div className="flex flex-1 flex-col p-6 sm:p-8">
@@ -336,7 +336,7 @@ function MetricCard({
   return (
     <Card
       padding="0"
-      className={`analytics-card relative overflow-hidden border shadow-sm backdrop-blur-md transition-all hover:shadow-md ${GLASS_TONES[cardTone] || GLASS_TONES.slate}`}
+      className={`analytics-card relative overflow-hidden border shadow-sm backdrop-blur-md transition-all hover:shadow-sm ${GLASS_TONES[cardTone] || GLASS_TONES.slate}`}
     >
       <ModuleLoader loading={loading} />
       <div className="p-6">
@@ -350,7 +350,7 @@ function MetricCard({
             </strong>
           </div>
           <span
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-all hover:scale-110 ${ICON_TONES[warning ? "rose" : tone]}`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border shadow-sm transition-all hover:scale-110 ${ICON_TONES[warning ? "rose" : tone]}`}
             title={label}
           >
             {warning ? (
@@ -402,7 +402,7 @@ function ModernTrendChart({ points = [], color = "#2563eb", label = "Trend", isP
   const gradientId = `trend-gradient-${label.replace(/\s+/g, "-").toLowerCase()}`;
 
   return (
-    <div className="group relative min-w-0 rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+    <div className="group relative min-w-0 rounded-lg border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:shadow-sm">
       {/* Header Info */}
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
@@ -422,7 +422,7 @@ function ModernTrendChart({ points = [], color = "#2563eb", label = "Trend", isP
         {/* Hover Tooltip Overlay (Anchored to Point) */}
         {hoveredPoint && (
           <div 
-            className="pointer-events-none absolute z-50 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 shadow-2xl transition-all duration-100 ring-2 ring-slate-100"
+            className="pointer-events-none absolute z-50 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm transition-all duration-100 ring-2 ring-slate-100"
             style={{ 
               left: `${(hoveredPoint.x / width) * 100}%`, 
               top: `${(hoveredPoint.y / height) * 100}%`,
@@ -579,7 +579,7 @@ function MultiLineTrendChart({
   const chartMax = 100;
 
   return (
-    <div className="group relative min-w-0 rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+    <div className="group relative min-w-0 rounded-lg border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
           {label} Analysis
@@ -596,7 +596,7 @@ function MultiLineTrendChart({
         {/* Shared Tooltip */}
         {hoveredIndex !== null && (
           <div
-            className="pointer-events-none absolute z-50 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-2xl ring-1 ring-slate-200/50 backdrop-blur-md"
+            className="pointer-events-none absolute z-50 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-sm ring-1 ring-slate-200/50 backdrop-blur-md"
             style={{
               left: `${(hoveredIndex * step) / width > 0.5 ? "auto" : (hoveredIndex * step * 100) / width + "%"}`,
               right: `${(hoveredIndex * step) / width > 0.5 ? 100 - (hoveredIndex * step * 100) / width + "%" : "auto"}`,
@@ -749,7 +749,7 @@ function MultiLineChart({ devices = [], analytics }) {
 
   if (!devices.length) {
     return (
-      <div className="rounded-xl border border-slate-200/60 bg-white p-6">
+      <div className="rounded-lg border border-slate-200/60 bg-white p-6">
         <div className="grid min-h-64 place-items-center rounded-lg bg-slate-50 text-xs font-bold uppercase tracking-widest text-slate-400 font-ui">
           Syncing Device Metrics...
         </div>
@@ -774,29 +774,37 @@ function TimeRangeToolbar({
   setSelectedGroup,
   dark = false,
 }) {
+  const activeIndex = timeRanges.findIndex(r => r.key === rangeKey);
+  const totalRanges = timeRanges.length;
+
   return (
     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={`relative flex items-center p-1 rounded-lg border overflow-hidden w-full max-w-lg ${dark ? "bg-white/5 border-white/10 shadow-lg shadow-black/20" : "bg-transparent border-slate-200"}`}>
+        {/* Animated Active Pill Indicator */}
+        <div 
+          className={`absolute h-[calc(100%-8px)] rounded-md transition-all duration-300 ease-in-out shadow-sm ${dark ? "bg-white/20" : "bg-slate-900"}`}
+          style={{
+            left: `calc(8px + ${activeIndex} * (100% - 8px) / ${totalRanges})`,
+            width: `calc((100% - 8px) / ${totalRanges} - 8px)`,
+          }}
+        />
+
         {timeRanges.map((range) => {
           const selected = rangeKey === range.key;
           return (
             <button
-              className={`btn-minimal h-10 px-5 transition-all font-ui active:scale-100 hover:scale-100 ${
+              className={`relative z-10 flex flex-1 h-9 items-center justify-center gap-2 px-3 transition-all duration-200 ${
                 selected
-                  ? dark
-                    ? "!border-white/10 !bg-white/10 !text-white shadow-lg shadow-black/20 cursor-default"
-                    : "!border-slate-200 !bg-slate-50 !text-slate-900 shadow-sm cursor-default"
-                  : dark
-                    ? "!border-transparent !bg-white/5 text-slate-200 hover:!border-white/10 hover:!bg-white/10 hover:!text-white"
-                    : "!bg-white text-slate-500 hover:!bg-slate-50"
+                  ? "text-white"
+                  : dark ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-900"
               }`}
               key={range.key}
               onClick={() => setRangeKey(range.key)}
               title={`Show ${range.label} analytics`}
               type="button"
             >
-              <Clock3 size={15} strokeWidth={2.5} />
-              <span className="font-bold uppercase tracking-widest text-[10px]">
+              <Clock3 size={14} strokeWidth={1.5} />
+              <span className="text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
                 {range.label}
               </span>
             </button>
@@ -806,7 +814,7 @@ function TimeRangeToolbar({
 
       <div className="flex flex-wrap items-center gap-2 font-ui">
         <span
-          className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md" : "border-slate-200/60 bg-white text-slate-500"}`}
+          className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md" : "border-slate-200/60 bg-white text-slate-500"}`}
         >
           <RefreshCcw
             className={loading ? "animate-spin" : ""}
@@ -816,7 +824,7 @@ function TimeRangeToolbar({
           {loading ? "Syncing..." : "Data Live"}
         </span>
         <label
-          className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25" : "border-slate-200/60 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200"}`}
+          className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25" : "border-slate-200/60 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200"}`}
         >
           <Filter size={14} strokeWidth={2.5} />
           <select
@@ -932,7 +940,7 @@ function AgentMetricsPanel({ analytics, loading }) {
             const Icon = metric.icon;
             return (
               <div
-                className={`group relative overflow-hidden rounded-2xl border p-4 transition-all duration-300 hover:shadow-md ${GLASS_TONES[metric.tone] || GLASS_TONES.slate}`}
+                className={`group relative overflow-hidden rounded-lg border p-4 transition-all duration-300 hover:shadow-sm ${GLASS_TONES[metric.tone] || GLASS_TONES.slate}`}
                 key={metric.label}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -945,7 +953,7 @@ function AgentMetricsPanel({ analytics, loading }) {
                     </strong>
                   </div>
                   <span
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-all duration-300 group-hover:scale-110 ${ICON_TONES[metric.tone] || ICON_TONES.blue}`}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border shadow-sm transition-all duration-300 group-hover:scale-110 ${ICON_TONES[metric.tone] || ICON_TONES.blue}`}
                   >
                     <Icon size={16} strokeWidth={2.5} />
                   </span>
@@ -955,7 +963,7 @@ function AgentMetricsPanel({ analytics, loading }) {
           })}
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md">
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:shadow-sm">
           <div className="hidden grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100">
             <div>Device Name</div>
             <div className="text-center">CPU State</div>
@@ -977,7 +985,7 @@ function AgentMetricsPanel({ analytics, loading }) {
                   >
                     {/* Device Identity */}
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
                         <Monitor size={18} strokeWidth={2} />
                       </div>
                       <span className="truncate text-sm font-bold text-slate-800 tracking-tight font-ui">
@@ -1072,7 +1080,7 @@ function AgentMetricsPanel({ analytics, loading }) {
               })
             ) : (
               <div className="p-20 text-center">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
                   <Activity size={24} />
                 </div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
@@ -1136,7 +1144,7 @@ function HealthScorePanel({ analytics, loading }) {
     >
       <div className="grid gap-8 md:grid-cols-[200px_minmax(0,1fr)]">
         <div
-          className={`grid place-items-center rounded-xl border p-6 shadow-inner ${GLASS_TONES[tone] || GLASS_TONES.emerald}`}
+          className={`grid place-items-center rounded-lg border p-6 shadow-inner ${GLASS_TONES[tone] || GLASS_TONES.emerald}`}
         >
           <div
             className="analytics-donut grid h-36 w-36 place-items-center rounded-full border-[10px] bg-white shadow-sm ring-4 ring-white/70"
@@ -1167,7 +1175,7 @@ function HealthScorePanel({ analytics, loading }) {
             const Icon = factor.icon;
             return (
               <div
-                className="group rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm transition-all duration-300 hover:border-slate-300 hover:shadow-md font-ui"
+                className="group rounded-lg border border-slate-200/60 bg-white p-4 shadow-sm transition-all duration-300 hover:border-slate-300 hover:shadow-sm font-ui"
                 key={factor.label}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -1214,7 +1222,7 @@ function AlertTrendsPanel({ analytics, loading }) {
           points={analytics.alertTrend}
         />
         <div className="space-y-3 font-ui">
-          <div className="rounded-xl border border-rose-100/70 bg-rose-50/60 p-4 shadow-sm shadow-rose-900/5 backdrop-blur-md">
+          <div className="rounded-lg border border-rose-100/70 bg-rose-50/60 p-4 shadow-sm shadow-rose-900/5 backdrop-blur-md">
             <div className="flex items-center justify-between gap-3">
               <span className="inline-flex items-center gap-2 text-xs font-bold text-rose-700 uppercase tracking-wider">
                 <AlertTriangle className="text-rose-500" size={15} />
@@ -1264,7 +1272,7 @@ function DeviceComparisonPanel({ devices, analytics, loading }) {
       tone="blue"
     >
       <MultiLineChart analytics={analytics} devices={devices.slice(0, 10)} />
-      <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md">
+      <div className="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:shadow-sm">
         <div className="hidden grid-cols-[1.5fr_1fr_1fr_120px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100">
           <div>Entity Identity</div>
           <div className="text-center">Health Analysis</div>
@@ -1287,7 +1295,7 @@ function DeviceComparisonPanel({ devices, analytics, loading }) {
                   {/* Device Identity */}
                   <div className="flex items-center gap-3">
                     <div
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 shadow-sm transition-transform group-hover:scale-110"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-100 shadow-sm transition-transform group-hover:scale-110"
                       style={{ backgroundColor: `${color}15`, color: color, borderColor: `${color}30` }}
                     >
                       <Monitor size={18} strokeWidth={2.5} />
@@ -1356,7 +1364,7 @@ function DeviceComparisonPanel({ devices, analytics, loading }) {
             })
           ) : (
             <div className="p-16 text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
                 <Laptop size={24} />
               </div>
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
@@ -1386,7 +1394,7 @@ function HeatmapPanel({ devices, loading }) {
             const tone = getStatusTone(score);
             return (
               <div
-                className={`group relative rounded-xl border p-5 transition-all hover:-translate-y-1 hover:shadow-lg cursor-help ${HEATMAP_STATUS_STYLES[tone]}`}
+                className={`group relative rounded-lg border p-5 transition-all hover:-translate-y-1 hover:shadow-lg cursor-help ${HEATMAP_STATUS_STYLES[tone]}`}
                 key={device.id}
                 title={`${device.hostname}: ${score}% health`}
               >
@@ -1403,7 +1411,7 @@ function HeatmapPanel({ devices, loading }) {
             );
           })
         ) : (
-          <div className="col-span-full rounded-xl bg-slate-50 border border-dashed border-slate-200 p-20 text-center text-xs font-bold text-slate-400 uppercase tracking-widest font-ui">
+          <div className="col-span-full rounded-lg bg-slate-50 border border-dashed border-slate-200 p-20 text-center text-xs font-bold text-slate-400 uppercase tracking-widest font-ui">
             Waiting for Device Signal...
           </div>
         )}
@@ -1500,11 +1508,11 @@ function EventTimelinePanel({ analytics, loading }) {
         {events.length ? (
           events.map((event, index) => (
             <div
-              className="flex gap-4 rounded-xl bg-white border border-slate-200/60 p-4 transition hover:bg-slate-50/50 hover:shadow-sm"
+              className="flex gap-4 rounded-lg bg-white border border-slate-200/60 p-4 transition hover:bg-slate-50/50 hover:shadow-sm"
               key={`${event.title}-${index}`}
             >
               <span
-                className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${
+                className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg border ${
                   event.warning
                     ? "bg-rose-50 border-rose-100 text-rose-500"
                     : event.offline
@@ -1536,7 +1544,7 @@ function EventTimelinePanel({ analytics, loading }) {
             </div>
           ))
         ) : (
-          <div className="flex-1 grid place-items-center rounded-xl bg-slate-50/50 border border-dashed border-slate-200">
+          <div className="flex-1 grid place-items-center rounded-lg bg-slate-50/50 border border-dashed border-slate-200">
             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest font-ui">
               No Recorded Events
             </p>
@@ -1562,7 +1570,7 @@ function TopIssuesPanel({ analytics, loading }) {
           : [{ name: "Standard", count: 0 }]
         ).map((issue) => (
           <button
-            className="group flex items-center justify-between gap-4 rounded-xl border border-slate-200/60 bg-white p-4 text-left transition hover:border-slate-300 hover:shadow-md ring-1 ring-slate-100"
+            className="group flex items-center justify-between gap-4 rounded-lg border border-slate-200/60 bg-white p-4 text-left transition hover:border-slate-300 hover:shadow-sm ring-1 ring-slate-100"
             key={issue.name}
             title={`Drill-down: ${issue.name}`}
             type="button"
@@ -1598,7 +1606,7 @@ function StatusTransitionsPanel({ analytics, loading }) {
         {analytics.statusChanges.length ? (
           analytics.statusChanges.map((device) => (
             <div
-              className="flex items-center justify-between gap-4 rounded-xl bg-white border border-slate-200/60 p-4 shadow-sm transition hover:bg-slate-50/50 hover:border-slate-200"
+              className="flex items-center justify-between gap-4 rounded-lg bg-white border border-slate-200/60 p-4 shadow-sm transition hover:bg-slate-50/50 hover:border-slate-200"
               key={device.id}
             >
               <div className="min-w-0 font-ui">
@@ -1613,7 +1621,7 @@ function StatusTransitionsPanel({ analytics, loading }) {
             </div>
           ))
         ) : (
-          <div className="flex-1 grid place-items-center rounded-xl bg-slate-50/50 border border-dashed border-slate-200 font-ui">
+          <div className="flex-1 grid place-items-center rounded-lg bg-slate-50/50 border border-dashed border-slate-200 font-ui">
             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
               Awaiting Transition Logs
             </p>
@@ -1684,7 +1692,7 @@ function GroupPerformancePanel({ analytics, loading }) {
           <>
             {groups.map((group, index) => (
               <div
-                className={`rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-500 hover:shadow-md ${index === activeIndex ? "block opacity-100 translate-x-0" : "hidden opacity-0 translate-x-4"}`}
+                className={`rounded-lg border border-slate-200 bg-white p-6 shadow-sm transition-all duration-500 hover:shadow-sm ${index === activeIndex ? "block opacity-100 translate-x-0" : "hidden opacity-0 translate-x-4"}`}
                 key={group.name}
               >
                 <div className="flex items-center justify-between gap-4 border-b border-slate-200/60 pb-4 mb-5">
@@ -1822,7 +1830,7 @@ function GroupPerformancePanel({ analytics, loading }) {
             ) : null}
           </>
         ) : (
-          <div className="flex-1 grid place-items-center rounded-xl bg-slate-50/50 border border-dashed border-slate-200 font-ui">
+          <div className="flex-1 grid place-items-center rounded-lg bg-slate-50/50 border border-dashed border-slate-200 font-ui">
             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
               No groups available
             </p>
@@ -1886,7 +1894,7 @@ function PeripheralSummaryPanel({ analytics, loading }) {
     >
       <div className="space-y-5 flex flex-col flex-1">
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-4 shadow-sm">
+          <div className="rounded-lg border border-rose-100 bg-rose-50/50 p-4 shadow-sm">
             <p className="text-[9px] font-bold uppercase tracking-widest text-rose-500 mb-1 font-ui">
               Missing Total
             </p>
@@ -1897,7 +1905,7 @@ function PeripheralSummaryPanel({ analytics, loading }) {
               <Unplug size={14} className="text-rose-400" />
             </div>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 shadow-sm">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 shadow-sm">
             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1 font-ui">
               Affected Units
             </p>
@@ -1982,7 +1990,7 @@ function PeripheralSummaryPanel({ analytics, loading }) {
             ))}
           </div>
         ) : (
-          <div className="flex-1 grid place-items-center rounded-xl bg-slate-50/50 border border-dashed border-slate-200 font-ui text-center p-8">
+          <div className="flex-1 grid place-items-center rounded-lg bg-slate-50/50 border border-dashed border-slate-200 font-ui text-center p-8">
             <Plug size={24} className="text-slate-300 mb-2 opacity-50" />
             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-relaxed">
               Collecting inventory data
@@ -2050,7 +2058,7 @@ function ExportPanel({ analytics, loading, onExport, exportingType }) {
     >
       <div className="flex flex-col flex-1 pt-4">
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-xl border border-slate-200/70 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-lg border border-slate-200/70 bg-white shadow-sm">
             <button
               className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-slate-50"
               disabled={loading}
@@ -2085,7 +2093,7 @@ function ExportPanel({ analytics, loading, onExport, exportingType }) {
                     return (
                       <button
                         key={method.id}
-                        className={`relative w-full overflow-hidden rounded-xl ${method.color} px-5 py-4 text-white shadow-lg ${method.shadow} transition-all duration-300 ${method.hover} active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed`}
+                        className={`relative w-full overflow-hidden rounded-lg ${method.color} px-5 py-4 text-white shadow-lg ${method.shadow} transition-all duration-300 ${method.hover} active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed`}
                         disabled={loading || (exportingType && !isExporting)}
                         onClick={() => onExport(method.id)}
                         title={method.label}
@@ -2119,7 +2127,7 @@ function ExportPanel({ analytics, loading, onExport, exportingType }) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-slate-200/60 bg-slate-50/50 p-4 transition-all duration-300 hover:border-slate-300 hover:bg-white hover:shadow-sm group">
+          <div className="flex items-center justify-between rounded-lg border border-slate-200/60 bg-slate-50/50 p-4 transition-all duration-300 hover:border-slate-300 hover:bg-white hover:shadow-sm group">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-500 border border-rose-100 shadow-sm transition-transform duration-300 group-hover:scale-105">
                 <BadgeAlert size={18} strokeWidth={2.5} />
@@ -2257,15 +2265,15 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
           backgroundImage="/analytics_header.jpg"
           action={
             <div className="hidden sm:flex items-center gap-3 font-ui">
-              <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 shadow-xl shadow-black/20 backdrop-blur-md">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 shadow-sm shadow-black/20 backdrop-blur-md">
                 <Wifi size={14} />
                 {analytics.online} online
               </span>
-              <span className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 shadow-xl shadow-black/20 backdrop-blur-md">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 shadow-sm shadow-black/20 backdrop-blur-md">
                 <BadgeAlert size={14} />
                 {analytics.criticalAlerts} critical
               </span>
-              <span className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-400 shadow-xl shadow-black/20 backdrop-blur-md">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-400 shadow-sm shadow-black/20 backdrop-blur-md">
                 <Boxes size={14} />
                 {pageLoading ? "Refreshing" : `${analytics.total} devices`}
               </span>

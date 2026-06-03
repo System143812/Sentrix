@@ -125,9 +125,9 @@ function DeploymentFailureOverlay({ failure, loading, onClose, onRetry }) {
 
   return (
     <BlurOverlay onClose={onClose} className="z-[60]" containerClassName="w-full max-w-lg">
-      <div className="rounded-2xl border border-rose-100 bg-white p-6 shadow-2xl shadow-slate-950/20">
+      <div className="rounded-lg border border-rose-100 bg-white p-6 shadow-sm shadow-slate-950/20">
         <div className="flex items-start gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600">
             <AlertTriangle size={24} strokeWidth={2.5} />
           </span>
           <div className="min-w-0 flex-1">
@@ -144,7 +144,7 @@ function DeploymentFailureOverlay({ failure, loading, onClose, onRetry }) {
           </button>
         </div>
 
-        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
             Details
           </p>
@@ -289,7 +289,7 @@ export function NetworkPage({
           <button
             type="button"
             onClick={onScan}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-bold text-white shadow-xl backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
             disabled={scanLoading}
           >
             {scanLoading ? (
