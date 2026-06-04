@@ -96,7 +96,7 @@ export async function logAuditEvent({
   }
 }
 
-export async function getAuditLogs({ limit = 200, action = "", actor = "", startDate = "", endDate = "" } = {}) {
+export async function getAuditLogs({ limit = 200, action = "", actor = "", startDate = "", endDate = "", requester = null } = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || 200, 25), 500);
   const filters = [];
   const params = [];
