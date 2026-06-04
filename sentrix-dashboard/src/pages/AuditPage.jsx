@@ -54,9 +54,22 @@ const getActionColor = (action = "") => {
   return "text-indigo-600 bg-indigo-50 border-indigo-100";
 };
 
-export function AuditPage() {
+export function AuditPage({ user }) {
   const [activeTab, setActiveTab] = useState("logs");
   const [logs, setLogs] = useState([]);
+  
+  const availableTabs = useMemo(() => {
+    const tabs = [{ id: "logs", label: "Logs", icon: ClipboardList }];
+    if (user?.role === "network_admin") {
+      tabs.push(
+        { id: "whitelist", label: "Fleet", icon: CheckCircle2 },
+        { id: "perimeter", label: "Security", icon: ShieldBan },
+        { id: "ratelimit", label: "Throttled", icon: ShieldAlert },
+      );
+    }
+    return tabs;
+  }, [user]);
+
   const [authorityRecords, setAuthorityRecords] = useState([]);
   const [query, setQuery] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -250,6 +263,11 @@ export function AuditPage() {
     });
 
     socket.on("audit:new", (newLog) => {
+      // Role-based filtering for real-time updates
+      if (user?.role === "admin" && !["login_success", "login_failed", "logout"].includes(newLog.action)) {
+        return;
+      }
+
       setLogs((prev) => {
         // Prevent duplicates and only add if within current view range (if filtering by date)
         if (prev.some((l) => l.id === newLog.id)) return prev;
@@ -662,7 +680,7 @@ export function AuditPage() {
         backgroundImage="/audit_header.jpg"
         action={
           <div className="flex gap-3">
-            {activeTab === "whitelist" && (
+            {user?.role === "network_admin" && activeTab === "whitelist" && (
               <button
                 type="button"
                 onClick={() => setIsAddingWhitelist(true)}
@@ -690,36 +708,33 @@ export function AuditPage() {
       />
 
       {/* Premium Slate Tab Navigation - Responsive & Substantial */}
-      <div className="relative flex items-center p-1 rounded-lg border border-slate-200 overflow-hidden">
-        {/* Animated Active Pill Indicator */}
-        <div
-          className="absolute h-[calc(100%-8px)] rounded-md bg-slate-900 transition-all duration-300 ease-in-out shadow-sm"
-          style={{
-            left: `calc(8px + ${["logs", "whitelist", "perimeter", "ratelimit"].indexOf(activeTab)} * (100% - 8px) / 4)`,
-            width: "calc((100% - 8px) / 4 - 8px)",
-          }}
-        />
+      {availableTabs.length > 1 && (
+        <div className="relative flex items-center p-1 rounded-lg border border-slate-200 overflow-hidden">
+          {/* Animated Active Pill Indicator */}
+          <div
+            className="absolute h-[calc(100%-8px)] rounded-md bg-slate-900 transition-all duration-300 ease-in-out shadow-sm"
+            style={{
+              left: `calc(8px + ${availableTabs.findIndex(t => t.id === activeTab)} * (100% - 8px) / ${availableTabs.length})`,
+              width: `calc((100% - 8px) / ${availableTabs.length} - 8px)`,
+            }}
+          />
 
-        {[
-          { id: "logs", label: "Logs", icon: ClipboardList },
-          { id: "whitelist", label: "Fleet", icon: CheckCircle2 },
-          { id: "perimeter", label: "Security", icon: ShieldBan },
-          { id: "ratelimit", label: "Throttled", icon: ShieldAlert },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`relative z-10 flex flex-1 items-center justify-center gap-2 h-9 px-3 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all duration-200 whitespace-nowrap ${
-              activeTab === tab.id
-                ? "text-white"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <tab.icon size={14} strokeWidth={1.5} className="shrink-0" />
-            <span className="hidden md:inline">{tab.label}</span>
-          </button>
-        ))}
-      </div>
+          {availableTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative z-10 flex flex-1 items-center justify-center gap-2 h-9 px-3 rounded-md text-[10px] font-bold tracking-tight transition-all duration-200 whitespace-nowrap ${
+                activeTab === tab.id
+                  ? "text-white"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <tab.icon size={14} strokeWidth={1.5} className="shrink-0" />
+              <span className="hidden md:inline">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <SearchFilterBar
         count={
@@ -754,18 +769,26 @@ export function AuditPage() {
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:shadow-sm">
         {activeTab === "logs" ? (
           <>
-            <div className="hidden grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100">
+            <div className={`hidden gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100 ${
+              user?.role === "network_admin"
+                ? "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px]"
+                : "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr]"
+            }`}>
               <div>Log Activity</div>
               <div>Actor & Entity</div>
               <div>Asset Context</div>
               <div>Network Origin</div>
-              <div className="text-right">Authority</div>
+              {user?.role === 'network_admin' && <div className="text-right">Authority</div>}
             </div>
             <div className="divide-y divide-slate-100">
               {paginatedLogs.length ? (
                 paginatedLogs.map((log) => (
                   <article
-                    className="group flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px] lg:items-center lg:gap-6"
+                    className={`group flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:items-center lg:gap-6 ${
+                      user?.role === "network_admin"
+                        ? "lg:grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px]"
+                        : "lg:grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr]"
+                    }`}
                     key={`log-${log.id}`}
                   >
                     {/* 1. Action & Timestamp */}
@@ -850,39 +873,41 @@ export function AuditPage() {
                     </div>
 
                     {/* 5. Actions */}
-                    <div className="flex items-center justify-between border-t border-slate-50 pt-5 lg:justify-end lg:border-0 lg:pt-0">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
-                        Authority
-                      </span>
-                      {log.isWhitelisted ? (
-                        <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-widest text-emerald-600">
-                          <CheckCircle2 size={14} strokeWidth={3} />
-                          Authorized
-                        </div>
-                      ) : log.isThrottled ? (
-                        <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-widest text-rose-600">
-                          <ShieldBan size={14} strokeWidth={3} />
-                          Hard Blocked
-                        </div>
-                      ) : !log.macAddress && !log.actorEmail ? (
-                        <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                          <ShieldBan size={14} strokeWidth={3} />
-                          Unauthorized
-                        </div>
-                      ) : (
-                        <button
-                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-rose-100 bg-rose-50 px-4 text-[10px] font-bold uppercase tracking-widest text-rose-600 shadow-sm shadow-rose-600/5 transition-all hover:bg-rose-100 hover:border-rose-200 active:scale-[0.97]"
-                          onClick={() => {
-                            setPendingBlock(log);
-                            setReason("");
-                          }}
-                          type="button"
-                        >
-                          <ShieldBan size={14} strokeWidth={3} />
-                          Unauthorized
-                        </button>
-                      )}
-                    </div>
+                    {user?.role === 'network_admin' && (
+                      <div className="flex items-center justify-between border-t border-slate-50 pt-5 lg:justify-end lg:border-0 lg:pt-0">
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                          Authority
+                        </span>
+                        {log.isWhitelisted ? (
+                          <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-widest text-emerald-600">
+                            <CheckCircle2 size={14} strokeWidth={3} />
+                            Authorized
+                          </div>
+                        ) : log.isThrottled ? (
+                          <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-widest text-rose-600">
+                            <ShieldBan size={14} strokeWidth={3} />
+                            Hard Blocked
+                          </div>
+                        ) : !log.macAddress && !log.actorEmail ? (
+                          <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                            <ShieldBan size={14} strokeWidth={3} />
+                            Unauthorized
+                          </div>
+                        ) : (
+                          <button
+                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-rose-100 bg-rose-50 px-4 text-[10px] font-bold uppercase tracking-widest text-rose-600 shadow-sm shadow-rose-600/5 transition-all hover:bg-rose-100 hover:border-rose-200 active:scale-[0.97]"
+                            onClick={() => {
+                              setPendingBlock(log);
+                              setReason("");
+                            }}
+                            type="button"
+                          >
+                            <ShieldBan size={14} strokeWidth={3} />
+                            Unauthorized
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </article>
                 ))
               ) : (
@@ -890,8 +915,8 @@ export function AuditPage() {
                   <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
                     <ClipboardList size={24} />
                   </div>
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
-                    {loading ? "Decrypting Logs..." : "Zero Audit Entries"}
+                  <p className="text-xs font-bold tracking-[0.05em] text-slate-400">
+                    {loading ? "Decrypting logs..." : "Zero audit entries"}
                   </p>
                 </div>
               )}
