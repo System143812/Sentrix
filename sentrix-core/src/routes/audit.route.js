@@ -4,7 +4,7 @@ import * as auditController from "../controllers/audit.controller.js";
 
 const router = express.Router();
 
-router.get("/", requireRole("network_admin"), auditController.listAuditLogs);
+router.get("/", requireRole(["network_admin", "admin"]), auditController.listAuditLogs);
 router.post("/:id/authorize", requireRole("network_admin"), auditController.authorizeAuditLogSubject);
 router.post("/:id/block", requireRole("network_admin"), auditController.blockAuditLogSubject);
 

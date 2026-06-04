@@ -6,7 +6,7 @@ const discoveryRouter = express.Router();
 
 discoveryRouter.use(authenticate);
 discoveryRouter.get("/", getSnapshot);
-discoveryRouter.get("/scan", scan);
+discoveryRouter.get("/scan", requireRole("network_admin"), scan);
 discoveryRouter.post("/deploy", requireRole("network_admin"), deploy);
 
 export default discoveryRouter;
