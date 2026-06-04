@@ -111,7 +111,6 @@ export function PeripheralHistoryPanel({ deviceId, history, canControl }) {
 
       <div className="grid gap-6 lg:grid-cols-2 min-w-0 items-stretch">
         <div className="flex flex-col min-w-0">
-          <div className="hidden lg:block h-11" />
           <div className="relative mb-4 flex items-center p-1 rounded-lg border border-slate-200 overflow-hidden w-fit shadow-sm">
             {/* Animated Active Pill Indicator */}
             <div
