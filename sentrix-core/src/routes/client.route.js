@@ -20,9 +20,9 @@ clientRouter.get("/:id/software", clientControllers.getClientSoftware);
 clientRouter.get("/:id/health", clientControllers.getClientHealth);
 clientRouter.get("/:id/anomalies", clientControllers.getClientAnomalies);
 clientRouter.get("/:id", clientControllers.getClient);
-clientRouter.patch("/:id/group", clientControllers.updateClientGroup);
-clientRouter.delete("/:id", clientControllers.archiveClient);
-clientRouter.post("/:id/command", clientControllers.sendClientCommand);
-clientRouter.post("/:id/processes/:pid/kill", clientControllers.killClientProcess);
+clientRouter.patch("/:id/group", requireRole(["network_admin", "admin"]), clientControllers.updateClientGroup);
+clientRouter.delete("/:id", requireRole("network_admin"), clientControllers.archiveClient);
+clientRouter.post("/:id/command", requireRole(["network_admin", "admin"]), clientControllers.sendClientCommand);
+clientRouter.post("/:id/processes/:pid/kill", requireRole(["network_admin", "admin"]), clientControllers.killClientProcess);
 
 export default clientRouter;

@@ -33,7 +33,8 @@ export async function authenticate(req, res, next) {
 
 export function requireRole(role) {
   return (req, res, next) => {
-    if (!req.user || req.user.role !== role) {
+    const roles = Array.isArray(role) ? role : [role];
+    if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({ success: false, message: "Forbidden." });
     }
     next();
