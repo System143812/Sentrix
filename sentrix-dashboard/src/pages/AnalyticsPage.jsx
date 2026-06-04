@@ -804,7 +804,7 @@ function TimeRangeToolbar({
               type="button"
             >
               <Clock3 size={14} strokeWidth={1.5} />
-              <span className="text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
+              <span className="text-[10px] font-bold tracking-tight whitespace-nowrap">
                 {range.label}
               </span>
             </button>
@@ -813,19 +813,9 @@ function TimeRangeToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 font-ui">
-        <span
-          className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md" : "border-slate-200/60 bg-white text-slate-500"}`}
-        >
-          <RefreshCcw
-            className={loading ? "animate-spin" : ""}
-            size={14}
-            strokeWidth={2.5}
-          />
-          {loading ? "Syncing..." : "Data Live"}
-        </span>
-        <label
-          className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[10px] font-bold uppercase tracking-widest shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25" : "border-slate-200/60 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200"}`}
-        >
+       <label
+         className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[10px] font-bold shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25" : "border-slate-200/60 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200"}`}
+       >
           <Filter size={14} strokeWidth={2.5} />
           <select
             className="bg-transparent outline-none cursor-pointer"

@@ -26,7 +26,7 @@ export function DateFilterBar({
     >
       <div className="flex flex-[3] min-w-[280px] items-center rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
         <label className="flex flex-1 items-center h-10 px-3 group min-w-0">
-          <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">
+          <span className="flex items-center gap-2 text-[10px] font-bold tracking-tight text-slate-400 whitespace-nowrap">
             <CalendarDays
               size={14}
               strokeWidth={1.5}
@@ -46,7 +46,7 @@ export function DateFilterBar({
         <div className="h-4 w-px bg-slate-200 shrink-0" />
 
         <label className="flex flex-1 items-center h-10 px-3 group min-w-0">
-          <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">
+          <span className="flex items-center gap-2 text-[10px] font-bold tracking-tight text-slate-400 whitespace-nowrap">
             <CalendarDays
               size={14}
               strokeWidth={1.5}
@@ -65,7 +65,7 @@ export function DateFilterBar({
       </div>
 
       <button
-        className={`group relative flex h-10 flex-1 sm:flex-none min-w-[140px] items-center justify-center gap-2 rounded-lg px-6 text-[10px] font-bold uppercase tracking-widest transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 shadow-sm ${
+        className={`group relative flex h-10 flex-1 sm:flex-none min-w-[140px] items-center justify-center gap-2 rounded-lg px-6 text-[10px] font-bold tracking-tight transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 shadow-sm ${
           loading
             ? "bg-slate-100 text-slate-400 border border-slate-200"
             : "bg-slate-900 text-white hover:bg-black"
