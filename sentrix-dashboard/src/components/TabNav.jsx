@@ -1,6 +1,6 @@
 function NavTooltip({ label }) {
   return (
-    <span className="pointer-events-none absolute left-1/2 top-12 z-20 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-white shadow-sm lg:group-hover:block lg:group-focus-within:block">
+    <span className="pointer-events-none absolute left-1/2 top-12 z-20 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-[10px] font-semibold tracking-tight text-white shadow-sm lg:group-hover:block lg:group-focus-within:block">
       {label}
       <span className="absolute bottom-full left-1/2 -ml-1 border-4 border-transparent border-b-slate-900" />
     </span>

@@ -85,7 +85,7 @@ function DetailViewSwitch({ activeView, onChange, canControl }) {
           <button
             key={button.id}
             onClick={() => onChange(button.id)}
-            className={`relative z-10 flex flex-1 items-center justify-center gap-2.5 h-9 px-3 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all duration-200 whitespace-nowrap ${
+            className={`relative z-10 flex flex-1 items-center justify-center gap-2.5 h-9 px-3 rounded-md text-[10px] font-bold tracking-tight transition-all duration-200 whitespace-nowrap ${
               selected ? 'text-white' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -239,7 +239,7 @@ export function DeviceTable({
       />
 
       <div className="overflow-hidden rounded-lg border border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-sm">
-        <div className="hidden border-b border-slate-200/60 bg-slate-50/50 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 xl:grid xl:grid-cols-[48px_minmax(160px,1fr)_minmax(130px,0.8fr)_minmax(240px,1.3fr)_minmax(180px,0.9fr)_100px_auto] xl:items-center xl:gap-8">
+        <div className="hidden border-b border-slate-200/60 bg-slate-50/50 px-5 py-3 text-[10px] font-bold tracking-tight text-slate-400 xl:grid xl:grid-cols-[48px_minmax(160px,1fr)_minmax(130px,0.8fr)_minmax(240px,1.3fr)_minmax(180px,0.9fr)_100px_auto] xl:items-center xl:gap-8">
           <div />
           <div>Device</div>
           <div>Network</div>
