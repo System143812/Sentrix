@@ -261,10 +261,10 @@ export function DeviceTable({
                 key={device.id}
               >
                 <div 
-                  className="flex cursor-pointer flex-col gap-5 px-4 py-6 sm:px-6 lg:grid lg:grid-cols-[48px_1fr_1fr] lg:items-start lg:gap-x-6 xl:grid-cols-[48px_minmax(160px,1fr)_minmax(130px,0.8fr)_minmax(240px,1.3fr)_minmax(180px,0.9fr)_100px_auto] xl:gap-8 xl:py-5"
+                  className="flex cursor-pointer flex-col gap-5 px-4 py-6 sm:px-6 xl:grid xl:grid-cols-[48px_minmax(160px,1fr)_minmax(130px,0.8fr)_minmax(240px,1.3fr)_minmax(180px,0.9fr)_100px_auto] xl:items-start xl:gap-8 xl:py-5"
                   onClick={() => setExpandedId(expanded ? null : device.id)}
                 >
-                  <div className="flex items-center justify-between lg:block">
+                  <div className="flex items-center justify-between xl:block">
                     <button
                       className={`grid h-11 w-11 place-items-center rounded-lg border shadow-sm transition-all duration-300 active:scale-95 sm:h-10 sm:w-10 ${
                         expanded
@@ -281,7 +281,7 @@ export function DeviceTable({
                       <ChevronDown size={18} strokeWidth={2.5} />
                     </button>
 
-                    <div className="flex items-center gap-3 lg:hidden">
+                    <div className="flex items-center gap-3 xl:hidden">
                       <span
                         className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest ${
                           device.status === "online"
@@ -297,7 +297,7 @@ export function DeviceTable({
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <strong className="block truncate text-lg font-bold text-slate-900 tracking-tight lg:text-sm">
+                      <strong className="block truncate text-lg font-bold text-slate-900 tracking-tight xl:text-sm">
                         {device.hostname}
                       </strong>
                     </div>
@@ -306,7 +306,7 @@ export function DeviceTable({
                     </span>
                   </div>
 
-                  <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50/50 p-4 lg:border-0 lg:bg-transparent lg:p-0">
+                  <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50/50 p-4 xl:border-0 xl:bg-transparent xl:p-0">
                     <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-400 xl:hidden">
                       Network Identity
                     </span>
@@ -318,7 +318,7 @@ export function DeviceTable({
                     </div>
                   </div>
 
-                  <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 lg:col-span-2 xl:col-span-1 xl:grid-cols-2">
+                  <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 xl:col-span-1 xl:grid-cols-2">
                     <MetricPill
                       icon={Cpu}
                       label="CPU"
@@ -341,12 +341,12 @@ export function DeviceTable({
                     />
                   </div>
 
-                  <div className="min-w-0 lg:col-start-2 xl:col-start-auto">
+                  <div className="min-w-0 xl:col-start-auto">
                     <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-400 xl:hidden">
                       Assigned Group
                     </span>
                     <select
-                      className="h-11 w-full min-w-0 cursor-pointer rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 outline-none shadow-sm transition hover:border-slate-300 focus:border-slate-900 focus:ring-4 focus:ring-slate-100/50 lg:h-10 lg:w-44 lg:px-3 lg:text-xs"
+                      className="h-11 w-full min-w-0 cursor-pointer rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 outline-none shadow-sm transition hover:border-slate-300 focus:border-slate-900 focus:ring-4 focus:ring-slate-100/50 xl:h-10 xl:w-44 xl:px-3 xl:text-xs"
                       onClick={(e) => e.stopPropagation()}
                       onChange={async (event) => {
                         try {
@@ -382,11 +382,11 @@ export function DeviceTable({
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-5 lg:justify-end lg:border-0 lg:pt-0">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">Management</span>
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-5 xl:justify-end xl:border-0 xl:pt-0">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 xl:hidden">Management</span>
                     <div className="group relative">
                       <button
-                        className="grid h-10 w-10 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-100 active:scale-95 lg:h-9 lg:w-9"
+                        className="grid h-10 w-10 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-100 active:scale-95 xl:h-9 xl:w-9"
                         onClick={(e) => {
                           e.stopPropagation();
                           setPendingArchive(device);
@@ -396,7 +396,7 @@ export function DeviceTable({
                       >
                         <Archive size={18} strokeWidth={2.5} />
                       </button>
-                      <span className="pointer-events-none absolute bottom-full right-0 z-20 mb-3 hidden w-48 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-sm lg:group-hover:block">
+                      <span className="pointer-events-none absolute bottom-full right-0 z-20 mb-3 hidden w-48 rounded-lg bg-slate-900 px-3 py-2 text-center text-[11px] font-medium leading-relaxed text-white shadow-sm xl:group-hover:block">
                         Archive this device from the registered list
                         <div className="absolute right-3 top-full border-[6px] border-transparent border-t-slate-900" />
                       </span>
