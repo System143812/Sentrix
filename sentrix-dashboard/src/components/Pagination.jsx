@@ -90,7 +90,7 @@ export function Pagination({
       <div className="flex flex-wrap items-center justify-center gap-6 lg:justify-start">
         {onPageSizeChange && (
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            <span className="text-[10px] font-bold tracking-tight text-slate-400">
               Show
             </span>
             <div className="relative group">
@@ -113,7 +113,7 @@ export function Pagination({
           </div>
         )}
 
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+        <p className="text-[10px] font-bold tracking-tight text-slate-400">
           <span className="hidden sm:inline">Showing </span>
           <span className="text-slate-900 tabular-nums">{startItem}</span>
           <span className="mx-1 opacity-30">—</span>

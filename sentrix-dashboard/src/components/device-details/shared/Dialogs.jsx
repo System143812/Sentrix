@@ -6,6 +6,7 @@ import {
   Globe2,
   CircleStop,
   ShieldAlert,
+  LoaderCircle,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useState } from "react";
@@ -275,8 +276,12 @@ export function ProcessEndConfirmDialog({ count, loading, onCancel, onConfirm })
             onClick={onConfirm}
             type="button"
           >
-            <CircleStop className={loading ? "animate-spin" : ""} size={16} />
-            End {count} Processes
+            {loading ? (
+              <LoaderCircle className="animate-spin" size={16} />
+            ) : (
+              <CircleStop size={16} />
+            )}
+            {loading ? "Ending Processes..." : `End ${count} Process${count > 1 ? "es" : ""}`}
           </button>
         </div>
       </div>
