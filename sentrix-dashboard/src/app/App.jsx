@@ -214,7 +214,7 @@ export function DashboardShell({
             {/* Center: Navigation (Always Centered) */}
             <div className="order-last flex w-full flex-1 justify-center md:order-none md:w-auto">
               <TabNav
-                tabs={tabs.filter((tab) => tab.id !== "audit" || user.role === "network_admin")}
+                tabs={tabs.filter((tab) => user.role === "network_admin" || tab.id !== "network")}
                 activeTab={activeTab}
                 onSelect={setActiveTab}
               />
@@ -352,7 +352,7 @@ export function DashboardShell({
         ) : activeTab === "analytics" ? (
           <AnalyticsPage dashboardData={dashboardData} loading={loading} />
         ) : activeTab === "audit" ? (
-          <AuditPage />
+          <AuditPage user={user} />
         ) : (
           <SettingsPage
             user={user}
