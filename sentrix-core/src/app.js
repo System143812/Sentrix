@@ -14,7 +14,7 @@ function getClientUrls() {
   const urls =
     process.env.CLIENT_URLS ||
     process.env.CLIENT_URL ||
-    "http://localhost:5173,http://localhost:5174";
+    "https://localhost:5173,https://localhost:5174";
   return urls
     .split(",")
     .map((url) => url.trim())
@@ -100,6 +100,65 @@ function createApp() {
         path.includes("/auth/register") ||
         path.includes("/auth/me") ||
         path.includes("/health");
+
+      if (path === "/health" || path === "/api/health") {
+        return res.send(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Sentrix | Authorized</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+              <style>
+                * { box-sizing: border-box; }
+                body { 
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+                  display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; 
+                  background: #f8fafc; color: #0f172a; text-align: center;
+                  padding: 24px;
+                }
+                .card { 
+                  background: white; padding: 3rem 2rem; border: 1px solid #e2e8f0;
+                  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08); 
+                  max-width: 380px; width: 100%; border-radius: 2.5rem;
+                  animation: slideUp 0.5s ease-out;
+                }
+                @keyframes slideUp {
+                  from { opacity: 0; transform: translateY(20px); }
+                  to { opacity: 1; transform: translateY(0); }
+                }
+                .icon { color: #059669; margin-bottom: 2rem; }
+                h1 { font-size: 1.75rem; margin: 0 0 1rem 0; font-weight: 800; letter-spacing: -0.025em; }
+                p { font-size: 0.95rem; color: #64748b; line-height: 1.7; margin: 0; }
+                .status-badge {
+                  display: inline-block;
+                  padding: 0.6rem 1.25rem;
+                  background: #f0fdf4;
+                  color: #166534;
+                  border-radius: 2rem;
+                  font-size: 0.75rem;
+                  font-weight: 700;
+                  text-transform: uppercase;
+                  letter-spacing: 0.05em;
+                  margin-top: 2.5rem;
+                  border: 1px solid #dcfce7;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="card">
+                <div class="icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                </div>
+                <h1>Ready to go!</h1>
+                <p>Connection authorized. You can now close this tab and return to the Sentrix Dashboard to sign in.</p>
+                <div class="status-badge">
+                  Connection Verified
+                </div>
+              </div>
+            </body>
+          </html>
+        `);
+      }
 
       if (isOpenPath) return next();
 
