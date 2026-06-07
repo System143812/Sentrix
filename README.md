@@ -141,7 +141,20 @@ cd sentrix
     ```bash
     npm run dev
     ```
-3.  Open your browser and navigate to `http://localhost:5173`.
+3.  Open your browser and navigate to `https://localhost:5173`.
+
+### 🔐 Security & HTTPS Setup
+Sentrix uses **Self-Signed HTTPS** by default to ensure all network traffic between the Agent, Core, and Dashboard is encrypted.
+
+#### Handling Browser Warnings
+Because the certificates are generated locally and not signed by a public Authority, your browser will show a warning:
+*   **Chrome/Edge:** Click "Advanced" -> "Proceed to localhost (unsafe)".
+*   **Firefox:** Click "Advanced" -> "Accept the Risk and Continue".
+
+#### Why HTTPS?
+*   **Encryption:** Protects hardware metrics and remote commands from sniffing.
+*   **Secure Cookies:** Allows the backend to use `HttpOnly` and `Secure` flags for JWT tokens, preventing XSS-based token theft.
+*   **Modern APIs:** Many browser features (like clipboard access) require a "Secure Context" (HTTPS).
 
 ### Step 5: Preparing Client PCs for Remote Deployment
 To enable "Zero-Touch" deployment to laboratory workstations, you must prepare each target PC once:
