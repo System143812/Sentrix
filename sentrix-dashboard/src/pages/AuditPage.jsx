@@ -318,7 +318,7 @@ export function AuditPage({ user }) {
               <Plus size={24} />
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900">
                 Authorize New Device
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -336,7 +336,7 @@ export function AuditPage({ user }) {
 
           <div className="mt-6 space-y-4">
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                 Display Label
               </label>
               <input
@@ -350,11 +350,11 @@ export function AuditPage({ user }) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                   Identifier Type
                 </label>
                 <select
-                  className="w-full h-11 px-4 rounded-lg border border-slate-200 text-sm font-medium outline-none focus:border-slate-900 bg-white"
+                  className="w-full h-11 px-4 rounded-lg border border-slate-200 text-xs font-medium outline-none focus:border-slate-900 bg-white"
                   value={newWhitelist.type}
                   onChange={(e) =>
                     setNewWhitelist({ ...newWhitelist, type: e.target.value })
@@ -365,7 +365,7 @@ export function AuditPage({ user }) {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                   Identifier Value
                 </label>
                 <input
@@ -394,7 +394,7 @@ export function AuditPage({ user }) {
               Cancel
             </button>
             <button
-              className="h-10 rounded-lg bg-slate-900 px-6 text-sm font-bold text-white shadow-lg hover:bg-black disabled:opacity-50"
+              className="h-10 rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg hover:bg-black disabled:opacity-50"
               onClick={handleAddWhitelist}
               type="button"
               disabled={!newWhitelist.label || !newWhitelist.identifier}
@@ -418,12 +418,12 @@ export function AuditPage({ user }) {
               <ShieldBan size={24} />
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900">
                 Block this identity?
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 This will add the device to the{" "}
-                <strong>Security Perimeter</strong> and permanently block all
+                <span className="font-semibold">Security Perimeter</span> and permanently block all
                 API access until manually unblocked.
               </p>
             </div>
@@ -453,7 +453,7 @@ export function AuditPage({ user }) {
               Cancel
             </button>
             <button
-              className="relative overflow-hidden h-10 rounded-lg bg-rose-600 px-6 text-sm font-bold text-white shadow-lg shadow-rose-900/10 hover:bg-rose-700 disabled:opacity-70"
+              className="relative overflow-hidden h-10 rounded-lg bg-rose-600 px-6 text-sm font-semibold text-white shadow-lg shadow-rose-900/10 hover:bg-rose-700 disabled:opacity-70"
               onClick={confirmBlock}
               type="button"
               disabled={!reason.trim() || processing}
@@ -492,7 +492,7 @@ export function AuditPage({ user }) {
               )}
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900">
                 {activeTab === "whitelist"
                   ? "Revoke Trust?"
                   : activeTab === "perimeter"
@@ -503,19 +503,19 @@ export function AuditPage({ user }) {
                 {activeTab === "whitelist" ? (
                   <>
                     Are you sure you want to remove{" "}
-                    <strong>{pendingRevoke?.label}</strong> from the trusted
+                    <span className="font-semibold">{pendingRevoke?.label}</span> from the trusted
                     fleet?
                   </>
                 ) : activeTab === "perimeter" ? (
                   <>
                     Are you sure you want to unblock{" "}
-                    <strong>{pendingRevoke?.label}</strong> from the security
+                    <span className="font-semibold">{pendingRevoke?.label}</span> from the security
                     perimeter?
                   </>
                 ) : (
                   <>
                     Are you sure you want to restore access for{" "}
-                    <strong>{pendingRevoke?.label}</strong>?
+                    <span className="font-semibold">{pendingRevoke?.label}</span>?
                   </>
                 )}
               </p>
@@ -537,7 +537,7 @@ export function AuditPage({ user }) {
           {activeTab !== "whitelist" &&
             (pendingRevoke?.ip_address || pendingRevoke?.mac_address) && (
               <div className="mt-6 p-4 rounded-lg border border-slate-100 bg-slate-50/50 space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
                   Select Identity Targets to Restore
                 </p>
                 <div className="flex flex-wrap gap-4">
@@ -564,7 +564,7 @@ export function AuditPage({ user }) {
                         }
                       />
                       <span
-                        className={`text-sm font-bold text-slate-700 group-hover:text-slate-900 ${pendingRevoke.block_target === "mac" ? "line-through" : ""}`}
+                        className={`text-sm font-semibold text-slate-700 group-hover:text-slate-900 ${pendingRevoke.block_target === "mac" ? "line-through" : ""}`}
                       >
                         IP: {pendingRevoke.ip_address}
                       </span>
@@ -593,7 +593,7 @@ export function AuditPage({ user }) {
                         }
                       />
                       <span
-                        className={`text-sm font-bold text-slate-700 group-hover:text-slate-900 ${pendingRevoke.block_target === "ip" ? "line-through" : ""}`}
+                        className={`text-sm font-semibold text-slate-700 group-hover:text-slate-900 ${pendingRevoke.block_target === "ip" ? "line-through" : ""}`}
                       >
                         MAC: {pendingRevoke.mac_address}
                       </span>
@@ -639,7 +639,7 @@ export function AuditPage({ user }) {
               Cancel
             </button>
             <button
-              className={`relative overflow-hidden h-10 rounded-lg px-6 text-sm font-bold text-white shadow-lg disabled:opacity-70 ${activeTab === "whitelist" || activeTab === "perimeter" ? "bg-rose-600 shadow-rose-900/10 hover:bg-rose-700" : "bg-emerald-600 shadow-emerald-900/10 hover:bg-emerald-700"}`}
+              className={`relative overflow-hidden h-10 rounded-lg px-6 text-sm font-semibold text-white shadow-lg disabled:opacity-70 ${activeTab === "whitelist" || activeTab === "perimeter" ? "bg-rose-600 shadow-rose-900/10 hover:bg-rose-700" : "bg-emerald-600 shadow-emerald-900/10 hover:bg-emerald-700"}`}
               onClick={confirmRevoke}
               type="button"
               disabled={
@@ -684,7 +684,7 @@ export function AuditPage({ user }) {
               <button
                 type="button"
                 onClick={() => setIsAddingWhitelist(true)}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
               >
                 <Plus size={16} />
                 <span>Add Device</span>
@@ -693,7 +693,7 @@ export function AuditPage({ user }) {
             <button
               type="button"
               onClick={activeTab === "logs" ? loadLogs : loadAuthority}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white shadow-sm backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
               disabled={loading}
             >
               {loading ? (
@@ -723,11 +723,11 @@ export function AuditPage({ user }) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative z-10 flex flex-1 items-center justify-center gap-2 h-9 px-3 rounded-md text-[10px] font-bold tracking-tight transition-all duration-200 whitespace-nowrap ${
-                activeTab === tab.id
-                  ? "text-white"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
+              className={`relative z-10 flex flex-1 items-center justify-center gap-2 h-9 px-3 rounded-md text-xs font-semibold tracking-tight transition-all duration-200 whitespace-nowrap ${
+                              activeTab === tab.id
+                                ? "text-white"
+                                : "text-slate-500 hover:text-slate-800"
+                            }`}
             >
               <tab.icon size={14} strokeWidth={1.5} className="shrink-0" />
               <span className="hidden md:inline">{tab.label}</span>
@@ -767,375 +767,377 @@ export function AuditPage({ user }) {
       ) : null}
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:shadow-sm">
-        {activeTab === "logs" ? (
-          <>
-            <div className={`hidden gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100 ${
-              user?.role === "network_admin"
-                ? "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px]"
-                : "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr]"
-            }`}>
-              <div>Log Activity</div>
-              <div>Actor & Entity</div>
-              <div>Asset Context</div>
-              <div>Network Origin</div>
-              {user?.role === 'network_admin' && <div className="text-right">Authority</div>}
-            </div>
-            <div className="divide-y divide-slate-100">
-              {paginatedLogs.length ? (
-                paginatedLogs.map((log) => (
-                  <article
-                    className={`group flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:items-center lg:gap-6 ${
-                      user?.role === "network_admin"
-                        ? "lg:grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px]"
-                        : "lg:grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr]"
-                    }`}
-                    key={`log-${log.id}`}
-                  >
-                    {/* 1. Action & Timestamp */}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 lg:mb-1.5">
-                        <span
-                          className={`inline-flex shrink-0 rounded-md border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${getActionColor(
-                            log.action,
-                          )}`}
-                        >
-                          {labelAction(log.action)}
-                        </span>
-                      </div>
-                      <div className="mt-2 flex items-center gap-2 text-slate-500 lg:mt-0">
-                        <Clock size={12} className="shrink-0 text-slate-300" />
-                        <p className="text-xs font-medium tabular-nums">
-                          {log.createdAt
-                            ? new Date(Number(log.createdAt)).toLocaleString()
-                            : "Unknown"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* 2. User/Actor Info */}
-                    <div className="min-w-0">
-                      <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
-                        Actor
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
-                          <User size={18} strokeWidth={2} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-slate-800">
-                            {log.actorEmail || "System Engine"}
-                          </p>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            {log.actorRole || "Automated"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 3. Target/Asset Info */}
-                    <div className="min-w-0">
-                      <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
-                        Target Asset
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
-                          <Monitor size={18} strokeWidth={2} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-slate-800">
-                            {log.targetLabel || log.targetId || "System"}
-                          </p>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            {log.targetType || "Service"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 4. Network Info */}
-                    <div className="min-w-0">
-                      <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
-                        Network Context
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
-                          <Globe size={18} strokeWidth={2} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-data text-xs font-bold text-slate-700">
-                            {log.ipAddress || "Internal"}
-                          </p>
-                          <p className="mt-0.5 font-data text-[10px] font-bold text-slate-400">
-                            {log.macAddress || "No MAC Recorded"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 5. Actions */}
-                    {user?.role === 'network_admin' && (
-                      <div className="flex items-center justify-between border-t border-slate-50 pt-5 lg:justify-end lg:border-0 lg:pt-0">
-                        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
-                          Authority
-                        </span>
-                        {log.isWhitelisted ? (
-                          <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-widest text-emerald-600">
-                            <CheckCircle2 size={14} strokeWidth={3} />
-                            Authorized
-                          </div>
-                        ) : log.isThrottled ? (
-                          <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-widest text-rose-600">
-                            <ShieldBan size={14} strokeWidth={3} />
-                            Hard Blocked
-                          </div>
-                        ) : !log.macAddress && !log.actorEmail ? (
-                          <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                            <ShieldBan size={14} strokeWidth={3} />
-                            Unauthorized
-                          </div>
-                        ) : (
-                          <button
-                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-rose-100 bg-rose-50 px-4 text-[10px] font-bold uppercase tracking-widest text-rose-600 shadow-sm shadow-rose-600/5 transition-all hover:bg-rose-100 hover:border-rose-200 active:scale-[0.97]"
-                            onClick={() => {
-                              setPendingBlock(log);
-                              setReason("");
-                            }}
-                            type="button"
-                          >
-                            <ShieldBan size={14} strokeWidth={3} />
-                            Unauthorized
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </article>
-                ))
-              ) : (
-                <div className="p-12 text-center">
-                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
-                    <ClipboardList size={24} />
-                  </div>
-                  <p className="text-xs font-bold tracking-[0.05em] text-slate-400">
-                    {loading ? "Decrypting logs..." : "Zero audit entries"}
-                  </p>
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <div
-              className={`hidden gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100 ${
-                activeTab === "whitelist"
-                  ? "grid-cols-[1.5fr_1fr_1.2fr_130px]"
-                  : "grid-cols-[1.5fr_1fr_1.8fr_1.2fr_130px]"
-              }`}
-            >
-              <div>Security Identity</div>
-              <div>Category</div>
-              {activeTab !== "whitelist" && (
-                <div>
-                  {activeTab === "perimeter"
-                    ? "Block Reason"
-                    : "Throttle Reason"}
-                </div>
-              )}
-              <div>
-                {activeTab === "whitelist"
-                  ? "Authorized On"
-                  : activeTab === "perimeter"
-                    ? "Blocked On"
-                    : "Throttled On"}
+        <div className="overflow-x-auto">
+          {activeTab === "logs" ? (
+            <>
+              <div className={`hidden min-w-[1000px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:grid border-b border-slate-100 ${
+                user?.role === "network_admin"
+                  ? "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px]"
+                  : "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr]"
+              }`}>
+                <div>Log Activity</div>
+                <div>Actor & Entity</div>
+                <div>Asset Context</div>
+                <div>Network Origin</div>
+                {user?.role === 'network_admin' && <div className="text-right">Authority</div>}
               </div>
-              <div className="text-right">Authority</div>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {paginatedAuthority.length ? (
-                paginatedAuthority.map((subject) => (
-                  <article
-                    className={`group flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:items-center lg:gap-6 ${
-                      activeTab === "whitelist"
-                        ? "lg:grid-cols-[1.5fr_1fr_1.2fr_130px]"
-                        : "lg:grid-cols-[1.5fr_1fr_1.8fr_1.2fr_130px]"
-                    }`}
-                    key={subject.id}
-                  >
-                    {/* 1. Identity */}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors group-hover:bg-white ${
-                            activeTab === "whitelist"
-                              ? "border-emerald-100 bg-emerald-50/50 text-emerald-600"
-                              : activeTab === "perimeter"
-                                ? "border-rose-100 bg-rose-50/50 text-rose-600"
-                                : "border-amber-100 bg-amber-50/50 text-amber-600"
-                          }`}
-                        >
-                          {subject.subject_type === "user" ? (
-                            <User size={18} />
-                          ) : subject.subject_type === "agent_id" ? (
-                            <ShieldBan size={18} />
+              <div className="divide-y divide-slate-100">
+                {paginatedLogs.length ? (
+                  paginatedLogs.map((log) => (
+                    <article
+                      className={`group min-w-[1000px] flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:items-center lg:gap-6 ${
+                        user?.role === "network_admin"
+                          ? "lg:grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px]"
+                          : "lg:grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr]"
+                      }`}
+                      key={`log-${log.id}`}
+                    >
+                      {/* 1. Action & Timestamp */}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 lg:mb-1.5">
+                          <span
+                            className={`inline-flex shrink-0 rounded-md border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${getActionColor(
+                              log.action,
+                            )}`}
+                          >
+                            {labelAction(log.action)}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2 text-slate-500 lg:mt-0">
+                          <Clock size={12} className="shrink-0 text-slate-300" />
+                          <p className="text-xs font-medium tabular-nums">
+                            {log.createdAt
+                              ? new Date(Number(log.createdAt)).toLocaleString()
+                              : "Unknown"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 2. User/Actor Info */}
+                      <div className="min-w-0">
+                        <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
+                          Actor
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
+                            <User size={18} strokeWidth={2} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-800">
+                              {log.actorEmail || "System Engine"}
+                            </p>
+                            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                              {log.actorRole || "Automated"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 3. Target/Asset Info */}
+                      <div className="min-w-0">
+                        <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
+                          Target Asset
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
+                            <Monitor size={18} strokeWidth={2} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-800">
+                              {log.targetLabel || log.targetId || "System"}
+                            </p>
+                            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                              {log.targetType || "Service"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 4. Network Info */}
+                      <div className="min-w-0">
+                        <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
+                          Network Context
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
+                            <Globe size={18} strokeWidth={2} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-data text-xs font-semibold text-slate-700">
+                              {log.ipAddress || "Internal"}
+                            </p>
+                            <p className="mt-0.5 font-data text-xs font-medium text-slate-400">
+                              {log.macAddress || "No MAC Recorded"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 5. Actions */}
+                      {user?.role === 'network_admin' && (
+                        <div className="flex items-center justify-between border-t border-slate-50 pt-5 lg:justify-end lg:border-0 lg:pt-0">
+                          <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
+                            Authority
+                          </span>
+                          {log.isWhitelisted ? (
+                            <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-600">
+                              <CheckCircle2 size={14} strokeWidth={3} />
+                              Authorized
+                            </div>
+                          ) : log.isThrottled ? (
+                            <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-rose-600">
+                              <ShieldBan size={14} strokeWidth={3} />
+                              Hard Blocked
+                            </div>
+                          ) : !log.macAddress && !log.actorEmail ? (
+                            <div className="flex h-9 items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                              <ShieldBan size={14} strokeWidth={3} />
+                              Unauthorized
+                            </div>
                           ) : (
-                            <Monitor size={18} />
+                            <button
+                              className="inline-flex h-9 items-center gap-2 rounded-lg border border-rose-100 bg-rose-50 px-4 text-[10px] font-semibold uppercase tracking-wider text-rose-600 shadow-sm shadow-rose-600/5 transition-all hover:bg-rose-100 hover:border-rose-200 active:scale-[0.97]"
+                              onClick={() => {
+                                setPendingBlock(log);
+                                setReason("");
+                              }}
+                              type="button"
+                            >
+                              <ShieldBan size={14} strokeWidth={3} />
+                              Unauthorized
+                            </button>
                           )}
                         </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-slate-800">
-                            {subject.label}
-                          </p>
-                          <div className="flex flex-col gap-0.5 mt-0.5">
-                            {subject.ip_address && (
-                              <p
-                                className={`font-data text-[10px] font-bold ${subject.block_target === "mac" && activeTab !== "whitelist" ? "text-slate-300 line-through" : "text-slate-500"}`}
-                              >
-                                IP: {subject.ip_address}
-                              </p>
+                      )}
+                    </article>
+                  ))
+                ) : (
+                  <div className="p-12 text-center">
+                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
+                      <ClipboardList size={24} />
+                    </div>
+                    <p className="text-xs font-semibold tracking-wide text-slate-400">
+                      {loading ? "Decrypting logs..." : "Zero audit entries"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                className={`hidden min-w-[1000px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:grid border-b border-slate-100 ${
+                  activeTab === "whitelist"
+                    ? "grid-cols-[1.5fr_1fr_1.2fr_130px]"
+                    : "grid-cols-[1.5fr_1fr_1.8fr_1.2fr_130px]"
+                }`}
+              >
+                <div>Security Identity</div>
+                <div>Category</div>
+                {activeTab !== "whitelist" && (
+                  <div>
+                    {activeTab === "perimeter"
+                      ? "Block Reason"
+                      : "Throttle Reason"}
+                  </div>
+                )}
+                <div>
+                  {activeTab === "whitelist"
+                    ? "Authorized On"
+                    : activeTab === "perimeter"
+                      ? "Blocked On"
+                      : "Throttled On"}
+                </div>
+                <div className="text-right">Authority</div>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {paginatedAuthority.length ? (
+                  paginatedAuthority.map((subject) => (
+                    <article
+                      className={`group min-w-[1000px] flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:items-center lg:gap-6 ${
+                        activeTab === "whitelist"
+                          ? "lg:grid-cols-[1.5fr_1fr_1.2fr_130px]"
+                          : "lg:grid-cols-[1.5fr_1fr_1.8fr_1.2fr_130px]"
+                      }`}
+                      key={subject.id}
+                    >
+                      {/* 1. Identity */}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors group-hover:bg-white ${
+                              activeTab === "whitelist"
+                                ? "border-emerald-100 bg-emerald-50/50 text-emerald-600"
+                                : activeTab === "perimeter"
+                                  ? "border-rose-100 bg-rose-50/50 text-rose-600"
+                                  : "border-amber-100 bg-amber-50/50 text-amber-600"
+                            }`}
+                          >
+                            {subject.subject_type === "user" ? (
+                              <User size={18} />
+                            ) : subject.subject_type === "agent_id" ? (
+                              <ShieldBan size={18} />
+                            ) : (
+                              <Monitor size={18} />
                             )}
-                            {subject.mac_address && (
-                              <p
-                                className={`font-data text-[10px] font-bold ${subject.block_target === "ip" && activeTab !== "whitelist" ? "text-slate-300 line-through" : "text-slate-500"}`}
-                              >
-                                MAC: {subject.mac_address}
-                              </p>
-                            )}
-                            {!subject.ip_address && !subject.mac_address && (
-                              <p className="font-data text-[10px] font-bold text-slate-400 truncate">
-                                {subject.identifier}
-                              </p>
-                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-800">
+                              {subject.label}
+                            </p>
+                            <div className="flex flex-col gap-0.5 mt-0.5">
+                              {subject.ip_address && (
+                                <p
+                                  className={`font-data text-xs font-medium ${subject.block_target === "mac" && activeTab !== "whitelist" ? "text-slate-300 line-through" : "text-slate-500"}`}
+                                >
+                                  IP: {subject.ip_address}
+                                </p>
+                              )}
+                              {subject.mac_address && (
+                                <p
+                                  className={`font-data text-xs font-medium ${subject.block_target === "ip" && activeTab !== "whitelist" ? "text-slate-300 line-through" : "text-slate-500"}`}
+                                >
+                                  MAC: {subject.mac_address}
+                                </p>
+                              )}
+                              {!subject.ip_address && !subject.mac_address && (
+                                <p className="font-data text-xs font-medium text-slate-400 truncate">
+                                  {subject.identifier}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* 2. Type */}
-                    <div>
-                      <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
-                        Identity Category
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {activeTab !== "whitelist" &&
-                        subject.block_target === "all" &&
-                        subject.ip_address &&
-                        subject.mac_address ? (
-                          <>
-                            <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-600">
-                              IP
-                            </span>
-                            <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-600">
-                              MAC
-                            </span>
-                          </>
-                        ) : (
-                          <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-600">
-                            {subject.block_target === "all"
-                              ? subject.subject_type.replace("_", " ")
-                              : subject.block_target}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 3. Context/Reason (Only for Perimeter/RateLimit) */}
-                    {activeTab !== "whitelist" && (
-                      <div className="min-w-0">
-                        <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
-                          {activeTab === "perimeter"
-                            ? "Block Reason"
-                            : "Throttle Reason"}
+                      {/* 2. Type */}
+                      <div>
+                        <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
+                          Identity Category
                         </span>
-                        <p className="text-xs font-medium text-slate-600 line-clamp-2 italic leading-relaxed">
-                          "{subject.reason || "No reason provided"}"
-                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {activeTab !== "whitelist" &&
+                          subject.block_target === "all" &&
+                          subject.ip_address &&
+                          subject.mac_address ? (
+                            <>
+                              <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-600">
+                                IP
+                              </span>
+                              <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-600">
+                                MAC
+                              </span>
+                            </>
+                          ) : (
+                            <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-600">
+                              {subject.block_target === "all"
+                                ? subject.subject_type.replace("_", " ")
+                                : subject.block_target}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    )}
 
-                    {/* 4. Date */}
-                    <div>
-                      <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
-                        Event Timestamp
-                      </span>
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <Clock size={12} className="shrink-0 text-slate-300" />
-                        <p className="text-xs font-medium tabular-nums">
-                          {new Date(
-                            Number(subject.recorded_at),
-                          ).toLocaleDateString(undefined, {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </p>
+                      {/* 3. Context/Reason (Only for Perimeter/RateLimit) */}
+                      {activeTab !== "whitelist" && (
+                        <div className="min-w-0">
+                          <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
+                            {activeTab === "perimeter"
+                              ? "Block Reason"
+                              : "Throttle Reason"}
+                          </span>
+                          <p className="text-xs font-medium text-slate-600 line-clamp-2 italic leading-relaxed">
+                            "{subject.reason || "No reason provided"}"
+                          </p>
+                        </div>
+                      )}
+
+                      {/* 4. Date */}
+                      <div>
+                        <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
+                          Event Timestamp
+                        </span>
+                        <div className="flex items-center gap-2 text-slate-500">
+                          <Clock size={12} className="shrink-0 text-slate-300" />
+                          <p className="text-xs font-medium tabular-nums">
+                            {new Date(
+                              Number(subject.recorded_at),
+                            ).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </p>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* 5. Authority Actions */}
-                    <div className="flex items-center justify-between border-t border-slate-50 pt-5 lg:justify-end lg:border-0 lg:pt-0">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
-                        Authority Controls
-                      </span>
-                      <button
-                        className={`inline-flex h-9 items-center gap-2 rounded-lg border px-4 text-[10px] font-bold uppercase tracking-widest transition-all active:scale-[0.97] ${
-                          activeTab === "whitelist" || activeTab === "perimeter"
-                            ? "border-rose-100 bg-rose-50 text-rose-600 shadow-sm shadow-rose-600/5 hover:bg-rose-100 hover:border-rose-200"
-                            : "border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm shadow-emerald-600/5 hover:bg-emerald-100 hover:border-emerald-200"
-                        }`}
-                        onClick={() => {
-                          setPendingRevoke(subject);
-                          setReason("");
-                        }}
-                        type="button"
-                      >
-                        {activeTab === "whitelist" ||
-                        activeTab === "perimeter" ? (
-                          <>
-                            <ShieldBan size={14} strokeWidth={3} />
-                            {activeTab === "whitelist"
-                              ? "Revoke Trust"
-                              : "Unblock Asset"}
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 size={14} strokeWidth={3} />
-                            Restore Access
-                          </>
-                        )}
-                      </button>
+                      {/* 5. Authority Actions */}
+                      <div className="flex items-center justify-between border-t border-slate-50 pt-5 lg:justify-end lg:border-0 lg:pt-0">
+                        <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
+                          Authority Controls
+                        </span>
+                        <button
+                          className={`inline-flex h-9 items-center gap-2 rounded-lg border px-4 text-[10px] font-semibold uppercase tracking-wider transition-all active:scale-[0.97] ${
+                            activeTab === "whitelist" || activeTab === "perimeter"
+                              ? "border-rose-100 bg-rose-50 text-rose-600 shadow-sm shadow-rose-600/5 hover:bg-rose-100 hover:border-rose-200"
+                              : "border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm shadow-emerald-600/5 hover:bg-emerald-100 hover:border-emerald-200"
+                          }`}
+                          onClick={() => {
+                            setPendingRevoke(subject);
+                            setReason("");
+                          }}
+                          type="button"
+                        >
+                          {activeTab === "whitelist" ||
+                          activeTab === "perimeter" ? (
+                            <>
+                              <ShieldBan size={14} strokeWidth={3} />
+                              {activeTab === "whitelist"
+                                ? "Revoke Trust"
+                                : "Unblock Asset"}
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 size={14} strokeWidth={3} />
+                              Restore Access
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="p-12 text-center">
+                    <div
+                      className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg ${
+                        activeTab === "whitelist"
+                          ? "bg-emerald-50 text-emerald-200"
+                          : activeTab === "perimeter"
+                            ? "bg-rose-50 text-rose-200"
+                            : "bg-amber-50 text-amber-200"
+                      }`}
+                    >
+                      {activeTab === "whitelist" || activeTab === "perimeter" ? (
+                        <ShieldBan size={28} />
+                      ) : (
+                        <CheckCircle2 size={28} />
+                      )}
                     </div>
-                  </article>
-                ))
-              ) : (
-                <div className="p-12 text-center">
-                  <div
-                    className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg ${
-                      activeTab === "whitelist"
-                        ? "bg-emerald-50 text-emerald-200"
-                        : activeTab === "perimeter"
-                          ? "bg-rose-50 text-rose-200"
-                          : "bg-amber-50 text-amber-200"
-                    }`}
-                  >
-                    {activeTab === "whitelist" || activeTab === "perimeter" ? (
-                      <ShieldBan size={28} />
-                    ) : (
-                      <CheckCircle2 size={28} />
-                    )}
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      {loading
+                        ? "Refreshing Security Cache..."
+                        : activeTab === "whitelist"
+                          ? "Your Trusted Fleet is Empty"
+                          : activeTab === "perimeter"
+                            ? "No Manually Blocked Devices"
+                            : "No Throttled Subjects Found"}
+                    </p>
                   </div>
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
-                    {loading
-                      ? "Refreshing Security Cache..."
-                      : activeTab === "whitelist"
-                        ? "Your Trusted Fleet is Empty"
-                        : activeTab === "perimeter"
-                          ? "No Manually Blocked Devices"
-                          : "No Throttled Subjects Found"}
-                  </p>
-                </div>
-              )}
-            </div>
-          </>
-        )}
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
         <Pagination
           currentPage={currentPage}

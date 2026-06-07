@@ -7,6 +7,7 @@ import {
 import {
   getDiscoverySnapshot,
   runDiscoveryScan,
+  setPreferredSubnet,
 } from "../services/discovery/index.js";
 import { getTelemetrySettings } from "../services/settings.service.js";
 import {
@@ -199,6 +200,13 @@ export function registerDeviceSocket(io) {
       } catch (error) {
         callback?.({ success: false, message: error.message });
       }
+    });
+
+    socket.on("discovery:set_preferred_subnet", (subnet) => {
+      console.log(`[SOCKET] Dashboard set preferred subnet to: ${subnet}`);
+      setPreferredSubnet(subnet);
+      // Immediately broadcast the updated snapshot (which now includes the new subnet) to all dashboards
+      io.to("dashboards").emit("discovery:update", getDiscoverySnapshot());
     });
   });
 }
