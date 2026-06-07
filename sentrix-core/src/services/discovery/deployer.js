@@ -95,7 +95,10 @@ async function deployAgentViaAdminPush(ip, credentials, serverUrl) {
                 Start-ScheduledTask -TaskName 'Sentrix Helper' -ErrorAction SilentlyContinue
             }
             
-            # Lockdown Phase: Re-secure the machine
+            # Lockdown Phase: Re-secure the machine (Grace period for agent startup)
+            Write-Host 'Ensuring agent connectivity before lockdown...'
+            Start-Sleep -Seconds 10
+
             Write-Host 'Securing machine...'
             Disable-LocalUser -Name 'Administrator' -ErrorAction SilentlyContinue
             Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'LocalAccountTokenFilterPolicy' -Value 0 -ErrorAction SilentlyContinue
@@ -135,7 +138,7 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
   const serverUrl = process.env.SENTRIX_PUBLIC_SERVER_URL
     || process.env.CORE_PUBLIC_URL
     || process.env.BACKEND_URL
-    || `http://${getPrimaryInterfaceAddress() || "localhost"}:${process.env.PORT || 4000}`;
+    || `https://${getPrimaryInterfaceAddress() || "localhost"}:${process.env.PORT || 4000}`;
 
   if (!credentials) {
     return {
@@ -236,7 +239,9 @@ export async function deployAgentToHostRemote(ip, credentials = null) {
                   Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
               }
 
-              # Lockdown Phase: Re-secure the machine
+              # Lockdown Phase: Re-secure the machine (Grace period for agent startup)
+              Start-Sleep -Seconds 10
+
               Disable-LocalUser -Name "Administrator" -ErrorAction SilentlyContinue
               Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" -Name "LocalAccountTokenFilterPolicy" -Value 0 -ErrorAction SilentlyContinue
               \$rules = @("WINRM-HTTP-In-TCP", "WINRM-HTTP-In-TCP-PUBLIC", "FPS-SMB-In-TCP", "WMI-In-TCP")
@@ -289,7 +294,7 @@ export async function deployAgentToHost(ip, lastScanResults, credentials = null,
   const serverUrl = process.env.SENTRIX_PUBLIC_SERVER_URL
     || process.env.CORE_PUBLIC_URL
     || process.env.BACKEND_URL
-    || `http://${getPrimaryInterfaceAddress() || "localhost"}:${process.env.PORT || 4000}`;
+    || `https://${getPrimaryInterfaceAddress() || "localhost"}:${process.env.PORT || 4000}`;
 
   if (credentials) {
     const result = await deployAgentToHostRemote(ip, credentials);
