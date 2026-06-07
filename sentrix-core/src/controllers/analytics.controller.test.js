@@ -37,4 +37,11 @@ describe('Analytics Controller', () => {
     expect(res.status).toBe(200);
     expect(res.header['content-type']).toBe('text/csv; charset=utf-8');
   });
+
+  it('GET /api/analytics/export.docx', async () => {
+    analyticsService.getAnalyticsDocx.mockResolvedValue(Buffer.from('docx content'));
+    const res = await request(app).get('/api/analytics/export.docx');
+    expect(res.status).toBe(200);
+    expect(res.header['content-type']).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  });
 });

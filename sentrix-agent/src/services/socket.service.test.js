@@ -33,7 +33,7 @@ describe('Socket Service', () => {
   });
 
   it('should register agent on connect', () => {
-    connectToCore({ serverUrl: 'http://localhost:4000', profile: mockProfile });
+    connectToCore({ serverUrl: 'https://localhost:4000', profile: mockProfile });
     
     // Find the 'connect' listener and trigger it
     const connectHandler = mockSocket.on.mock.calls.find(call => call[0] === 'connect')[1];
@@ -43,7 +43,7 @@ describe('Socket Service', () => {
   });
 
   it('should handle remote power commands', async () => {
-    connectToCore({ serverUrl: 'http://localhost:4000', profile: mockProfile });
+    connectToCore({ serverUrl: 'https://localhost:4000', profile: mockProfile });
     
     const commandHandler = mockSocket.on.mock.calls.find(call => call[0] === 'agent:command')[1];
     const callback = vi.fn();
@@ -59,7 +59,7 @@ describe('Socket Service', () => {
   });
 
   it('should handle kill-process command', async () => {
-    connectToCore({ serverUrl: 'http://localhost:4000', profile: mockProfile });
+    connectToCore({ serverUrl: 'https://localhost:4000', profile: mockProfile });
     
     const commandHandler = mockSocket.on.mock.calls.find(call => call[0] === 'agent:command')[1];
     killProcess.mockResolvedValue({ success: true });
@@ -70,7 +70,7 @@ describe('Socket Service', () => {
   });
 
   it('should handle utility maintenance commands', async () => {
-    connectToCore({ serverUrl: 'http://localhost:4000', profile: mockProfile });
+    connectToCore({ serverUrl: 'https://localhost:4000', profile: mockProfile });
     
     const commandHandler = mockSocket.on.mock.calls.find(call => call[0] === 'agent:command')[1];
     const callback = vi.fn();
