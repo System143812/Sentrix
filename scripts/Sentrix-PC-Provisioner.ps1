@@ -1,4 +1,4 @@
-# Sentrix Master Image Prep Script
+# Sentrix Master Image Prep Script (Enhanced)
 # Run this as Administrator. It "unlocks" the PC for Zero-Touch deployment.
 
 $ErrorActionPreference = "Stop"
@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 Write-Host "--- Sentrix Master Image Prep Starting ---" -ForegroundColor Cyan
 
 # 1. Enable the built-in Administrator account
-Write-Host "[1/5] Enabling built-in Administrator account..." -NoNewline
+Write-Host "[1/7] Enabling built-in Administrator account..." -NoNewline
 try {
     Enable-LocalUser -Name "Administrator"
     Write-Host " [OK]" -ForegroundColor Green
@@ -17,25 +17,30 @@ try {
 # 2. Set a password for the Administrator account
 # CHANGE THIS to your preferred lab password
 $password = "SentrixLab2024!" 
-Write-Host "[2/5] Setting Administrator password..." -NoNewline
+Write-Host "[2/7] Setting Administrator password..." -NoNewline
 $admin = [adsi]"WinNT://localhost/Administrator,user"
 $admin.SetPassword($password)
 Write-Host " [OK]" -ForegroundColor Green
 
 # 3. Disable Remote UAC Filter (LocalAccountTokenFilterPolicy)
 # This allows remote admins to have full power over the network.
-Write-Host "[3/5] Configuring Remote UAC policy..." -NoNewline
+Write-Host "[3/7] Configuring Remote UAC policy..." -NoNewline
 $registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
 $name = "LocalAccountTokenFilterPolicy"
 if (-not (Test-Path $registryPath)) { New-Item -Path $registryPath -Force | Out-Null }
 New-ItemProperty -Path $registryPath -Name $name -Value 1 -PropertyType DWord -Force | Out-Null
 Write-Host " [OK]" -ForegroundColor Green
 
-# 4. Enable PowerShell Remoting (WinRM) & WMI Services
-Write-Host "[4/5] Enabling WinRM & WMI services..." -NoNewline
+# 4. Configure Network & WinRM (Crucial for Laptops/Wi-Fi)
+Write-Host "[4/7] Configuring Network & WinRM..." -NoNewline
 try {
+    # Force Network to Private (WinRM doesn't like Public networks)
+    Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private -ErrorAction SilentlyContinue
+
     # Enable WinRM
     Enable-PSRemoting -Force -SkipNetworkProfileCheck | Out-Null
+    Set-Item WSMan:\localhost\Client\TrustedHosts -Value "*" -Force
+    
     Set-Service WinRM -StartupType Automatic
     Start-Service WinRM -ErrorAction SilentlyContinue
 
@@ -49,7 +54,7 @@ try {
 }
 
 # 5. Open Firewall Ports (SMB, WMI, WinRM)
-Write-Host "[5/5] Opening Firewall Ports (Comprehensive)..." -NoNewline
+Write-Host "[5/7] Opening Firewall Ports..." -NoNewline
 try {
     # Standard Rules
     $rules = @("WINRM-HTTP-In-TCP", "WINRM-HTTP-In-TCP-PUBLIC", "FPS-SMB-In-TCP", "WMI-In-TCP")
@@ -57,7 +62,7 @@ try {
         Enable-NetFirewallRule -Name $rule -ErrorAction SilentlyContinue
     }
 
-    # Broader WMI/RPC Rules (For stubborn firewalls)
+    # Broader WMI/RPC Rules
     Enable-NetFirewallRule -DisplayGroup "Remote Administration" -ErrorAction SilentlyContinue
     Enable-NetFirewallRule -DisplayGroup "Windows Remote Management" -ErrorAction SilentlyContinue
     Enable-NetFirewallRule -DisplayGroup "Windows Management Instrumentation (WMI)" -ErrorAction SilentlyContinue
@@ -65,6 +70,25 @@ try {
     Write-Host " [OK]" -ForegroundColor Green
 } catch {
     Write-Host " [FAILED]" -ForegroundColor Yellow
+}
+
+# 6. Add Antivirus Exclusions
+Write-Host "[6/7] Adding Windows Defender Exclusions..." -NoNewline
+try {
+    $targetPath = "C:\ProgramData\SentrixAgent"
+    if (-not (Test-Path $targetPath)) { New-Item -ItemType Directory -Path $targetPath -Force | Out-Null }
+    Add-MpPreference -ExclusionPath $targetPath -ErrorAction SilentlyContinue
+    Write-Host " [OK]" -ForegroundColor Green
+} catch {
+    Write-Host " [SKIPPED/FAILED]" -ForegroundColor Yellow
+}
+
+# 7. Final Verification
+Write-Host "[7/7] Verifying WinRM listener..." -NoNewline
+if (Test-WSMan -ErrorAction SilentlyContinue) {
+    Write-Host " [ONLINE]" -ForegroundColor Green
+} else {
+    Write-Host " [OFFLINE - Restart Required]" -ForegroundColor Red
 }
 
 Write-Host "`n--- Prep Complete! ---" -ForegroundColor Cyan

@@ -22,6 +22,7 @@ export function connectToCore({ serverUrl, profile, onStatus, onTelemetrySetting
     reconnectionDelay: 1000,
     reconnectionDelayMax: 10000,
     timeout: 10000,
+    rejectUnauthorized: false, // Required for self-signed development certificates
   });
 
   // --- Socket Events ---
