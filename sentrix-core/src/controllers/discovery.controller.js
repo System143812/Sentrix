@@ -2,21 +2,43 @@ import {
   getDiscoverySnapshot,
   runDiscoveryScan,
   deployAgentToHost,
+  getInterfaces as getInterfacesService,
 } from "../services/discovery/index.js";
 import { logAuditEvent } from "../services/audit.service.js";
 
 export async function scan(req, res, next) {
   try {
+    const { subnet } = req.body;
     const io = req.app.get("io");
-    io?.to("dashboards").emit("discovery:update", getDiscoverySnapshot());
+    
+    // Set initial status to scanning if we have a target
+    if (subnet) {
+      io?.to("dashboards").emit("discovery:update", {
+        ...getDiscoverySnapshot(),
+        status: "scanning",
+        subnet,
+        devices: [] // Clear old results from other subnets while scanning
+      });
+    }
 
-    await runDiscoveryScan();
+    await runDiscoveryScan(subnet);
     const snapshot = getDiscoverySnapshot();
     io?.to("dashboards").emit("discovery:update", snapshot);
 
     res.json({
       success: true,
       data: snapshot,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getInterfaces(req, res, next) {
+  try {
+    res.json({
+      success: true,
+      data: getInterfacesService(),
     });
   } catch (error) {
     next(error);
