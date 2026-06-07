@@ -2,7 +2,7 @@ import { io } from "socket.io-client";
 import path from "path";
 import fs from "fs";
 
-const socket = io("http://localhost:4000");
+const socket = io("https://localhost:4000");
 
 socket.on("connect", () => {
   console.log("Connected to core for testing");

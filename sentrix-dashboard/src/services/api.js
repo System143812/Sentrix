@@ -7,7 +7,7 @@ function resolveApiUrl() {
     return `${window.location.protocol}//${window.location.hostname}:4000`;
   }
 
-  return "http://localhost:4000";
+  return "https://localhost:4000";
 }
 
 const apiUrl = resolveApiUrl();
@@ -54,7 +54,9 @@ export async function fetchJson(path, options = {}) {
       setAuthToken(null);
     }
 
-    throw new Error(body.message || "Request failed.");
+    const error = new Error(body.message || "Request failed.");
+    error.data = body;
+    throw error;
   }
 
   return body;
