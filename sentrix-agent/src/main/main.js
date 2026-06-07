@@ -63,7 +63,7 @@ function sendStatusToWindow(status) {
 }
 
 async function startAgent() {
-  const serverUrl = process.env.SENTRIX_SERVER_URL || "http://localhost:4000";
+  const serverUrl = process.env.SENTRIX_SERVER_URL || "https://localhost:4000";
   let intervalMs = Number(process.env.METRICS_INTERVAL_MS || 5000);
   let profileIntervalMs = intervalMs;
   let detailsIntervalMs = intervalMs;

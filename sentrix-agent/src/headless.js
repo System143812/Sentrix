@@ -84,14 +84,16 @@ const args = process.argv.slice(2);
 const serverUrlArg = args.find(arg => arg.startsWith("--server-url="))?.split("=")[1] 
                    || args[args.indexOf("--server-url") + 1];
 
-let serverUrl = serverUrlArg || process.env.SENTRIX_SERVER_URL || "http://localhost:4000";
+// The .env file (SENTRIX_SERVER_URL) is the primary source of truth.
+// CLI arguments (--server-url) are used as a fallback or for development.
+let serverUrl = process.env.SENTRIX_SERVER_URL || serverUrlArg || "https://localhost:4000";
 
 // Ensure protocol is present
 if (serverUrl && !serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
-  serverUrl = `http://${serverUrl}`;
+  serverUrl = `https://${serverUrl}`;
 }
 
-log(`Server URL: ${serverUrl}`);
+log(`Server URL: "${serverUrl || 'MISSING'}"`);
 
 let metricsIntervalMs = Number(process.env.METRICS_INTERVAL_MS || 5000);
 let detailsIntervalMs = metricsIntervalMs;

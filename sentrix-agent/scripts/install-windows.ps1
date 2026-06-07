@@ -1,5 +1,5 @@
 param(
-  [string]$ServerUrl = "http://localhost:4000",
+  [string]$ServerUrl = "https://localhost:4000",
   [string]$InstallDir = "$env:ProgramData\SentrixAgent"
 )
 
