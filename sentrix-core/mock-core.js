@@ -45,5 +45,5 @@ io.on("connection", (socket) => {
 const PORT = 4001;
 const HOST = "127.0.0.1";
 server.listen(PORT, HOST, () => {
-  console.log(`[Mock Core] Listening on http://${HOST}:${PORT}`);
+  console.log(`[Mock Core] Listening on https://${HOST}:${PORT}`);
 });

@@ -25,8 +25,8 @@ const secret = process.env.JWT_SECRET || "sentrix-secret";
 function getCookieOptions() {
   return {
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "strict" : "none",
+    secure: true, // Always true since we are using HTTPS
     maxAge: 8 * 60 * 60 * 1000,
     path: "/",
   };
@@ -55,6 +55,9 @@ export async function login(req, res, next) {
         console.warn(`[SECURITY] Threshold reached. Banning device: IP=${ip}, MAC=${mac || 'Unknown'}`);
         await banDevice(req, { reason: "Too many failed login attempts." });
         await clearSecurityIncidents(req);
+        
+        // Return Blocked immediately so UI updates on the 10th failure
+        return res.status(403).json({ success: false, message: "Blocked" });
       }
 
       await logAuditEvent({
@@ -64,9 +67,18 @@ export async function login(req, res, next) {
         targetType: "user",
         targetLabel: email,
       });
+
+      const maxAttempts = 10;
+      const currentFailures = Math.max(ipCount, macCount);
+      const remaining = Math.max(0, maxAttempts - currentFailures);
+
       return res
         .status(401)
-        .json({ success: false, message: "Invalid credentials." });
+        .json({ 
+          success: false, 
+          message: "Invalid credentials.",
+          attemptsRemaining: remaining
+        });
     }
 
     if (!user.active) {
