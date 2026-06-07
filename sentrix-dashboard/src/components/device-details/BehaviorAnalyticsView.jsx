@@ -10,7 +10,6 @@ import {
   Activity, 
   TriangleAlert, 
   Search,
-  LoaderCircle,
   Code2,
   Cloud,
   Layers,
@@ -18,6 +17,7 @@ import {
   Info
 } from "lucide-react";
 import { DateFilterBar } from "../DateFilterBar.jsx";
+import { DetailLoader, DetailRefreshOverlay } from "../DetailLoader.jsx";
 import * as clientApi from "../../services/clientApi.js";
 
 const CATEGORY_ICONS = {
@@ -109,18 +109,10 @@ export function BehaviorAnalyticsView({ device }) {
 
   if (loading && !data.events.length) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="relative mb-6">
-          <div className="absolute inset-0 animate-ping rounded-full bg-blue-100 opacity-20" />
-          <div className="relative flex h-16 w-16 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
-            <LoaderCircle size={32} className="animate-spin" strokeWidth={2.5} />
-          </div>
-        </div>
-        <h5 className="text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">Synchronizing History</h5>
-        <p className="mt-2 text-xs font-medium text-slate-400 max-w-[280px] leading-relaxed">
-          Aggregating deep behavior patterns and system events from the database...
-        </p>
-      </div>
+      <DetailLoader 
+        title="Synchronizing History"
+        subtitle="Aggregating deep behavior patterns and system events from the database..."
+      />
     );
   }
 
@@ -128,15 +120,10 @@ export function BehaviorAnalyticsView({ device }) {
     <div className="relative grid gap-4 min-w-0 sm:gap-5">
       {/* Loading Overlay for refreshes */}
       {loading && data.events.length > 0 && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-white/60 backdrop-blur-[2px] transition-all overflow-hidden border border-blue-100/50">
-          <div className="flex flex-col items-center gap-4 rounded-lg border border-slate-200 bg-white p-8 shadow-sm ring-1 ring-slate-900/5">
-            <LoaderCircle size={40} className="animate-spin text-blue-600" />
-            <div className="text-center">
-              <p className="text-sm font-bold uppercase tracking-widest text-slate-900">Synchronizing Data</p>
-              <p className="mt-1 text-[11px] font-bold text-slate-400 uppercase tracking-tight">Updating historical intelligence...</p>
-            </div>
-          </div>
-        </div>
+        <DetailRefreshOverlay 
+          title="Synchronizing Data"
+          subtitle="Updating historical intelligence..."
+        />
       )}
 
       <div className="w-full">

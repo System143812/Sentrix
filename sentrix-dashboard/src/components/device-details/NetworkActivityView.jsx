@@ -4,7 +4,6 @@ import {
   History,
   CircleStop,
   Cpu,
-  LoaderCircle,
   ShieldAlert,
   Cloud,
   Terminal,
@@ -17,6 +16,7 @@ import {
 import { useLayoutEffect, useRef, useEffect, useMemo, useState } from "react";
 import { SearchFilterBar } from "../SearchFilterBar.jsx";
 import { useTelemetryInterval } from "../../hooks/useTelemetryInterval.js";
+import { DetailLoader, DetailRefreshOverlay } from "../DetailLoader.jsx";
 import * as clientApi from "../../services/clientApi.js";
 import { matchesSearch } from "../../shared/utils.js";
 import { ProcessEndConfirmDialog } from "./shared/Dialogs.jsx";
@@ -531,10 +531,10 @@ export function NetworkActivityView({ device }) {
 
   if (loading && processes.length === 0) {
     return (
-      <div className="py-12 text-center">
-        <LoaderCircle className="mx-auto animate-spin text-slate-400 mb-4" size={24} strokeWidth={2.5} />
-        <p className="text-sm font-bold uppercase tracking-widest text-slate-400 font-ui">Establishing real-time stream...</p>
-      </div>
+      <DetailLoader 
+        title="Establishing Real-time Stream"
+        subtitle="Connecting to the agent telemetry bridge and synchronizing active process metrics..."
+      />
     );
   }
 
@@ -542,15 +542,10 @@ export function NetworkActivityView({ device }) {
     <div className="relative grid min-w-0 items-start gap-6 lg:grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
       {/* Loading Overlay for refreshes */}
       {loading && processes.length > 0 && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-white/40 backdrop-blur-[1px] transition-all">
-          <div className="flex flex-col items-center gap-4 rounded-lg border border-slate-200 bg-white/90 p-8 shadow-sm">
-            <LoaderCircle size={32} className="animate-spin text-blue-600" />
-            <div className="text-center">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-800">Refreshing Stream</p>
-              <p className="mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-tight">Syncing active process & network data...</p>
-            </div>
-          </div>
-        </div>
+        <DetailRefreshOverlay 
+          title="Refreshing Stream"
+          subtitle="Syncing active process & network data..."
+        />
       )}
 
       <ProcessEndConfirmDialog

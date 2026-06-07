@@ -39,6 +39,7 @@ import { MetricPill } from "./MetricPill.jsx";
 import { SearchFilterBar } from "./SearchFilterBar.jsx";
 import { Pagination } from "./Pagination.jsx";
 import { useToast } from "./ToastProvider.jsx";
+import { DetailLoader } from "./DetailLoader.jsx";
 import * as clientApi from "../services/clientApi.js";
 import * as settingsApi from "../services/settingsApi.js";
 import {
@@ -85,9 +86,9 @@ function DetailViewSwitch({ activeView, onChange, canControl }) {
           <button
             key={button.id}
             onClick={() => onChange(button.id)}
-            className={`relative z-10 flex flex-1 items-center justify-center gap-2.5 h-9 px-3 rounded-md text-[10px] font-bold tracking-tight transition-all duration-200 whitespace-nowrap ${
-              selected ? 'text-white' : 'text-slate-500 hover:text-slate-800'
-            }`}
+            className={`relative z-10 flex flex-1 items-center justify-center gap-2.5 h-9 px-3 rounded-md text-xs font-bold tracking-tight transition-all duration-200 whitespace-nowrap ${
+                          selected ? 'text-white' : 'text-slate-500 hover:text-slate-800'
+                        }`}
           >
             <Icon size={14} strokeWidth={1.5} className="shrink-0" />
             <span className="hidden sm:inline">{button.label}</span>
@@ -100,6 +101,17 @@ function DetailViewSwitch({ activeView, onChange, canControl }) {
 
 function DeviceDetails({ allDevices, device, hardware, metricHistory, peripheralHistory, loading, error, canControl, canManagePeripherals, utilityConfig }) {
   const [activeView, setActiveView] = useState("specification");
+
+  if (loading && !hardware && !metricHistory) {
+    return (
+      <div className="border-t border-line bg-slate-50 px-4 sm:px-5">
+        <DetailLoader 
+          title="Fetching Device Specifications"
+          subtitle={`Retrieving hardware profile and historical metrics for ${device.hostname}...`}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="border-t border-line bg-slate-50 px-4 py-5 sm:px-5">
@@ -146,6 +158,7 @@ export function DeviceTable({
 }) {
   const [expandedId, setExpandedId] = useState(null);
   const [pendingArchive, setPendingArchive] = useState(null);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [detailCache, setDetailCache] = useState({});
   const [utilityConfig, setUtilityConfig] = useState(null);
 
@@ -205,29 +218,39 @@ export function DeviceTable({
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-line bg-white p-8 text-center text-sm text-slate-500">
-        Loading devices...
-      </div>
+      <DetailLoader 
+        title="Loading Fleet Registry"
+        subtitle="Retrieving registered devices and synchronizing live agent connections..."
+      />
     );
   }
 
   if (devices.length === 0) {
     return (
-      <div className="rounded-lg border border-line bg-white p-8 text-center text-sm text-slate-500">
-        No devices match the current view.
+      <div className="rounded-lg border border-slate-200 bg-white p-12 text-center shadow-sm">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
+          <Monitor size={24} />
+        </div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          No devices match the current view.
+        </p>
       </div>
     );
   }
 
   async function confirmArchive() {
     if (!pendingArchive) return;
+    setIsArchiving(true);
     try {
       await onArchive?.(pendingArchive);
       setExpandedId((current) =>
         current === pendingArchive.id ? null : current,
       );
       setPendingArchive(null);
-    } catch (error) {}
+    } catch (error) {
+    } finally {
+      setIsArchiving(false);
+    }
   }
 
   return (
@@ -236,10 +259,11 @@ export function DeviceTable({
         device={pendingArchive}
         onCancel={() => setPendingArchive(null)}
         onConfirm={confirmArchive}
+        loading={isArchiving}
       />
 
-      <div className="overflow-hidden rounded-lg border border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-sm">
-        <div className="hidden border-b border-slate-200/60 bg-slate-50/50 px-5 py-3 text-[10px] font-bold tracking-tight text-slate-400 xl:grid xl:grid-cols-[48px_minmax(160px,1fr)_minmax(130px,0.8fr)_minmax(240px,1.3fr)_minmax(180px,0.9fr)_100px_auto] xl:items-center xl:gap-8">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:shadow-sm">
+        <div className="hidden border-b border-slate-100 bg-slate-50/50 px-5 py-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 xl:grid xl:grid-cols-[48px_minmax(160px,1fr)_minmax(130px,0.8fr)_minmax(240px,1.3fr)_minmax(180px,0.9fr)_100px_auto] xl:items-center xl:gap-8">
           <div />
           <div>Device</div>
           <div>Network</div>
@@ -283,7 +307,7 @@ export function DeviceTable({
 
                     <div className="flex items-center gap-3 xl:hidden">
                       <span
-                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest ${
+                        className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wider ${
                           device.status === "online"
                             ? "border-emerald-100 bg-emerald-50 text-emerald-600"
                             : "border-rose-100 bg-rose-50 text-rose-600"
@@ -297,22 +321,22 @@ export function DeviceTable({
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <strong className="block truncate text-lg font-bold text-slate-900 tracking-tight xl:text-sm">
+                      <strong className="block truncate text-lg font-semibold text-slate-800 tracking-tight xl:text-sm">
                         {device.hostname}
                       </strong>
                     </div>
-                    <span className="mt-1 block truncate text-xs font-medium text-slate-500">
+                    <span className="mt-1 block truncate text-[10px] font-medium uppercase tracking-wider text-slate-400">
                       {device.os}
                     </span>
                   </div>
 
                   <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50/50 p-4 xl:border-0 xl:bg-transparent xl:p-0">
-                    <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-400 xl:hidden">
+                    <span className="mb-2 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 xl:hidden">
                       Network Identity
                     </span>
                     <div className="flex flex-col gap-1">
-                      <span className="block font-data font-bold text-slate-700">{device.ip}</span>
-                      <span className="block font-data text-xs text-slate-400">
+                      <span className="block font-data text-xs font-semibold text-slate-700">{device.ip}</span>
+                      <span className="block font-data text-[10px] font-medium text-slate-400">
                         {device.mac}
                       </span>
                     </div>
@@ -342,11 +366,11 @@ export function DeviceTable({
                   </div>
 
                   <div className="min-w-0 xl:col-start-auto">
-                    <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-400 xl:hidden">
+                    <span className="mb-2 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 xl:hidden">
                       Assigned Group
                     </span>
                     <select
-                      className="h-11 w-full min-w-0 cursor-pointer rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 outline-none shadow-sm transition hover:border-slate-300 focus:border-slate-900 focus:ring-4 focus:ring-slate-100/50 xl:h-10 xl:w-44 xl:px-3 xl:text-xs"
+                      className="h-11 w-full min-w-0 cursor-pointer rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 outline-none shadow-sm transition hover:border-slate-300 focus:border-slate-900 focus:ring-4 focus:ring-slate-100/50 xl:h-10 xl:w-44 xl:px-3 uppercase tracking-wider"
                       onClick={(e) => e.stopPropagation()}
                       onChange={async (event) => {
                         try {
@@ -371,7 +395,7 @@ export function DeviceTable({
 
                   <div className="hidden items-center xl:flex">
                     <span
-                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${
+                      className={`inline-flex items-center gap-2 rounded-md border px-3 py-1 text-[9px] font-semibold uppercase tracking-wider ${
                         device.status === "online"
                           ? "border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm"
                           : "border-rose-100 bg-rose-50 text-rose-600 shadow-sm"
@@ -383,7 +407,7 @@ export function DeviceTable({
                   </div>
 
                   <div className="flex items-center justify-between border-t border-slate-100 pt-5 xl:justify-end xl:border-0 xl:pt-0">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 xl:hidden">Management</span>
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 xl:hidden">Management</span>
                     <div className="group relative">
                       <button
                         className="grid h-10 w-10 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-100 active:scale-95 xl:h-9 xl:w-9"
