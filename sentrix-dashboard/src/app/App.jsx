@@ -92,7 +92,7 @@ export default function App() {
       await loadGroups();
       setActiveTab("home");
     } catch (error) {
-      setAuthError(error.message || "Failed to sign in.");
+      setAuthError(error);
     }
   }
 
@@ -110,9 +110,9 @@ export default function App() {
   if (!authReady) {
     return (
       <main className="min-h-screen bg-mist text-ink">
-        <BlurOverlay isOpen={true}>
-          <div className="rounded-lg border border-line bg-white p-6 text-center shadow-sm">
-            <SentrixLogoLoader label="Checking login status..." />
+        <BlurOverlay isOpen={true} containerClassName="w-fit">
+          <div className="aspect-square w-48 rounded-xl border border-line bg-white flex flex-col items-center justify-center text-center shadow-xl shadow-slate-200/40 p-4">
+            <SentrixLogoLoader label="Checking status" />
           </div>
         </BlurOverlay>
       </main>
@@ -136,6 +136,105 @@ export default function App() {
         onTelemetryIntervalChanged={setTelemetryInterval}
       />
     </ToastProvider>
+  );
+}
+
+function StatusBadge({ connected }) {
+  return (
+    <span
+      title={connected ? "Connected" : "Offline"}
+      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest shadow-sm transition-all ${
+        connected
+          ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+          : "border-rose-100 bg-rose-50 text-rose-700"
+      }`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+      {connected ? "Connected" : "Offline"}
+    </span>
+  );
+}
+
+function UserDropdown({ user, dropdownOpen, setDropdownOpen, dropdownRef, loading, refresh, onLogout }) {
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setDropdownOpen(!dropdownOpen)}
+        className={`flex h-9 items-center gap-2 rounded-lg border px-3 shadow-sm transition-all active:scale-95 ${
+          dropdownOpen
+            ? "border-slate-900 bg-slate-50 text-slate-900"
+            : "border-slate-200 bg-white text-slate-500 hover:border-slate-900 hover:text-slate-900"
+        }`}
+      >
+        <UserCircle size={18} strokeWidth={2.5} />
+        <span className="hidden text-[10px] font-bold uppercase tracking-widest sm:inline">
+          {user.role === "network_admin" ? "Network Admin" : "Admin"}
+        </span>
+        <ChevronDown
+          size={14}
+          className={`transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}
+          strokeWidth={2.5}
+        />
+      </button>
+
+      <div
+        className={`absolute right-0 top-full z-[100] mt-2 w-52 origin-top-right transition-all duration-200 ${
+          dropdownOpen
+            ? "visible scale-100 opacity-100"
+            : "invisible scale-95 opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-900/5">
+          <div className="mb-2 border-b border-slate-50 bg-slate-50/30 px-3 py-2">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              Authenticated as
+            </p>
+            <p className="mt-0.5 truncate text-[10px] font-bold text-slate-700">
+              {user.email}
+            </p>
+          </div>
+
+          <button
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[10px] font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+            onClick={() => {
+              refresh();
+              setDropdownOpen(false);
+            }}
+            disabled={loading}
+          >
+            <RefreshCcw
+              size={14}
+              className={loading ? "animate-spin" : ""}
+              strokeWidth={2.5}
+            />
+            <div className="flex-1">
+              <p className="leading-tight">Sync Fleet</p>
+              <p className="text-[9px] font-medium text-slate-400">
+                Refresh device metrics
+              </p>
+            </div>
+          </button>
+
+          <div className="my-1 border-t border-slate-50" />
+
+          <button
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[10px] font-bold text-rose-600 transition hover:bg-rose-50"
+            onClick={() => {
+              onLogout();
+              setDropdownOpen(false);
+            }}
+          >
+            <LogOut size={14} strokeWidth={2.5} />
+            <div className="flex-1">
+              <p className="leading-tight">Sign Out</p>
+              <p className="text-[9px] font-medium text-rose-400/70">
+                Terminate session
+              </p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -205,113 +304,60 @@ export function DashboardShell({
     <main className="min-h-screen bg-mist text-ink">
       <div className="sticky top-0 z-[1000] border-b border-line bg-white/95 shadow-sm backdrop-blur-md">
         <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-          <header className="flex flex-wrap items-center justify-between gap-x-2 gap-y-4 sm:gap-x-6">
+          {/* Desktop Layout: Single Row */}
+          <header className="hidden items-center justify-between gap-6 md:flex">
             {/* Left: Brand */}
             <div className="shrink-0">
               <SentrixLogo size="sm" />
             </div>
 
-            {/* Center: Navigation (Always Centered) */}
-            <div className="order-last flex w-full flex-1 justify-center md:order-none md:w-auto">
+            {/* Center: Navigation */}
+            <div className="flex flex-1 justify-center">
               <TabNav
-                tabs={tabs.filter((tab) => user.role === "network_admin" || tab.id !== "network")}
+                tabs={tabs}
                 activeTab={activeTab}
                 onSelect={setActiveTab}
               />
             </div>
 
-            {/* Right: Actions Cluster */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <span
-                title={connected ? "Connected" : "Offline"}
-                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest shadow-sm transition-all ${
-                  connected
-                    ? "border-emerald-100 bg-emerald-50 text-emerald-700"
-                    : "border-rose-100 bg-rose-50 text-rose-700"
-                }`}
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-                {connected ? "Connected" : "Offline"}
-              </span>
+            {/* Right: Actions */}
+            <div className="flex shrink-0 items-center gap-2">
+              <StatusBadge connected={connected} />
+              <UserDropdown 
+                user={user} 
+                dropdownOpen={dropdownOpen} 
+                setDropdownOpen={setDropdownOpen} 
+                dropdownRef={dropdownRef}
+                loading={loading}
+                refresh={refresh}
+                onLogout={onLogout}
+              />
+            </div>
+          </header>
 
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className={`flex h-9 items-center gap-2 rounded-lg border px-3 shadow-sm transition-all active:scale-95 ${
-                    dropdownOpen
-                      ? "border-slate-900 bg-slate-50 text-slate-900"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-900 hover:text-slate-900"
-                  }`}
-                >
-                  <UserCircle size={18} strokeWidth={2.5} />
-                  <span className="hidden text-[10px] font-bold uppercase tracking-widest sm:inline">
-                    {user.role === "network_admin" ? "Network Admin" : "Admin"}
-                  </span>
-                  <ChevronDown
-                    size={14}
-                    className={`transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}
-                    strokeWidth={2.5}
-                  />
-                </button>
-
-                <div
-                  className={`absolute right-0 top-full z-[100] mt-2 w-52 origin-top-right transition-all duration-200 ${
-                    dropdownOpen
-                      ? "visible scale-100 opacity-100"
-                      : "invisible scale-95 opacity-0"
-                  }`}
-                >
-                  <div className="overflow-hidden rounded-lg border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-900/5">
-                    <div className="mb-2 border-b border-slate-50 bg-slate-50/30 px-3 py-2">
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                        Authenticated as
-                      </p>
-                      <p className="mt-0.5 truncate text-xs font-bold text-slate-700">
-                        {user.email}
-                      </p>
-                    </div>
-
-                    <button
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                      onClick={() => {
-                        refresh();
-                        setDropdownOpen(false);
-                      }}
-                      disabled={loading}
-                    >
-                      <RefreshCcw
-                        size={14}
-                        className={loading ? "animate-spin" : ""}
-                        strokeWidth={2.5}
-                      />
-                      <div className="flex-1">
-                        <p className="leading-tight">Sync Fleet</p>
-                        <p className="text-[9px] font-medium text-slate-400">
-                          Refresh device metrics
-                        </p>
-                      </div>
-                    </button>
-
-                    <div className="my-1 border-t border-slate-50" />
-
-                    <button
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-rose-600 transition hover:bg-rose-50"
-                      onClick={() => {
-                        onLogout();
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      <LogOut size={14} strokeWidth={2.5} />
-                      <div className="flex-1">
-                        <p className="leading-tight">Sign Out</p>
-                        <p className="text-[9px] font-medium text-rose-400/70">
-                          Terminate session
-                        </p>
-                      </div>
-                    </button>
-                  </div>
-                </div>
+          {/* Mobile Layout: Two Rows */}
+          <header className="flex flex-col gap-4 md:hidden">
+            <div className="flex items-center justify-between">
+              <SentrixLogo size="sm" />
+              <div className="flex items-center gap-2">
+                <StatusBadge connected={connected} />
+                <UserDropdown 
+                  user={user} 
+                  dropdownOpen={dropdownOpen} 
+                  setDropdownOpen={setDropdownOpen} 
+                  dropdownRef={dropdownRef}
+                  loading={loading}
+                  refresh={refresh}
+                  onLogout={onLogout}
+                />
               </div>
+            </div>
+            <div className="flex justify-center border-t border-slate-50 pt-2">
+              <TabNav
+                tabs={tabs}
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+              />
             </div>
           </header>
         </div>
@@ -334,7 +380,9 @@ export function DashboardShell({
           <NetworkPage
             user={user}
             snapshot={discovery.snapshot}
+            interfaces={discovery.interfaces}
             onScan={discovery.rescan}
+            onSetSubnet={discovery.setSubnet}
             onDeploy={discovery.deploy}
             deployMessage={discovery.message}
             deployingIp={discovery.deployingIp}

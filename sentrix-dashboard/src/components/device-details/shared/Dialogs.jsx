@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 import { useState } from "react";
 import { BlurOverlay } from "../../BlurOverlay.jsx";
 
-export function ConfirmDialog({ device, onCancel, onConfirm }) {
+export function ConfirmDialog({ device, onCancel, onConfirm, loading }) {
   if (!device) return null;
 
   return (
@@ -27,9 +27,10 @@ export function ConfirmDialog({ device, onCancel, onConfirm }) {
             </p>
           </div>
           <button
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30"
             onClick={onCancel}
             type="button"
+            disabled={loading}
           >
             <X size={20} strokeWidth={2.5} />
           </button>
@@ -37,18 +38,27 @@ export function ConfirmDialog({ device, onCancel, onConfirm }) {
 
         <div className="mt-8 flex justify-end gap-3">
           <button
-            className="h-11 rounded-lg border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 active:scale-[0.98]"
+            className="h-11 rounded-lg border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
             onClick={onCancel}
             type="button"
+            disabled={loading}
           >
             Cancel
           </button>
           <button
-            className="h-11 rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 active:scale-[0.98]"
+            className="relative inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
             onClick={onConfirm}
             type="button"
+            disabled={loading}
           >
-            Archive Device
+            <div className={`flex items-center gap-2 ${loading ? "opacity-0" : "opacity-100"}`}>
+              <span>Archive Device</span>
+            </div>
+            {loading && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <LoaderCircle className="animate-spin" size={18} />
+              </div>
+            )}
           </button>
         </div>
       </div>

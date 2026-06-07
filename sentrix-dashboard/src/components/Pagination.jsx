@@ -90,14 +90,14 @@ export function Pagination({
       <div className="flex flex-wrap items-center justify-center gap-6 lg:justify-start">
         {onPageSizeChange && (
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-bold tracking-tight text-slate-400">
+            <span className="text-[10px] font-semibold tracking-tight text-slate-400">
               Show
             </span>
             <div className="relative group">
               <select
                 value={safePageSize}
                 onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                className="appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-bold text-slate-700 transition-all hover:border-slate-300 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 cursor-pointer"
+                className="appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-700 transition-all hover:border-slate-300 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 cursor-pointer"
               >
                 {pageSizeOptions.map((option) => (
                   <option key={option} value={option}>
@@ -113,7 +113,7 @@ export function Pagination({
           </div>
         )}
 
-        <p className="text-[10px] font-bold tracking-tight text-slate-400">
+        <p className="text-[10px] font-semibold tracking-tight text-slate-400">
           <span className="hidden sm:inline">Showing </span>
           <span className="text-slate-900 tabular-nums">{startItem}</span>
           <span className="mx-1 opacity-30">—</span>
@@ -154,7 +154,7 @@ export function Pagination({
                   <button
                     onClick={() => onPageChange(page)}
                     aria-current={safeCurrentPage === page ? 'page' : undefined}
-                    className={`flex h-9 min-w-[36px] items-center justify-center rounded-lg px-2 text-xs font-bold transition-all ${
+                    className={`flex h-9 min-w-[36px] items-center justify-center rounded-lg px-2 text-xs font-semibold transition-all ${
                       isMobileHidden ? 'hidden md:flex' : 'flex'
                     } ${
                       safeCurrentPage === page

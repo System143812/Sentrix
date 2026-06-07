@@ -130,7 +130,7 @@ export function PeripheralHistoryPanel({ deviceId, history, canControl }) {
               },
             ].map((item) => (
               <button
-                className={`relative z-10 flex h-9 min-w-[120px] items-center justify-center gap-1.5 px-5 text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
+                className={`relative z-10 flex h-9 min-w-[120px] items-center justify-center gap-1.5 px-5 text-xs font-bold uppercase tracking-widest transition-all duration-200 ${
                   statusView === item.id
                     ? "text-white"
                     : "text-slate-500 hover:text-slate-800"

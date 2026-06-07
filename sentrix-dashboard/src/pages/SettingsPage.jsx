@@ -133,7 +133,7 @@ function SystemConfigurationCard({ isNetworkAdmin, interval, onIntervalChanged }
     >
       <div className="grid gap-8">
         <div>
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Operation Mode
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -146,7 +146,7 @@ function SystemConfigurationCard({ isNetworkAdmin, interval, onIntervalChanged }
 
               return (
                 <button
-                  className={`flex h-20 flex-col items-center justify-center gap-2 rounded-lg border text-xs font-bold uppercase tracking-wide transition ${
+                  className={`flex h-20 flex-col items-center justify-center gap-2 rounded-lg border text-xs font-semibold uppercase tracking-wider transition ${
                     active
                       ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/15"
                       : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
@@ -175,7 +175,7 @@ function SystemConfigurationCard({ isNetworkAdmin, interval, onIntervalChanged }
         </div>
 
         <div>
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Data Collection Interval
           </p>
           <div className="flex flex-wrap gap-2">
@@ -186,7 +186,7 @@ function SystemConfigurationCard({ isNetworkAdmin, interval, onIntervalChanged }
               { label: "30s", value: 30000 },
             ].map((item) => (
               <button
-                className={`h-10 min-w-20 rounded-lg border px-4 py-2 text-xs font-bold transition ${
+                className={`h-10 min-w-20 rounded-lg border px-4 py-2 text-xs font-semibold transition ${
                   interval === item.value
                     ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/10"
                     : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
@@ -271,7 +271,7 @@ function CredentialCard() {
           required
         />
         <button
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#b45309] px-5 text-[10px] font-bold uppercase tracking-[0.15em] text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#b45309] px-5 text-[10px] font-semibold uppercase tracking-wider text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
           disabled={pending === "password"}
           type="submit"
         >
@@ -409,7 +409,7 @@ export function SettingsPage({
         subtitle="Role-based controls for account access and lab grouping."
         backgroundImage="/settings_header.jpg"
         action={
-          <span className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-sm font-bold text-white shadow-sm backdrop-blur">
+          <span className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-sm font-semibold text-white shadow-sm backdrop-blur">
             <ShieldCheck size={16} />
             {isNetworkAdmin ? "Network admin" : "Admin"}
           </span>
@@ -474,7 +474,7 @@ export function SettingsPage({
                 <PasswordValidator password={password} />
               </div>
               <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1e3a8a] px-5 text-[10px] font-bold uppercase tracking-[0.15em] text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1e3a8a] px-5 text-[10px] font-semibold uppercase tracking-wider text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
                 disabled={pendingAction === "create-admin"}
               >
                 {pendingAction === "create-admin" ? (
@@ -495,10 +495,10 @@ export function SettingsPage({
                   key={admin.id}
                 >
                   <div className="min-w-0">
-                    <p className="break-words text-sm font-semibold">
+                    <p className="break-words text-sm font-semibold text-slate-800">
                       {admin.email}
                     </p>
-                    <p className="text-xs text-slate-500">{admin.role}</p>
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{admin.role}</p>
                   </div>
                   {isNetworkAdmin ? (
                     <button
@@ -551,7 +551,7 @@ export function SettingsPage({
                 value={groupDescription}
               />
               <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0f766e] px-5 text-[10px] font-bold uppercase tracking-[0.15em] text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0f766e] px-5 text-[10px] font-semibold uppercase tracking-wider text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
                 disabled={pendingAction === "save-group"}
               >
                 {pendingAction === "save-group" ? (
@@ -572,10 +572,10 @@ export function SettingsPage({
                 key={group.id}
               >
                 <div className="min-w-0">
-                  <p className="break-words text-sm font-semibold">
+                  <p className="break-words text-sm font-semibold text-slate-800">
                     {group.name}
                   </p>
-                  <p className="break-words text-xs text-slate-500">
+                  <p className="break-words text-xs font-medium text-slate-500">
                     {group.description || "No description"}
                   </p>
                 </div>

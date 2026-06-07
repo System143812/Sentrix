@@ -435,7 +435,7 @@ function ModernTrendChart({ points = [], color = "#2563eb", label = "Trend", isP
             <p className="relative z-10 text-[9px] font-bold uppercase text-slate-400 leading-none mb-0.5">
               {hoveredPoint.data.label === "Now" ? "Live" : hoveredPoint.data.label}
             </p>
-            <p className="relative z-10 text-xs font-bold text-slate-900 leading-none">
+            <p className="relative z-10 text-[10px] font-bold text-slate-900 leading-none">
               {hoveredPoint.data.value}{isPercentage ? "%" : " Alerts"}
             </p>
           </div>
@@ -750,7 +750,7 @@ function MultiLineChart({ devices = [], analytics }) {
   if (!devices.length) {
     return (
       <div className="rounded-lg border border-slate-200/60 bg-white p-6">
-        <div className="grid min-h-64 place-items-center rounded-lg bg-slate-50 text-xs font-bold uppercase tracking-widest text-slate-400 font-ui">
+        <div className="grid min-h-64 place-items-center rounded-lg bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui">
           Syncing Device Metrics...
         </div>
       </div>
@@ -814,7 +814,7 @@ function TimeRangeToolbar({
 
       <div className="flex flex-wrap items-center gap-2 font-ui">
        <label
-         className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[10px] font-bold shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25" : "border-slate-200/60 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200"}`}
+         className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-xs font-semibold shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25" : "border-slate-200/60 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200"}`}
        >
           <Filter size={14} strokeWidth={2.5} />
           <select
@@ -954,7 +954,7 @@ function AgentMetricsPanel({ analytics, loading }) {
         </div>
 
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:shadow-sm">
-          <div className="hidden grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100">
+          <div className="hidden grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:grid border-b border-slate-100">
             <div>Device Name</div>
             <div className="text-center">CPU State</div>
             <div className="text-center">GPU State</div>
@@ -978,19 +978,19 @@ function AgentMetricsPanel({ analytics, loading }) {
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 transition-colors group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-600">
                         <Monitor size={18} strokeWidth={2} />
                       </div>
-                      <span className="truncate text-sm font-bold text-slate-800 tracking-tight font-ui">
+                      <span className="truncate text-sm font-semibold text-slate-800 tracking-tight font-ui">
                         {device.hostname}
                       </span>
                     </div>
 
                     {/* CPU Temp */}
                     <div className="flex items-center justify-between gap-3 lg:justify-center">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
                         CPU Temp
                       </span>
                       <div className="flex items-center gap-2">
                         <Thermometer size={12} className="text-rose-400" />
-                        <span className="text-xs font-bold font-data text-slate-700">
+                        <span className="text-[10px] font-medium font-data text-slate-700">
                           {formatTemperature(cm.cpuTemperature)}
                         </span>
                       </div>
@@ -998,12 +998,12 @@ function AgentMetricsPanel({ analytics, loading }) {
 
                     {/* GPU Temp */}
                     <div className="flex items-center justify-between gap-3 lg:justify-center">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
                         GPU Temp
                       </span>
                       <div className="flex items-center gap-2">
                         <Thermometer size={12} className="text-amber-400" />
-                        <span className="text-xs font-bold font-data text-slate-700">
+                        <span className="text-[10px] font-medium font-data text-slate-700">
                           {formatTemperature(cm.gpuTemperature)}
                         </span>
                       </div>
@@ -1011,12 +1011,12 @@ function AgentMetricsPanel({ analytics, loading }) {
 
                     {/* Upload */}
                     <div className="flex items-center justify-between gap-3 lg:justify-center">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
                         Upload
                       </span>
                       <div className="flex items-center gap-2">
                         <Upload size={12} className="text-blue-400" />
-                        <span className="text-xs font-bold font-data text-slate-700">
+                        <span className="text-[10px] font-medium font-data text-slate-700">
                           {formatBytesPerSecond(cm.uploadBytesPerSec)}
                         </span>
                       </div>
@@ -1024,12 +1024,12 @@ function AgentMetricsPanel({ analytics, loading }) {
 
                     {/* Download */}
                     <div className="flex items-center justify-between gap-3 lg:justify-center">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
                         Download
                       </span>
                       <div className="flex items-center gap-2">
                         <Download size={12} className="text-teal-400" />
-                        <span className="text-xs font-bold font-data text-slate-700">
+                        <span className="text-[10px] font-medium font-data text-slate-700">
                           {formatBytesPerSecond(cm.downloadBytesPerSec)}
                         </span>
                       </div>
@@ -1037,12 +1037,12 @@ function AgentMetricsPanel({ analytics, loading }) {
 
                     {/* Latency */}
                     <div className="flex items-center justify-between gap-3 lg:justify-center">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
                         Latency
                       </span>
                       <div className="flex items-center gap-2">
                         <Wifi size={12} className="text-slate-400" />
-                        <span className="text-xs font-bold font-data text-slate-700">
+                        <span className="text-[10px] font-medium font-data text-slate-700">
                           {cm.latencyMs == null
                             ? "N/A"
                             : `${Math.round(Number(cm.latencyMs))}ms`}
@@ -1052,11 +1052,11 @@ function AgentMetricsPanel({ analytics, loading }) {
 
                     {/* Packet Loss */}
                     <div className="flex items-center justify-between gap-3 lg:justify-center">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
                         Loss
                       </span>
                       <div
-                        className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight border ${
+                        className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider border ${
                           (Number(cm.packetLoss) || 0) > 0
                             ? "bg-rose-50 text-rose-600 border-rose-100"
                             : "bg-emerald-50 text-emerald-600 border-emerald-100"
@@ -1073,7 +1073,7 @@ function AgentMetricsPanel({ analytics, loading }) {
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
                   <Activity size={24} />
                 </div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   Waiting for device telemetry...
                 </p>
               </div>
@@ -1169,7 +1169,7 @@ function HealthScorePanel({ analytics, loading }) {
                 key={factor.label}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="inline-flex min-w-0 items-center gap-2.5 text-xs font-bold text-slate-700 uppercase tracking-tight">
+                  <span className="inline-flex min-w-0 items-center gap-2.5 text-[10px] font-bold text-slate-700 uppercase tracking-tight">
                     <span
                       className={`p-1.5 rounded-lg border shadow-sm transition-transform group-hover:scale-110 ${ICON_TONES[factor.color] || ICON_TONES.blue}`}
                     >
@@ -1177,7 +1177,7 @@ function HealthScorePanel({ analytics, loading }) {
                     </span>
                     <span>{factor.label}</span>
                   </span>
-                  <span className="shrink-0 text-xs font-bold font-data text-slate-400 tabular-nums">
+                  <span className="shrink-0 text-[10px] font-bold font-data text-slate-400 tabular-nums">
                     {clamp(factor.value)}%
                   </span>
                 </div>
@@ -1214,7 +1214,7 @@ function AlertTrendsPanel({ analytics, loading }) {
         <div className="space-y-3 font-ui">
           <div className="rounded-lg border border-rose-100/70 bg-rose-50/60 p-4 shadow-sm shadow-rose-900/5 backdrop-blur-md">
             <div className="flex items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-2 text-xs font-bold text-rose-700 uppercase tracking-wider">
+              <span className="inline-flex items-center gap-2 text-[10px] font-bold text-rose-700 uppercase tracking-wider">
                 <AlertTriangle className="text-rose-500" size={15} />
                 Active Alerts
               </span>
@@ -1231,7 +1231,7 @@ function AlertTrendsPanel({ analytics, loading }) {
                   className="flex items-center justify-between gap-3 rounded-lg border border-rose-100/60 bg-rose-50/35 p-3 shadow-sm shadow-rose-900/5 transition-colors hover:border-rose-200 hover:bg-rose-50/60"
                   key={alert.name}
                 >
-                  <span className="inline-flex min-w-0 items-center gap-2.5 text-xs font-bold text-slate-600">
+                  <span className="inline-flex min-w-0 items-center gap-2.5 text-[10px] font-bold text-slate-600">
                     <div className="h-1.5 w-1.5 rounded-full bg-rose-400" />
                     <span className="truncate">{alert.name}</span>
                   </span>
@@ -1241,7 +1241,7 @@ function AlertTrendsPanel({ analytics, loading }) {
                 </div>
               ))
             ) : (
-              <p className="rounded-lg bg-slate-50 p-6 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
+              <p className="rounded-lg bg-slate-50 p-6 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 System Operational
               </p>
             )}
@@ -1263,7 +1263,7 @@ function DeviceComparisonPanel({ devices, analytics, loading }) {
     >
       <MultiLineChart analytics={analytics} devices={devices.slice(0, 10)} />
       <div className="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:shadow-sm">
-        <div className="hidden grid-cols-[1.5fr_1fr_1fr_120px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 lg:grid border-b border-slate-100">
+        <div className="hidden grid-cols-[1.5fr_1fr_1fr_120px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:grid border-b border-slate-100">
           <div>Entity Identity</div>
           <div className="text-center">Health Analysis</div>
           <div className="text-center">Current Load</div>
@@ -1290,14 +1290,14 @@ function DeviceComparisonPanel({ devices, analytics, loading }) {
                     >
                       <Monitor size={18} strokeWidth={2.5} />
                     </div>
-                    <span className="truncate text-sm font-bold text-slate-800 tracking-tight font-ui">
+                    <span className="truncate text-sm font-semibold text-slate-800 tracking-tight font-ui">
                       {device.hostname}
                     </span>
                   </div>
 
                   {/* Health Analysis */}
                   <div className="flex items-center justify-between gap-3 lg:justify-center">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
                       Health
                     </span>
                     <div className="flex items-center gap-2">
@@ -1306,7 +1306,7 @@ function DeviceComparisonPanel({ devices, analytics, loading }) {
                         className={health >= 65 ? "text-emerald-400" : "text-rose-400"}
                       />
                       <span
-                        className={`text-xs font-bold font-data tabular-nums ${health >= 65 ? "text-slate-700" : "text-rose-600"}`}
+                        className={`text-[10px] font-medium font-data tabular-nums ${health >= 65 ? "text-slate-700" : "text-rose-600"}`}
                       >
                         {health}%
                       </span>
@@ -1315,7 +1315,7 @@ function DeviceComparisonPanel({ devices, analytics, loading }) {
 
                   {/* Current Load */}
                   <div className="flex items-center justify-between gap-3 lg:justify-center">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
                       Load
                     </span>
                     <div className="flex items-center gap-2">
@@ -1324,7 +1324,7 @@ function DeviceComparisonPanel({ devices, analytics, loading }) {
                         className={load <= 82 ? "text-blue-400" : "text-amber-400"}
                       />
                       <span
-                        className={`text-xs font-bold font-data tabular-nums ${load <= 82 ? "text-slate-700" : "text-amber-600"}`}
+                        className={`text-[10px] font-medium font-data tabular-nums ${load <= 82 ? "text-slate-700" : "text-amber-600"}`}
                       >
                         {load}%
                       </span>
@@ -1333,11 +1333,11 @@ function DeviceComparisonPanel({ devices, analytics, loading }) {
 
                   {/* Assessed Status */}
                   <div className="flex items-center justify-between border-t border-slate-50 pt-4 lg:justify-center lg:border-0 lg:pt-0">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
                       Status
                     </span>
                     <span
-                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${
+                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider border ${
                         isOutlier
                           ? "bg-rose-50 text-rose-600 border-rose-100"
                           : "bg-emerald-50 text-emerald-600 border-emerald-100"
@@ -1357,7 +1357,7 @@ function DeviceComparisonPanel({ devices, analytics, loading }) {
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
                 <Laptop size={24} />
               </div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Zero outliers detected
               </p>
             </div>
@@ -1401,7 +1401,7 @@ function HeatmapPanel({ devices, loading }) {
             );
           })
         ) : (
-          <div className="col-span-full rounded-lg bg-slate-50 border border-dashed border-slate-200 p-20 text-center text-xs font-bold text-slate-400 uppercase tracking-widest font-ui">
+          <div className="col-span-full rounded-lg bg-slate-50 border border-dashed border-slate-200 p-20 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest font-ui">
             Waiting for Device Signal...
           </div>
         )}
@@ -1447,11 +1447,11 @@ function DistributionPanel({ analytics, loading }) {
                   >
                     <Icon size={14} strokeWidth={2.5} />
                   </span>
-                  <span className="text-xs font-bold text-slate-700 uppercase tracking-tight">
+                  <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tight">
                     {bar.label}
                   </span>
                 </span>
-                <span className="shrink-0 text-xs font-bold text-slate-900 font-data tabular-nums">
+                <span className="shrink-0 text-[10px] font-bold text-slate-900 font-data tabular-nums">
                   {bar.value}%{" "}
                   <span className="text-[10px] text-slate-400 uppercase ml-1">
                     avg
@@ -1573,7 +1573,7 @@ function TopIssuesPanel({ analytics, loading }) {
                 {issue.name}
               </span>
             </div>
-            <span className="shrink-0 text-xs font-bold text-slate-400 font-data tabular-nums">
+            <span className="shrink-0 text-[10px] font-bold text-slate-400 font-data tabular-nums">
               {issue.count}
             </span>
           </button>
@@ -1774,7 +1774,7 @@ function GroupPerformancePanel({ analytics, loading }) {
                       <p className="text-[9px] font-bold uppercase text-slate-400 tracking-widest mb-1.5 border-b border-slate-200/60/50 pb-1 font-ui">
                         Resources
                       </p>
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-600 font-data tabular-nums">
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600 font-data tabular-nums">
                         <span>C:{group.cpu}%</span>
                         <span className="text-slate-200">|</span>
                         <span>R:{group.ram}%</span>
@@ -1786,7 +1786,7 @@ function GroupPerformancePanel({ analytics, loading }) {
                       <p className="text-[9px] font-bold uppercase text-slate-400 tracking-widest mb-1.5 border-b border-slate-200/60/50 pb-1 font-ui">
                         Environment
                       </p>
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-600 font-data tabular-nums truncate">
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600 font-data tabular-nums truncate">
                         <span>{formatTemperature(group.cpuTemperature)}</span>
                         <span className="text-slate-200">|</span>
                         <span>
@@ -1928,7 +1928,7 @@ function PeripheralSummaryPanel({ analytics, loading }) {
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                       Verified
                     </p>
-                    <p className="text-xs font-bold text-emerald-600 font-data">
+                    <p className="text-[10px] font-bold text-emerald-600 font-data">
                       {group.totalPeripherals - group.missingPeripherals} /{" "}
                       {group.totalPeripherals}
                     </p>
@@ -1943,7 +1943,7 @@ function PeripheralSummaryPanel({ analytics, loading }) {
                         key={device.id}
                         className={`flex items-center justify-between rounded-lg border p-3 transition-colors ${device.missing > 0 ? "border-rose-100 bg-rose-50/30 hover:bg-rose-50/60" : "border-slate-100 bg-white hover:bg-slate-50"}`}
                       >
-                        <span className="text-xs font-bold text-slate-700 truncate mr-2 font-ui">
+                        <span className="text-[10px] font-bold text-slate-700 truncate mr-2 font-ui">
                           {device.hostname}
                         </span>
                         <div className="flex shrink-0 items-center gap-3">
@@ -2255,15 +2255,15 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
           backgroundImage="/analytics_header.jpg"
           action={
             <div className="hidden sm:flex items-center gap-3 font-ui">
-              <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 shadow-sm shadow-black/20 backdrop-blur-md">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-400 shadow-sm shadow-black/20 backdrop-blur-md">
                 <Wifi size={14} />
                 {analytics.online} online
               </span>
-              <span className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 shadow-sm shadow-black/20 backdrop-blur-md">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-bold text-red-400 shadow-sm shadow-black/20 backdrop-blur-md">
                 <BadgeAlert size={14} />
                 {analytics.criticalAlerts} critical
               </span>
-              <span className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-400 shadow-sm shadow-black/20 backdrop-blur-md">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-[10px] font-bold text-blue-400 shadow-sm shadow-black/20 backdrop-blur-md">
                 <Boxes size={14} />
                 {pageLoading ? "Refreshing" : `${analytics.total} devices`}
               </span>
