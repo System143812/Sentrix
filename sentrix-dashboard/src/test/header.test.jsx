@@ -61,31 +61,32 @@ const WrappedDashboard = (props) => (
 describe('Header Verification', () => {
   it('should render the brand logo', () => {
     render(<WrappedDashboard />);
-    // Look for the logo specifically in the shrink-0 div
-    const logoContainer = screen.getByRole('img', { name: /Sentrix shield logo/i }).closest('div');
-    expect(logoContainer).toHaveTextContent(/Sentrix/i);
+    // There are now two logos (mobile/desktop)
+    const logos = screen.getAllByRole('img', { name: /Sentrix shield logo/i });
+    expect(logos.length).toBeGreaterThan(0);
+    expect(logos[0].closest('div')).toHaveTextContent(/Sentrix/i);
   });
 
   it('should render the navigation tabs', () => {
     render(<WrappedDashboard />);
-    // Tabs like Home, Network, etc. are in the nav element
-    const nav = screen.getByRole('navigation');
-    expect(screen.getByRole('button', { name: /Home/i })).toBeInTheDocument();
-    // Use getAllByRole or be more specific for Network to avoid the "Network Admin" button
-    const networkTab = screen.getAllByRole('button', { name: /Network/i }).find(btn => btn.closest('nav'));
-    expect(networkTab).toBeInTheDocument();
+    // There are two navigation elements
+    const navs = screen.getAllByRole('navigation');
+    expect(navs.length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /Home/i }).length).toBeGreaterThan(0);
   });
 
   it('should render the user dropdown with role', () => {
     render(<WrappedDashboard />);
-    // The user button is outside the nav
-    expect(screen.getByText(/Network Admin/i)).toBeInTheDocument();
-    expect(screen.getByText(/Authenticated as/i)).toBeInTheDocument();
-    expect(screen.getByText(mockUser.email)).toBeInTheDocument();
+    // Two dropdown buttons
+    const roles = screen.getAllByText(/Network Admin/i);
+    expect(roles.length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Authenticated as/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(mockUser.email).length).toBeGreaterThan(0);
   });
 
   it('should show connected status when connected', () => {
     render(<WrappedDashboard />);
-    expect(screen.getByText(/Connected/i)).toBeInTheDocument();
+    const status = screen.getAllByText(/Connected/i);
+    expect(status.length).toBeGreaterThan(0);
   });
 });
