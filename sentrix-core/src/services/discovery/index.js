@@ -1,3 +1,4 @@
+import os from "os";
 import pool from "../../lib/database.js";
 import { getAllClients } from "../client.services.js";
 import {
@@ -5,6 +6,8 @@ import {
 } from "./constants.js";
 import {
   getLocalSubnet,
+  getAvailableInterfaces,
+  getPrimaryInterfaceAddress,
   getLocalGatewayCandidates,
   runNmapPingScan,
   pingHost,
@@ -32,17 +35,31 @@ let latestSnapshot = {
   message: "Discovery has not run yet.",
 };
 let activeScanPromise = null;
+let activeScanSubnet = null;
+let preferredSubnet = null;
 
 function updateSnapshot(partial) {
   latestSnapshot = {
     ...latestSnapshot,
     ...partial,
   };
+  // If subnet is being updated, make it the preferred one for auto-scans
+  if (partial.subnet) {
+    preferredSubnet = partial.subnet;
+  }
   return latestSnapshot;
 }
 
 export function getDiscoverySnapshot() {
   return latestSnapshot;
+}
+
+export function getInterfaces() {
+  return getAvailableInterfaces();
+}
+
+export function setPreferredSubnet(subnet) {
+  preferredSubnet = subnet;
 }
 
 function getDisplayHostname(ip, hostname, registeredClient = null) {
@@ -181,10 +198,30 @@ export async function loadDiscoveryResultsFromDb() {
       
       devices.forEach((d) => lastScanResults.set(d.ip, d));
       
+      // Derive active subnet from the most common subnet in the loaded results
+      let initialSubnet = getLocalSubnet();
+      if (devices.length > 0) {
+        const subnetCounts = new Map();
+        devices.forEach(d => {
+          const parts = d.ip.split('.');
+          const subnet = `${parts[0]}.${parts[1]}.${parts[2]}`;
+          subnetCounts.set(subnet, (subnetCounts.get(subnet) || 0) + 1);
+        });
+        
+        // Find most frequent subnet
+        let maxCount = 0;
+        for (const [s, count] of subnetCounts.entries()) {
+          if (count > maxCount) {
+            maxCount = count;
+            initialSubnet = s;
+          }
+        }
+      }
+      
       updateSnapshot({
         devices,
         lastScanAt: rows[0].last_scanned_at,
-        subnet: getLocalSubnet(),
+        subnet: initialSubnet,
         message: `Loaded ${devices.length} devices from database.`,
       });
     }
@@ -193,8 +230,8 @@ export async function loadDiscoveryResultsFromDb() {
   }
 }
 
-export async function scanLocalNetwork() {
-  const subnet = getLocalSubnet();
+export async function scanLocalNetwork(targetSubnet = null) {
+  const subnet = targetSubnet || getLocalSubnet();
   if (!subnet) {
     updateSnapshot({
       status: "error",
@@ -209,7 +246,7 @@ export async function scanLocalNetwork() {
     status: "scanning",
     progress: 5,
     subnet,
-    message: "Pinging local subnet...",
+    message: `Pinging ${subnet}.0/24...`,
   });
 
   const ipAddresses = Array.from({ length: 254 }, (_, index) => `${subnet}.${index + 1}`);
@@ -218,7 +255,17 @@ export async function scanLocalNetwork() {
   const nmapResultsPromise = runNmapPingScan(subnet);
   const registeredClientsPromise = getAllClients().catch(() => []);
   
-  await Promise.all(ipAddresses.map((ip) => pingHost(ip)));
+  // Ping hosts in batches to avoid overwhelming the OS and ensure ARP table population
+  const batchSize = 30;
+  for (let i = 0; i < ipAddresses.length; i += batchSize) {
+    const batch = ipAddresses.slice(i, i + batchSize);
+    await Promise.all(batch.map((ip) => pingHost(ip)));
+    // Small pause between batches
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  // Small extra delay for ARP table to settle
+  await new Promise(resolve => setTimeout(resolve, 500));
   
   updateSnapshot({
     progress: 35,
@@ -254,12 +301,14 @@ export async function scanLocalNetwork() {
             ? nmapDevice.mac
             : findMacForIp(arpTable, ip);
 
-        if (mac === "Unknown") return null;
+        const openPorts = await getOpenPorts(ip);
+        const isAlive = nmapDevice || mac !== "Unknown" || openPorts.length > 0;
+        if (!isAlive) return null;
+
         const registeredClient = registeredByIp.get(ip) || registeredByMac.get(normalizeMac(mac));
 
-        const [{ hostname, source }, openPorts] = await Promise.all([
+        const [{ hostname, source }] = await Promise.all([
           getHostnameForIp(ip),
-          getOpenPorts(ip),
         ]);
         
         const scannedHostname =
@@ -304,6 +353,33 @@ export async function scanLocalNetwork() {
 
   const discoveredDevices = devices.filter((device) => device !== null);
   
+  // Manually inject the server itself if it's on this subnet but missing from results
+  // (arp -a often excludes the local machine)
+  const primaryIp = getPrimaryInterfaceAddress();
+  if (primaryIp && primaryIp.startsWith(`${subnet}.`)) {
+    const alreadyFound = discoveredDevices.find(d => d.ip === primaryIp);
+    if (!alreadyFound) {
+      const serverMac = os.networkInterfaces()[Object.keys(os.networkInterfaces()).find(name => 
+        os.networkInterfaces()[name].some(r => r.address === primaryIp)
+      )]?.find(r => r.address === primaryIp)?.mac || "Unknown";
+      
+      const registeredClient = registeredByIp.get(primaryIp) || registeredByMac.get(normalizeMac(serverMac));
+      
+      discoveredDevices.push({
+        ip: primaryIp,
+        mac: serverMac,
+        hostname: getDisplayHostname(primaryIp, os.hostname(), registeredClient),
+        hostname_source: "system",
+        vendor: "Sentrix Server",
+        device_type: "Server",
+        device_kind: "Management Server",
+        gateway: false,
+        open_ports: [Number(process.env.PORT || 4000)],
+        ...getAgentStateForDevice({ device_type: "Server" }, registeredClient, null),
+      });
+    }
+  }
+
   lastScanResults.clear();
   discoveredDevices.forEach((device) => lastScanResults.set(device.ip, device));
 
@@ -322,10 +398,14 @@ export async function scanLocalNetwork() {
   return discoveredDevices;
 }
 
-export async function runDiscoveryScan() {
-  if (activeScanPromise) return activeScanPromise;
+export async function runDiscoveryScan(targetSubnet = null) {
+  // If a scan is running on the SAME subnet, return existing promise
+  if (activeScanPromise && activeScanSubnet === targetSubnet) {
+    return activeScanPromise;
+  }
 
-  activeScanPromise = scanLocalNetwork()
+  activeScanSubnet = targetSubnet;
+  activeScanPromise = scanLocalNetwork(targetSubnet)
     .catch((error) => {
       updateSnapshot({
         status: "error",
@@ -337,6 +417,7 @@ export async function runDiscoveryScan() {
     })
     .finally(() => {
       activeScanPromise = null;
+      activeScanSubnet = null;
     });
 
   return activeScanPromise;
@@ -349,7 +430,7 @@ export function startDiscoveryScheduler(io) {
 
   const runAndEmit = async () => {
     emitSnapshot();
-    await runDiscoveryScan();
+    await runDiscoveryScan(preferredSubnet);
     emitSnapshot();
   };
 

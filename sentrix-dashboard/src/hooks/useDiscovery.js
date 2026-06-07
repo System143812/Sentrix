@@ -17,42 +17,69 @@ const emptySnapshot = {
 
 export function useDiscovery() {
   const [snapshot, setSnapshot] = useState(emptySnapshot);
+  const [interfaces, setInterfaces] = useState([]);
   const [message, setMessage] = useState("");
   const [deployingIp, setDeployingIp] = useState(null);
+  const [socket, setSocket] = useState(null);
 
   const refreshSnapshot = useCallback(async () => {
     const nextSnapshot = await discoveryApi.getDiscoverySnapshot();
     setSnapshot(nextSnapshot || emptySnapshot);
   }, []);
 
+  const refreshInterfaces = useCallback(async () => {
+    try {
+      const data = await discoveryApi.getInterfaces();
+      setInterfaces(data || []);
+    } catch (error) {
+      console.error("Failed to load interfaces:", error);
+    }
+  }, []);
+
   useEffect(() => {
     refreshSnapshot();
+    refreshInterfaces();
 
-    const socket = io(apiUrl, {
+    const s = io(apiUrl, {
       withCredentials: true,
       query: {
         role: "dashboard",
       },
     });
 
-    socket.on("discovery:update", (nextSnapshot) => {
+    setSocket(s);
+
+    s.on("connect", () => {
+      const preferred = localStorage.getItem("sentrix_preferred_subnet");
+      if (preferred) {
+        s.emit("discovery:set_preferred_subnet", preferred);
+      }
+    });
+
+    s.on("discovery:update", (nextSnapshot) => {
       if (nextSnapshot) {
         setSnapshot(nextSnapshot);
       }
     });
 
     return () => {
-      socket.disconnect();
+      s.disconnect();
     };
-  }, [refreshSnapshot]);
+  }, [refreshSnapshot, refreshInterfaces]);
 
-  async function rescan() {
+  async function rescan(subnet = null) {
     setMessage("");
     try {
-      const nextSnapshot = await discoveryApi.scanNetwork();
+      const nextSnapshot = await discoveryApi.scanNetwork(subnet);
       setSnapshot(nextSnapshot || emptySnapshot);
     } catch (error) {
       setMessage(error.message || "Unable to rescan network.");
+    }
+  }
+
+  function setSubnet(subnet) {
+    if (socket?.connected && subnet) {
+      socket.emit("discovery:set_preferred_subnet", subnet);
     }
   }
 
@@ -73,9 +100,11 @@ export function useDiscovery() {
 
   return {
     snapshot,
+    interfaces,
     message,
     deployingIp,
     rescan,
+    setSubnet,
     deploy,
   };
 }

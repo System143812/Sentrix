@@ -13,6 +13,8 @@ import {
   ServerCog,
   Smartphone,
   X,
+  ChevronDown,
+  ShieldAlert,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { Card } from "../components/Card.jsx";
@@ -179,6 +181,7 @@ function DeploymentFailureOverlay({ failure, loading, onClose, onRetry }) {
 export function NetworkPage({
   user,
   snapshot,
+  interfaces = [],
   onScan,
   onDeploy,
   deployMessage,
@@ -188,10 +191,25 @@ export function NetworkPage({
   const [selectedIp, setSelectedIp] = useState(null);
   const [deploymentFailure, setDeploymentFailure] = useState(null);
   const [retryRequest, setRetryRequest] = useState(null);
+  
+  // Initialize targetSubnet from localStorage, falling back to snapshot or empty
+  const [targetSubnet, setTargetSubnet] = useState(() => {
+    return localStorage.getItem("sentrix_preferred_subnet") || snapshot?.subnet || "";
+  });
+
   const { notify } = useToast();
   const { currentPage, pageSize, setCurrentPage, setPageSize } = usePaginationState("network", 5);
 
-  const scanResults = snapshot?.devices || [];
+  const scanResults = useMemo(() => {
+    const devices = snapshot?.devices || [];
+    if (!targetSubnet) return devices;
+    
+    // Normalize targetSubnet to remove any trailing .0 or /24
+    const normalizedTarget = targetSubnet.split('/')[0].replace(/\.0$/, '');
+    
+    // Filter devices to only show those matching the selected subnet prefix
+    return devices.filter((host) => host.ip?.startsWith(`${normalizedTarget}.`));
+  }, [snapshot?.devices, targetSubnet]);
   
   const paginatedResults = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -200,6 +218,24 @@ export function NetworkPage({
 
   const selectedHost = scanResults.find((host) => host.ip === selectedIp);
   const scanLoading = snapshot?.status === "scanning";
+
+  // Persist targetSubnet choice and sync with backend defaults
+  useEffect(() => {
+    if (targetSubnet) {
+      localStorage.setItem("sentrix_preferred_subnet", targetSubnet);
+    }
+  }, [targetSubnet]);
+
+  useEffect(() => {
+    // If we have no preference yet, use the backend's active subnet
+    if (!targetSubnet && snapshot?.subnet) {
+      setTargetSubnet(snapshot.subnet);
+    } 
+    // If still empty but we have interfaces, pick the first one
+    else if (!targetSubnet && interfaces.length > 0) {
+      setTargetSubnet(interfaces[0].subnet);
+    }
+  }, [snapshot?.subnet, interfaces, targetSubnet]);
 
   // Reset to page 1 when scan results change (e.g. new scan started)
   useEffect(() => {
@@ -286,29 +322,56 @@ export function NetworkPage({
         subtitle="Sentrix scans the local network and shows which Windows PCs have an active, offline, or missing agent."
         backgroundImage="/network_header.jpg"
         action={
-          <button
-            type="button"
-            onClick={onScan}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
-            disabled={scanLoading}
-          >
-            {scanLoading ? (
-              <LoaderCircle className="animate-spin" size={16} />
-            ) : (
-              <RefreshCcw size={16} />
-            )}
-            <span>{scanLoading ? "Scanning" : "Rescan"}</span>
-          </button>
+          canDeploy ? (
+            <button
+              type="button"
+              onClick={() => onScan(targetSubnet)}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
+              disabled={scanLoading}
+            >
+              {scanLoading ? (
+                <LoaderCircle className="animate-spin" size={16} />
+              ) : (
+                <RefreshCcw size={16} />
+              )}
+              <span>{scanLoading ? "Scanning" : "Rescan"}</span>
+            </button>
+          ) : (
+            <span className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 text-xs font-bold text-white/50 backdrop-blur-md">
+              <ShieldAlert size={14} />
+              View Only Mode
+            </span>
+          )
         }
       >
-        <div className="mt-4 flex flex-wrap gap-3 text-xs font-semibold text-white/70">
-          <span className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 shadow-sm shadow-black/5 backdrop-blur-md">
-            Subnet: {snapshot?.subnet || "Unknown"}
-          </span>
-          <span className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 shadow-sm shadow-black/5 backdrop-blur-md">
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-semibold text-white/70">
+          <div className="relative">
+            <select
+              value={targetSubnet}
+              onChange={(e) => {
+                if (!canDeploy) return;
+                const newSubnet = e.target.value;
+                setTargetSubnet(newSubnet);
+                onSetSubnet?.(newSubnet);
+              }}
+              className={`h-10 w-48 appearance-none rounded-lg border border-white/10 bg-white/5 pl-4 pr-10 text-white shadow-sm outline-none backdrop-blur-md transition ${
+                canDeploy ? "hover:bg-white/10 focus:border-white/30" : "cursor-not-allowed opacity-60"
+              }`}
+              disabled={scanLoading || !canDeploy}
+            >
+              <option value="" disabled className="text-slate-900">Select Interface</option>
+              {interfaces.map((iface) => (
+                <option key={iface.address} value={iface.subnet} className="text-slate-900">
+                  {iface.name} ({iface.subnet}.0)
+                </option>
+              ))}
+            </select>
+            {canDeploy && <ChevronDown size={14} className="pointer-events-none absolute right-3 top-3.5 text-white/50" />}
+          </div>
+          <span className="cursor-default rounded-lg border border-white/5 bg-white/5 px-4 py-2.5 text-white/40 shadow-none backdrop-blur-md transition-opacity">
             Last scan: {formatTime(snapshot?.lastScanAt)}
           </span>
-          <span className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 shadow-sm shadow-black/5 backdrop-blur-md">
+          <span className="cursor-default rounded-lg border border-white/5 bg-white/5 px-4 py-2.5 text-white/40 shadow-none backdrop-blur-md transition-opacity">
             Next auto scan: {formatTime(snapshot?.nextScanAt)}
           </span>
         </div>
@@ -353,8 +416,8 @@ export function NetworkPage({
             run a rescan now.
           </div>
         ) : (
-          <div className="mt-6 overflow-hidden rounded-lg border border-slate-200">
-            <div className="hidden gap-4 bg-slate-100 px-4 py-3 text-xs font-semibold uppercase text-slate-500 lg:grid lg:grid-cols-[minmax(160px,1.1fr)_minmax(110px,0.65fr)_minmax(140px,0.9fr)_minmax(120px,0.8fr)_70px_110px_130px]">
+          <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200">
+            <div className="hidden min-w-[1000px] gap-4 bg-slate-50/50 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 xl:grid xl:grid-cols-[minmax(160px,1.1fr)_minmax(110px,0.65fr)_minmax(140px,0.9fr)_minmax(120px,0.8fr)_70px_110px_130px] border-b border-slate-100">
               <div>Host</div>
               <div>IP</div>
               <div>MAC</div>
@@ -366,38 +429,38 @@ export function NetworkPage({
             {paginatedResults.map((host) => (
               <div
                 key={host.ip}
-                className="grid gap-4 border-t border-slate-200 bg-white px-4 py-4 text-sm text-slate-700 first:border-t-0 lg:grid-cols-[minmax(160px,1.1fr)_minmax(110px,0.65fr)_minmax(140px,0.9fr)_minmax(120px,0.8fr)_70px_110px_130px] lg:items-center"
+                className="grid gap-4 border-t border-slate-100 bg-white px-4 py-4 text-sm text-slate-700 first:border-t-0 xl:min-w-[1000px] xl:grid-cols-[minmax(160px,1.1fr)_minmax(110px,0.65fr)_minmax(140px,0.9fr)_minmax(120px,0.8fr)_70px_110px_130px] xl:items-center hover:bg-slate-50/30 transition-all"
               >
                 <div className="min-w-0">
-                  <p className="break-words font-semibold text-slate-900">
+                  <p className="break-words font-semibold text-slate-800">
                     {host.hostname || `Host ${host.ip?.split(".").at(-1)}`}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-slate-400">
                     via {host.hostname_source || "scan"}
                   </p>
                 </div>
                 <div className="min-w-0">
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
+                  <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 xl:hidden">
                     IP
                   </span>
-                  <span className="break-words">{host.ip}</span>
+                  <span className="break-words font-data text-xs font-medium text-slate-700">{host.ip}</span>
                 </div>
                 <div className="min-w-0">
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
+                  <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 xl:hidden">
                     MAC
                   </span>
-                  <span className="break-words">{host.mac}</span>
+                  <span className="break-words font-data text-xs font-medium text-slate-400">{host.mac}</span>
                 </div>
                 <div className="min-w-0">
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
+                  <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 xl:hidden">
                     Vendor
                   </span>
-                  <span className="break-words">
+                  <span className="break-words text-xs font-medium text-slate-600">
                     {host.vendor || "Unknown"}
                   </span>
                 </div>
                 <div>
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
+                  <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 xl:hidden">
                     Type
                   </span>
                   <DeviceTypeIcon
@@ -407,26 +470,26 @@ export function NetworkPage({
                   />
                 </div>
                 <div>
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-400 lg:hidden">
+                  <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 xl:hidden">
                     Agent Status
                   </span>
-                  <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${
+                  <span className={`inline-flex w-fit rounded-md border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
                     host.agent_status === "running"
-                      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                      ? "border-emerald-100 bg-emerald-50 text-emerald-600"
                       : host.agent_status === "offline"
-                        ? "border-amber-100 bg-amber-50 text-amber-700"
-                        : "border-slate-200 bg-slate-50 text-slate-500"
+                        ? "border-amber-100 bg-amber-50 text-amber-600"
+                        : "border-slate-100 bg-slate-50 text-slate-400"
                   }`}>
                     {host.agent_status === "running" ? "Running" : host.agent_status === "offline" ? "Offline" : "No agent"}
                   </span>
                 </div>
-                <div className="flex justify-start lg:justify-end">
+                <div className="flex justify-start xl:justify-end">
                   {canDeploy ? (
                     <button
                       type="button"
                       onClick={() => setSelectedIp(host.ip)}
                       disabled={!host.deploy_eligible || deployingIp === host.ip}
-                      className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                      className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-900 px-3 text-[10px] font-semibold uppercase tracking-wider text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                       title={
                         host.deploy_eligible
                           ? `Prepare installer for ${host.device_type}`
@@ -436,9 +499,9 @@ export function NetworkPage({
                       }
                     >
                       {deployingIp === host.ip ? (
-                        <LoaderCircle className="animate-spin" size={15} />
+                        <LoaderCircle className="animate-spin" size={14} />
                       ) : (
-                        <PackageCheck size={15} />
+                        <PackageCheck size={14} />
                       )}
                       {host.deployment_action === "update"
                         ? deployingIp === host.ip
@@ -455,7 +518,7 @@ export function NetworkPage({
                         : "Not eligible"}
                     </button>
                   ) : (
-                    <span className="inline-flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-500">
+                    <span className="inline-flex h-9 items-center rounded-lg border border-slate-100 bg-slate-50 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                       View only
                     </span>
                   )}

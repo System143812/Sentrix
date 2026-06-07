@@ -1,7 +1,15 @@
 import { fetchJson } from "./api.js";
 
-export async function scanNetwork() {
-  const result = await fetchJson("/api/discovery/scan");
+export async function scanNetwork(subnet = null) {
+  const result = await fetchJson("/api/discovery/scan", {
+    method: "POST",
+    body: JSON.stringify({ subnet }),
+  });
+  return result.data;
+}
+
+export async function getInterfaces() {
+  const result = await fetchJson("/api/discovery/interfaces");
   return result.data;
 }
 

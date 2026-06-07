@@ -105,9 +105,12 @@ export async function runNmapPingScan(subnet) {
 }
 
 export function findMacForIp(arpTable, ip) {
-  const line = arpTable.split("\n").find((row) => row.includes(ip));
+  const targetIp = ip.trim();
+  // Match the IP at the start of a word boundary followed by spaces and a MAC address
+  const regex = new RegExp(`(?:^|\\s)${targetIp.replace(/\\./g, '\\.')}\\s+([0-9a-f]{2}(?:[:-][0-9a-f]{2}){5})`, 'i');
+  const match = arpTable.match(regex);
 
-  return line?.match(/([0-9a-f]{2}[:-]){5}[0-9a-f]{2}/i)?.[0] ?? "Unknown";
+  return match?.[1]?.toLowerCase().replace(/-/g, ":") ?? "Unknown";
 }
 
 export async function getHostnameForIp(ip) {
@@ -214,7 +217,19 @@ export function getLocalSubnet() {
   for (const [name, records] of Object.entries(interfaces)) {
     for (const record of records || []) {
       if (record.family === "IPv4" && !record.internal) {
-        const isVirtual = /virtual|vbox|vmware|docker|veth|vpn|sandbox/i.test(name);
+        const cleanMac = record.mac.toLowerCase().replace(/[:-]/g, '');
+        // Locally Administered Addresses (LAA) are almost always virtual/VPN
+        const isLAA = /^[0-9a-f][26ae]/.test(cleanMac);
+        
+        // Broad check for virtual names or common virtual MAC prefixes
+        const isVirtual = /virtual|vbox|vmware|docker|veth|vpn|sandbox|bridge/i.test(name) ||
+                         isLAA ||
+                         cleanMac.startsWith('080027') || // VirtualBox
+                         cleanMac.startsWith('000569') || // VMware
+                         cleanMac.startsWith('000c29') || // VMware
+                         cleanMac.startsWith('005056') || // VMware
+                         cleanMac.startsWith('00155d');   // Hyper-V
+
         const parts = record.address.split(".");
         const subnet = `${parts[0]}.${parts[1]}.${parts[2]}`;
         
@@ -223,12 +238,13 @@ export function getLocalSubnet() {
           address: record.address,
           subnet,
           isVirtual,
-          isCommonLan: record.address.startsWith("192.168.") || record.address.startsWith("10.")
+          isCommonLan: record.address.startsWith("192.168.") || record.address.startsWith("10.") || record.address.startsWith("172.")
         });
       }
     }
   }
 
+  // Sorting: Non-virtual first, then common LAN subnets
   candidates.sort((a, b) => {
     if (a.isVirtual !== b.isVirtual) return a.isVirtual ? 1 : -1;
     if (a.isCommonLan !== b.isCommonLan) return a.isCommonLan ? -1 : 1;
@@ -240,6 +256,37 @@ export function getLocalSubnet() {
   }
 
   return null;
+}
+
+export function getAvailableInterfaces() {
+  const interfaces = os.networkInterfaces();
+  const results = [];
+
+  for (const [name, records] of Object.entries(interfaces)) {
+    for (const record of records || []) {
+      if (record.family === "IPv4" && !record.internal) {
+        const isVirtual = /virtual|vbox|vmware|docker|veth|vpn|sandbox|bridge/i.test(name);
+        const parts = record.address.split(".");
+        const subnet = `${parts[0]}.${parts[1]}.${parts[2]}`;
+
+        results.push({
+          name,
+          address: record.address,
+          subnet,
+          isVirtual,
+          isCommonLan: record.address.startsWith("192.168.") || record.address.startsWith("10.") || record.address.startsWith("172."),
+          netmask: record.netmask
+        });
+      }
+    }
+  }
+
+  // Sort: Non-virtual first, then common LANs
+  return results.sort((a, b) => {
+    if (a.isVirtual !== b.isVirtual) return a.isVirtual ? 1 : -1;
+    if (a.isCommonLan !== b.isCommonLan) return a.isCommonLan ? -1 : 1;
+    return 0;
+  });
 }
 
 export function getLocalGatewayCandidates(subnet) {
@@ -273,12 +320,23 @@ export function getPrimaryInterfaceAddress() {
   for (const [name, records] of Object.entries(interfaces)) {
     for (const record of records || []) {
       if (record.family === "IPv4" && !record.internal) {
-        const isVirtual = /virtual|vbox|vmware|docker|veth|vpn|sandbox/i.test(name);
+        const cleanMac = record.mac.toLowerCase().replace(/[:-]/g, '');
+        // Locally Administered Addresses (LAA) are almost always virtual/VPN
+        const isLAA = /^[0-9a-f][26ae]/.test(cleanMac);
+        
+        const isVirtual = /virtual|vbox|vmware|docker|veth|vpn|sandbox|bridge/i.test(name) ||
+                         isLAA ||
+                         cleanMac.startsWith('080027') ||
+                         cleanMac.startsWith('000569') ||
+                         cleanMac.startsWith('000c29') ||
+                         cleanMac.startsWith('005056') ||
+                         cleanMac.startsWith('00155d');
+
         candidates.push({
           name,
           address: record.address,
           isVirtual,
-          isCommonLan: record.address.startsWith("192.168.") || record.address.startsWith("10.")
+          isCommonLan: record.address.startsWith("192.168.") || record.address.startsWith("10.") || record.address.startsWith("172.")
         });
       }
     }
