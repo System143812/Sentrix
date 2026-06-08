@@ -95,7 +95,29 @@ if (serverUrl && !serverUrl.startsWith("http://") && !serverUrl.startsWith("http
 
 log(`Server URL: "${serverUrl || 'MISSING'}"`);
 
-let metricsIntervalMs = Number(process.env.METRICS_INTERVAL_MS || 5000);
+// --- Setup Mode Logic ---
+async function runSetupIfNeeded() {
+  const isSetupMode = args.includes("--setup");
+  if (!isSetupMode) return;
+
+  log("[Setup] Running in setup/installer mode...");
+  try {
+    const { registerAgentTasks, performLockdown } = await import("./services/installer.service.js");
+    await registerAgentTasks(serverUrl);
+    await performLockdown();
+    log("[Setup] Sentrix Agent setup completed successfully. Machine is now secured.");
+    process.exit(0);
+  } catch (error) {
+    log(`[Setup] CRITICAL FAILURE: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+// Execute setup if flag is present, otherwise continue to main start
+runSetupIfNeeded().then(() => {
+  // ------------------
+
+  let metricsIntervalMs = Number(process.env.METRICS_INTERVAL_MS || 5000);
 let detailsIntervalMs = metricsIntervalMs;
 const heartbeatIntervalMs = Number(process.env.HEARTBEAT_INTERVAL_MS || 10000);
 
@@ -223,4 +245,5 @@ process.on("SIGTERM", () => {
 start().catch((error) => {
   log("Sentrix agent failed to start:", error.stack || error.message);
   process.exit(1);
+});
 });
