@@ -13,12 +13,9 @@ async function getAgentDataDir() {
     }
   }
 
+  // Unified location for Sentrix data on Windows
   if (process.platform === "win32") {
-    return process.env.SENTRIX_AGENT_DATA_DIR
-      || path.join(
-        process.env.LOCALAPPDATA || os.homedir(),
-        "SentrixAgent",
-      );
+    return "C:\\ProgramData\\SentrixAgent";
   }
 
   return path.join(os.homedir(), ".sentrix-agent");
@@ -39,13 +36,24 @@ export async function getAgentIdAsync() {
   }
 
   const idFilePath = path.join(dataDir, "agent-id.txt");
+  const envId = process.env.SENTRIX_AGENT_ID;
 
+  // 1. If an ID is provided via Environment (Server-Pushed), it is the SOURCE OF TRUTH.
+  if (envId) {
+    // If it differs from the local file, update the local file to match.
+    if (!fs.existsSync(idFilePath) || fs.readFileSync(idFilePath, "utf8").trim() !== envId) {
+      console.log(`[Identity] Provisioning with server-provided ID: ${envId}`);
+      fs.writeFileSync(idFilePath, envId);
+    }
+    return envId;
+  }
+
+  // 2. Fallback to the local persisted file if no environment ID is present.
   if (fs.existsSync(idFilePath)) {
     return fs.readFileSync(idFilePath, "utf8").trim();
   }
 
-  const id = crypto.randomUUID();
-  fs.writeFileSync(idFilePath, id);
-
-  return id;
+  // 3. CRITICAL: No ID found. We no longer generate random IDs.
+  // The agent must be provisioned via the Sentrix Dashboard or a manual .env file.
+  throw new Error("Agent ID not found. This agent has not been provisioned. Please deploy it from the Sentrix Dashboard.");
 }

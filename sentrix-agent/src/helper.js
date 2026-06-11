@@ -108,6 +108,16 @@ if (Test-Path $modulePath) {
         }
       });
     }
+  }, {
+    onError(error) {
+      if (error?.code === "EADDRINUSE") {
+        log(`[Helper] IPC port ${IPC_PORT} is already owned by another helper. Exiting duplicate instance cleanly.`);
+        process.exit(0);
+      }
+
+      log(`CRITICAL: IPC server failed: ${error.stack || error.message}`);
+      process.exit(1);
+    },
   });
 } catch (err) {
   log(`CRITICAL: Server failed to start: ${err.message}`);
