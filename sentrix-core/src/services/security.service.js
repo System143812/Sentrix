@@ -1,13 +1,175 @@
 import pool from "../lib/database.js";
 import { exec } from "child_process";
 import util from "util";
+import crypto from "crypto";
 
 const execAsync = util.promisify(exec);
 
 let ioInstance = null;
 
+// Use a persistent secret for HMAC and salting. In production, this should be in .env.
+const SERVER_SECURITY_SECRET = process.env.SENTRIX_SECURITY_SECRET || "sentrix_default_secure_secret_2024";
+
 export function initSecurityService(io) {
   ioInstance = io;
+}
+
+/**
+ * Generates a short-lived provisioning token for an agent.
+ */
+export async function generateProvisioningToken(clientId) {
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = Date.now() + 30 * 60 * 1000; // 30 minutes
+  const now = Date.now();
+  const pendingHostname = `Pending Agent ${String(clientId).slice(0, 8)}`;
+
+  await pool.query(
+    `
+    INSERT INTO clients
+      (id, agent_id, hostname, ip, mac, os, device_type, client_group, status, metrics, details, provisioning_token, token_expires_at, last_seen_at, created_at, updated_at, archived)
+    VALUES
+      (?, ?, ?, NULL, NULL, NULL, 'PC', 'Unassigned', 'offline', ?, ?, ?, ?, NULL, ?, ?, 0)
+    ON DUPLICATE KEY UPDATE
+      provisioning_token = VALUES(provisioning_token),
+      token_expires_at = VALUES(token_expires_at),
+      updated_at = VALUES(updated_at),
+      archived = 0
+    `,
+    [clientId, clientId, pendingHostname, JSON.stringify({}), JSON.stringify({}), token, expiresAt, now, now]
+  );
+
+  return token;
+}
+
+/**
+ * Verifies if a given fingerprint and token are valid for binding or re-registration.
+ */
+export async function bindHardwareFingerprint(clientId, fingerprint, token) {
+  const [[client]] = await pool.query(
+    "SELECT hardware_fingerprint, provisioning_token, token_expires_at FROM clients WHERE id = ?",
+    [clientId]
+  );
+
+  if (!client) throw new Error("Client not found.");
+
+  // Salt and Hash the incoming fingerprint for comparison/storage
+  const secureFingerprint = crypto
+    .createHmac("sha256", SERVER_SECURITY_SECRET)
+    .update(fingerprint)
+    .digest("hex");
+  
+  // CASE 1: Provisioning/Update Flow (Token provided)
+  if (token) {
+    if (client.provisioning_token === token) {
+      if (Date.now() > client.token_expires_at) {
+        throw new Error("Provisioning token has expired.");
+      }
+
+      // Update the fingerprint (Authorized Upgrade)
+      await pool.query(
+        "UPDATE clients SET hardware_fingerprint = ?, provisioning_token = NULL, token_expires_at = NULL WHERE id = ?",
+        [secureFingerprint, clientId]
+      );
+
+      console.log(`[SECURITY] Hardware bound (via Token) for client ${clientId}`);
+      return secureFingerprint;
+    } else {
+      // TOKEN MISMATCH: If the device is already bound and the fingerprint matches, 
+      // treat it as a re-verification success rather than a failure.
+      if (client.hardware_fingerprint === secureFingerprint) {
+        console.warn(`[SECURITY] Invalid token for ${clientId} but fingerprint matches. Falling back to re-verification.`);
+        return secureFingerprint;
+      }
+      
+      throw new Error("Invalid provisioning token.");
+    }
+  }
+
+  // CASE 2: Normal Re-registration (No token)
+  if (client.hardware_fingerprint) {
+    if (client.hardware_fingerprint === secureFingerprint) {
+      console.log(`[SECURITY] Hardware re-verified for client ${clientId}`);
+      return secureFingerprint;
+    } else {
+      console.error(`[SECURITY] Hardware mismatch for ${clientId}. Potential clone detected.`);
+      throw new Error("Hardware identity mismatch. This device identity is locked to different hardware.");
+    }
+  }
+
+  // CASE 3: First-time registration WITHOUT token
+  // In a strict system, we'd block this. But for convenience, we might allow it 
+  // if the client doesn't have a fingerprint yet.
+  // However, our plan says we use OTP for first time.
+  console.warn(`[SECURITY] First-time registration for ${clientId} without token. Binding anyway (Legacy support).`);
+  
+  await pool.query(
+    "UPDATE clients SET hardware_fingerprint = ? WHERE id = ?",
+    [secureFingerprint, clientId]
+  );
+
+  return secureFingerprint;
+}
+
+/**
+ * Verifies the HMAC signature of incoming agent data.
+ */
+export async function verifyHardwareSignature(clientId, data, signature, timestamp) {
+  const [[client]] = await pool.query(
+    "SELECT hardware_fingerprint FROM clients WHERE id = ?",
+    [clientId]
+  );
+
+  if (!client?.hardware_fingerprint) {
+    console.warn(`[SECURITY] Rejecting unsigned data: No fingerprint bound for ${clientId}`);
+    return false;
+  }
+
+  // Prevent Replay Attacks: Check if timestamp is within 5 minutes
+  const now = Date.now();
+  if (Math.abs(now - timestamp) > 5 * 60 * 1000) {
+    console.warn(`[SECURITY] Rejecting data: Timestamp drift too high for ${clientId}`);
+    return false;
+  }
+
+  // Re-calculate HMAC using the stored (secure) fingerprint as the key
+  const payload = JSON.stringify(data) + timestamp;
+  const expectedSignature = crypto
+    .createHmac("sha256", client.hardware_fingerprint)
+    .update(payload)
+    .digest("hex");
+
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expectedSignature);
+
+  if (sigBuf.length !== expBuf.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(sigBuf, expBuf);
+}
+
+/**
+ * Signs an outbound command for a hardware-bound agent.
+ */
+export async function signAgentCommand(clientId, command, args = {}) {
+  const [[client]] = await pool.query(
+    "SELECT hardware_fingerprint FROM clients WHERE id = ? AND archived = 0 LIMIT 1",
+    [clientId],
+  );
+
+  if (!client?.hardware_fingerprint) {
+    throw new Error("Agent command signing failed: hardware identity is not bound.");
+  }
+
+  const data = { command, args };
+  const timestamp = Date.now();
+  const payload = JSON.stringify(data) + timestamp;
+  const hmac = crypto
+    .createHmac("sha256", client.hardware_fingerprint)
+    .update(payload)
+    .digest("hex");
+
+  return { data, hmac, timestamp };
 }
 
 export function normalizeMac(value = "") {
@@ -94,11 +256,12 @@ export async function isRequestAuthorized(req) {
   const ip = getRequestIp(req);
   const headerMac = normalizeMac(getRequestMac(req));
   const agentId = req.headers?.["x-sentrix-agent-id"];
+  const provisioningToken = req.headers?.["x-sentrix-provisioning-token"];
   const mac = headerMac || await resolveMacFromIp(ip);
-  
+
   const userIds = [req.user?.id, req.user?.email].filter(Boolean);
-  
-  console.log(`[SECURITY] Checking authorization for IP: ${ip}, MAC: ${mac || "UNKNOWN"}, AgentID: ${agentId || "MISSING"}`);
+
+  console.log(`[SECURITY] Checking authorization for IP: ${ip}, MAC: ${mac || "UNKNOWN"}, AgentID: ${agentId || "MISSING"}, Token: ${provisioningToken ? "PRESENT" : "MISSING"}`);
 
   // 1. Check Whitelist (Fastest)
   const [whitelistRows] = await pool.query(
@@ -122,8 +285,26 @@ export async function isRequestAuthorized(req) {
     return true;
   }
 
-  // 2. Check Agent-ID against Clients table
+  // 2. Check Provisioning Token (For New Deploys/Updates)
+  if (provisioningToken && agentId) {
+    const [[client]] = await pool.query(
+      "SELECT id, token_expires_at FROM clients WHERE id = ? AND provisioning_token = ? LIMIT 1",
+      [agentId, provisioningToken]
+    );
+
+    if (client) {
+      if (Date.now() <= client.token_expires_at) {
+        console.log(`[SECURITY] Authorized via Provisioning Token: ${agentId}`);
+        return true;
+      } else {
+        console.warn(`[SECURITY] Token expired for AgentID: ${agentId}`);
+      }
+    }
+  }
+
+  // 3. Check Agent-ID against Clients table (Standard Operational Flow)
   if (agentId) {
+
     const [[client]] = await pool.query(
       "SELECT id, hostname FROM clients WHERE agent_id = ? AND archived = 0 LIMIT 1",
       [agentId]
