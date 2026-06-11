@@ -1,5 +1,5 @@
 import { ClientRepository } from "./client.repository.js";
-import { authorizeDevice } from "./security.service.js";
+import { authorizeDevice, bindHardwareFingerprint } from "./security.service.js";
 import {
   getClientHardware,
   saveHardwareDetails,
@@ -30,16 +30,62 @@ export async function getAllClients() {
 }
 
 export async function getClientById(id) {
-  return await ClientRepository.findById(id);
+  const client = await ClientRepository.findById(id);
+  if (!client) return null;
+
+  // Explicitly return only safe fields. 
+  // DO NOT spread (...client) to avoid leaking hardware_fingerprint or provisioning_token literal strings.
+  return {
+    id: client.id,
+    agentId: client.agent_id,
+    hostname: client.hostname,
+    ip: client.ip,
+    mac: client.mac,
+    os: client.os,
+    deviceType: client.device_type,
+    group: client.group,
+    status: client.status,
+    metrics: client.metrics,
+    details: client.details,
+    archived: client.archived,
+    lastSeenAt: client.last_seen_at,
+    createdAt: client.created_at,
+    updatedAt: client.updated_at,
+    agentVersion: client.agent_version,
+    security: {
+      isHardwareBound: Boolean(client.hardware_fingerprint),
+      hasPendingUpdate: Boolean(client.provisioning_token),
+      tokenExpiresAt: client.token_expires_at || null
+    }
+  };
 }
 
 export async function registerClient(clientData) {
   const id = clientData.agentId ?? clientData.id;
   if (!id) throw new Error("Client id is required.");
 
-  const existing = await getClientById(id);
-  console.log(`[CORE] Registering agent: ${id} (${clientData.hostname})`);
   const now = Date.now();
+  const existing = await getClientById(id);
+
+  // --- Identity Grafting (Deduplication) ---
+  // If this is a 'new' ID to the server, check if we already have this machine 
+  // under a different ID (by MAC or Hardware Fingerprint).
+  if (!existing) {
+    const allClients = await getAllClients();
+    const duplicate = allClients.find(c => 
+      c.id !== id && (
+        (clientData.mac && c.mac === clientData.mac) || 
+        (clientData.fingerprint && c.security?.isHardwareBound && c.details?.specs?.fingerprint === clientData.fingerprint)
+      )
+    );
+
+    if (duplicate) {
+      console.log(`[CORE] Deduplication: Archiving stale record ${duplicate.id} for new ID ${id} (MAC/Fingerprint match)`);
+      await archiveClient(duplicate.id);
+    }
+  }
+
+  console.log(`[CORE] Registering agent: ${id} (${clientData.hostname})`);
 
   // Auto-authorize the device
   await authorizeDevice({
@@ -49,7 +95,6 @@ export async function registerClient(clientData) {
   }, { label: clientData.hostname, type: 'agent_id', identifier: id });
 
   // 1. Determine which metrics/details to use. 
-  // If the registration packet is empty (typical on restart), keep what we already have.
   const incomingMetrics = clientData.metrics || {};
   const incomingDetails = clientData.details || {};
   
@@ -65,13 +110,28 @@ export async function registerClient(clientData) {
     ? incomingDetails 
     : (existing?.details || {});
 
+  // 2. Create or Update the client record FIRST (Source of Truth)
   await ClientRepository.upsert(id, {
     ...clientData,
     metrics: metricsToPersist,
     details: detailsToPersist
   }, now);
 
-  // 2. Only trigger expensive child-table updates if new data was actually sent
+  // 3. Hardware Binding (Security Overhaul Phase 2)
+  // Now that the record exists, we can safely bind the hardware fingerprint.
+  let secureFingerprint = null;
+  if (clientData.fingerprint) {
+    try {
+      secureFingerprint = await bindHardwareFingerprint(id, clientData.fingerprint, clientData.provisioningToken);
+      console.log(`[CORE] Hardware bound successfully for ${id}`);
+    } catch (err) {
+      console.error(`[CORE] Hardware binding failed for ${id}:`, err.message);
+      // NOTE: We don't throw here to avoid a total registration crash, 
+      // but the agent won't get a secureKey back, so it won't be able to send signed data.
+    }
+  }
+
+  // 4. Update child-table records
   if (hasIncomingMetrics) {
     await processIncomingMetrics(id, incomingMetrics, now);
   }
@@ -88,7 +148,8 @@ export async function registerClient(clientData) {
 
   console.log(`[CORE] Agent ${id} registered successfully. Data preservation: ${!hasIncomingMetrics}`);
 
-  return getClientById(id);
+  const client = await getClientById(id);
+  return { ...client, secureKey: secureFingerprint };
 }
 
 export async function updateClientMetrics(id, metrics = {}, details = null) {
@@ -122,7 +183,15 @@ export async function touchClientHeartbeat(id, metrics = null) {
   const now = Date.now();
   let normalizedMetrics = null;
 
-  if (metrics) {
+  const hasTelemetry = metrics && (
+    metrics.system !== undefined ||
+    metrics.cpu !== undefined ||
+    metrics.network !== undefined ||
+    metrics.temperature !== undefined ||
+    metrics.processes !== undefined
+  );
+
+  if (metrics && hasTelemetry) {
     const currentClient = await getClientById(id);
     if (!currentClient || currentClient.archived) return null;
     normalizedMetrics = await processIncomingMetrics(id, metrics, now);
