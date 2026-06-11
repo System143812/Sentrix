@@ -116,7 +116,15 @@ function getAgentStateForDevice(device, registeredClient = null, deploymentRecor
     };
   }
 
-  if (registeredClient || (deployEligible && deploymentRecord)) {
+  // Only treat a deployment record as "agent installed but offline" when the
+  // deployment actually succeeded or is still in progress. A failed push means
+  // the agent was never installed, so the device stays in the "deploy" state.
+  const deploymentPending =
+    deployEligible &&
+    deploymentRecord &&
+    deploymentRecord.status !== "failed";
+
+  if (registeredClient || deploymentPending) {
     return {
       agent_status: "offline",
       deployment_action: "activate",
