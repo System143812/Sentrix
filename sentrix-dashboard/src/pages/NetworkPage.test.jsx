@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { NetworkPage } from './NetworkPage';
 import { ToastProvider } from '../components/ToastProvider';
@@ -33,6 +33,10 @@ const mockSnapshot = {
 };
 
 describe('NetworkPage', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('renders scan results', () => {
     render(
       <ToastProvider>
@@ -54,6 +58,29 @@ describe('NetworkPage', () => {
     
     fireEvent.click(screen.getByText('Rescan'));
     expect(onScan).toHaveBeenCalled();
+  });
+
+  it('calls onSetSubnet when the subnet selector changes', () => {
+    const onSetSubnet = vi.fn();
+    render(
+      <ToastProvider>
+        <NetworkPage
+          user={mockUser}
+          snapshot={mockSnapshot}
+          interfaces={[
+            { name: 'Ethernet', address: '192.168.1.200', subnet: '192.168.1' },
+            { name: 'Lab', address: '192.168.2.200', subnet: '192.168.2' },
+          ]}
+          onSetSubnet={onSetSubnet}
+        />
+      </ToastProvider>
+    );
+
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: '192.168.2' },
+    });
+
+    expect(onSetSubnet).toHaveBeenCalledWith('192.168.2');
   });
 
   it('opens deploy dialog when Deploy button is clicked', () => {
@@ -89,7 +116,7 @@ describe('NetworkPage', () => {
       </ToastProvider>
     );
     
-    expect(screen.getByText('View only')).toBeInTheDocument();
+    expect(screen.getByText('View Only Mode')).toBeInTheDocument();
     expect(screen.queryByText('Deploy')).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import { getApiUrl } from "../services/api.js";
+import { getApiUrl, getAuthToken } from "../services/api.js";
 import * as discoveryApi from "../services/discoveryApi.js";
 
 const apiUrl = getApiUrl();
@@ -42,6 +42,9 @@ export function useDiscovery() {
 
     const s = io(apiUrl, {
       withCredentials: true,
+      auth: {
+        token: getAuthToken(),
+      },
       query: {
         role: "dashboard",
       },
