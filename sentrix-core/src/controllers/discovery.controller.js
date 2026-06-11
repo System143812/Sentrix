@@ -5,6 +5,8 @@ import {
   getInterfaces as getInterfacesService,
 } from "../services/discovery/index.js";
 import { logAuditEvent } from "../services/audit.service.js";
+import { getAllClients } from "../services/client.services.js";
+import { signAgentCommand } from "../services/security.service.js";
 
 export async function scan(req, res, next) {
   try {
@@ -66,6 +68,51 @@ export async function deploy(req, res, next) {
         .json({ success: false, message: "IP address is required." });
     }
 
+    // --- Surgical Unlock Flow ---
+    if (action === "update" && credentials) {
+      const io = req.app.get("io");
+      if (io) {
+        // Find if this IP has an online agent
+        const snapshot = getDiscoverySnapshot();
+        const registered = await getAllClients();
+        const snapshotDevice = snapshot.devices?.find((d) => d.ip === ip);
+        const registeredDevice = registered.find(c => c.ip === ip);
+        
+        const targetAgentId = snapshotDevice?.registered_client_id || registeredDevice?.id;
+
+        if (targetAgentId) {
+          const rooms = io.sockets?.adapter?.rooms;
+          const agentRoom = rooms?.get(`agent:${targetAgentId}`);
+          const isAgentOnline = agentRoom && agentRoom.size > 0;
+
+          if (!isAgentOnline) {
+            console.log(`[CORE] Agent on ${ip} (ID: ${targetAgentId}) is offline. Skipping surgical unlock handshake.`);
+          } else {
+            console.log(`[CORE] Attempting surgical unlock for update on ${ip} (Agent ID: ${targetAgentId})...`);
+            try {
+              // Handshake: Wait for agent to confirm Master Key activation
+              const signedCommand = await signAgentCommand(targetAgentId, "agent:prep-update");
+              const response = await io.timeout(15000).to(`agent:${targetAgentId}`).emitWithAck("agent:command", { 
+                ...signedCommand,
+              });
+              
+              console.log(`[CORE] Surgical unlock response from agent on ${ip}:`, JSON.stringify(response));
+
+              if (response?.[0]?.success) {
+                console.log(`[CORE] Surgical unlock acknowledged by agent on ${ip}. Waiting 3s for system to settle...`);
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                console.log(`[CORE] System settled. Proceeding with push.`);
+              } else {
+                console.warn(`[CORE] Agent on ${ip} refused unlock or reported failure:`, response?.[0]?.message || "No error message");
+              }
+            } catch (err) {
+              console.error(`[CORE] Handshake TIMEOUT for surgical unlock on ${ip}. The signal never reached the agent or the agent hung.`);
+            }
+          }
+        }
+      }
+    }
+
     const result = await deployAgentToHost(ip, credentials, req.user?.id, action);
 
     const auditAction =
@@ -86,6 +133,22 @@ export async function deploy(req, res, next) {
 
     if (!result.success) {
       return res.status(200).json({ success: false, ...result });
+    }
+
+    // --- Immediate Update Trigger ---
+    if (action === "update" && result.success) {
+      const io = req.app.get("io");
+      const snapshot = getDiscoverySnapshot();
+      const registered = await getAllClients();
+      const snapshotDevice = snapshot.devices?.find((d) => d.ip === ip);
+      const registeredDevice = registered.find(c => c.ip === ip);
+      const targetAgentId = snapshotDevice?.registered_client_id || registeredDevice?.id;
+      
+      if (targetAgentId) {
+        console.log(`[CORE] Sending immediate update trigger to ${ip} (Agent ID: ${targetAgentId})...`);
+        const signedCommand = await signAgentCommand(targetAgentId, "update");
+        io?.to(`agent:${targetAgentId}`).emit("agent:command", signedCommand);
+      }
     }
 
     res.json({
