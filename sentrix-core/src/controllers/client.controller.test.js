@@ -7,6 +7,14 @@ import { errorHandler } from '../middlewares/error.middleware.js';
 
 vi.mock('../services/client.services.js');
 vi.mock('../services/audit.service.js');
+vi.mock('../services/security.service.js', () => ({
+  generateProvisioningToken: vi.fn().mockResolvedValue('provisioning-token'),
+  signAgentCommand: vi.fn((clientId, command, args = {}) => Promise.resolve({
+    data: { command, args },
+    hmac: 'signed-hmac',
+    timestamp: 1234567890
+  }))
+}));
 vi.mock('../middlewares/auth.middleware.js', () => ({
   authenticate: (req, res, next) => {
     req.user = { id: 1, role: 'admin' };
