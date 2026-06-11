@@ -62,9 +62,9 @@ export function AuditPage({ user }) {
     const tabs = [{ id: "logs", label: "Logs", icon: ClipboardList }];
     if (user?.role === "network_admin") {
       tabs.push(
-        { id: "whitelist", label: "Fleet", icon: CheckCircle2 },
-        { id: "perimeter", label: "Security", icon: ShieldBan },
-        { id: "ratelimit", label: "Throttled", icon: ShieldAlert },
+        { id: "whitelist", label: "Whitelist", icon: CheckCircle2 },
+        { id: "perimeter", label: "Blocklist", icon: ShieldBan },
+        { id: "ratelimit", label: "Rate Limited", icon: ShieldAlert },
       );
     }
     return tabs;
@@ -938,7 +938,7 @@ export function AuditPage({ user }) {
                   <div>
                     {activeTab === "perimeter"
                       ? "Block Reason"
-                      : "Throttle Reason"}
+                      : "Rate Limit Reason"}
                   </div>
                 )}
                 <div>
@@ -946,7 +946,7 @@ export function AuditPage({ user }) {
                     ? "Authorized On"
                     : activeTab === "perimeter"
                       ? "Blocked On"
-                      : "Throttled On"}
+                      : "Rate Limited On"}
                 </div>
                 <div className="text-right">Authority</div>
               </div>
@@ -1127,10 +1127,10 @@ export function AuditPage({ user }) {
                       {loading
                         ? "Refreshing Security Cache..."
                         : activeTab === "whitelist"
-                          ? "Your Trusted Fleet is Empty"
+                          ? "No Whitelisted Devices"
                           : activeTab === "perimeter"
-                            ? "No Manually Blocked Devices"
-                            : "No Throttled Subjects Found"}
+                            ? "No Blocked Devices"
+                            : "No Rate Limited Subjects Found"}
                     </p>
                   </div>
                 )}
