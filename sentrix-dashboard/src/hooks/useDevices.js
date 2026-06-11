@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import { fetchJson, getApiUrl } from "../services/api.js";
+import { fetchJson, getApiUrl, getAuthToken } from "../services/api.js";
 import { updateClientGroup, archiveClient } from "../services/clientApi.js";
 
 const apiUrl = getApiUrl();
@@ -42,6 +42,9 @@ export function useDevices() {
 
     const socket = io(apiUrl, {
       withCredentials: true,
+      auth: {
+        token: getAuthToken(),
+      },
       query: {
         role: "dashboard",
       },

@@ -183,6 +183,7 @@ export function NetworkPage({
   snapshot,
   interfaces = [],
   onScan,
+  onSetSubnet,
   onDeploy,
   deployMessage,
   deployingIp,
