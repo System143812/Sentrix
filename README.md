@@ -35,13 +35,14 @@ The administrative user interface.
 *   **Tools:** Nmap (optional), Node-arp.
 *   **Purpose:** Identifies active devices on the local subnet to prepare for agent deployment.
 
-### Dual-Transport Deployment Engine
-*   **Flow:** Dashboard -> Core -> SMB/WMI Handshake -> Agent Binary Transfer -> Execution.
-*   **Protocol:** SMB (Server Message Block) and WMI (Windows Management Instrumentation).
-*   **Purpose:** Allows "Zero-Touch" installation. Core pushes the agent to the client's administrative share and triggers the installer remotely.
+### Unified Passive Deployment Engine
+*   **Flow:** Dashboard -> Core -> SMB File Delivery -> Passive Hook -> Automated Agent Setup.
+*   **Protocol:** SMB (Server Message Block).
+*   **Purpose:** Allows robust "Zero-Touch" installation across all modern Windows versions. The Core delivers the agent payload, and a local bootstrap hook on the client handles activation, task scheduling, and security hardening automatically.
 
-### Real-Time Telemetry
-*   **Flow:** Agent -> Socket.io -> Core -> Dashboard.
+### Real-Time Hardened Telemetry
+*   **Flow:** Agent -> Signed Handshake -> Socket.io -> Core -> Dashboard.
+*   **Security:** Multi-factor hardware binding and cryptographically signed data packets prevent unauthorized agent cloning or data spoofing.
 *   **Metrics:** CPU (usage/temp), RAM (usage), Disk (usage/health), Network (throughput/latency), Peripherals.
 *   **Purpose:** Provides instant visibility into workstation performance and hardware failures.
 
@@ -59,7 +60,7 @@ The administrative user interface.
 
 ### Zero-Touch Deployment
 *   Remote installation of agents via Administrative Shares (SMB).
-*   High-privilege execution using WMI without requiring physical access to the workstation.
+*   Passive activation using automated bootstrap tasks to handle installation without requiring persistent remote execution protocols like WinRM or WMI.
 
 ### Fleet Monitoring
 *   Live hardware telemetry (CPU, GPU, RAM, Disk, Temperature).
@@ -162,7 +163,8 @@ To enable "Zero-Touch" deployment to laboratory workstations, you must prepare e
 2.  Locate `scripts/Sentrix-PC-Provisioner.ps1` in the project root.
 3.  Copy this script to the client PC.
 4.  Right-click the script and select **Run with PowerShell** as Administrator (or run `.\Sentrix-PC-Provisioner.ps1` from an elevated PowerShell window).
-    *   This script enables the built-in Administrator account and configures firewall rules for SMB and WMI.
+    *   This script prepares the machine for secure SMB delivery and sets up a passive activation hook.
+    *   **Automated Hardening:** Once the agent is deployed, it automatically secures the workstation by disabling temporary setup accounts and closing administrative ports to ensure the machine remains in a high-security state.
 
 ### Step 6: Deploying the Agent
 1.  Log in to the Sentrix Dashboard.
