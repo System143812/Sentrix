@@ -29,9 +29,12 @@ export function BlurOverlay({
     }
   };
 
+  const hasBg = className.split(" ").some(c => c.startsWith("bg-"));
+  const bgClass = hasBg ? "" : "bg-slate-950/20";
+
   const overlayContent = (
     <div 
-      className={`fixed inset-0 z-[9999] grid place-items-center bg-slate-950/20 backdrop-blur-sm transition-all px-4 ${className}`}
+      className={`fixed inset-0 z-[9999] grid place-items-center ${bgClass} backdrop-blur-sm transition-all px-4 ${className}`}
       onClick={handleBackdropClick}
       aria-modal="true"
       role="dialog"
