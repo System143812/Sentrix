@@ -22,7 +22,8 @@ export const ClientRepository = {
       SELECT 
         id, agent_id, hostname, ip, mac, os, device_type, 
         client_group AS \`group\`, status, metrics, details, 
-        archived, last_seen_at, created_at, updated_at 
+        archived, hardware_fingerprint, provisioning_token, 
+        token_expires_at, agent_version, last_seen_at, created_at, updated_at 
       FROM clients 
       WHERE archived = 0 
       ORDER BY status ASC, hostname ASC
@@ -34,7 +35,7 @@ export const ClientRepository = {
 
   async findById(id) {
     const [rows] = await pool.query(
-      `SELECT id, agent_id, hostname, ip, mac, os, device_type, client_group AS \`group\`, status, metrics, details, archived, last_seen_at, created_at, updated_at FROM clients WHERE id = ? LIMIT 1`,
+      `SELECT id, agent_id, hostname, ip, mac, os, device_type, client_group AS \`group\`, status, metrics, details, archived, hardware_fingerprint, provisioning_token, token_expires_at, agent_version, last_seen_at, created_at, updated_at FROM clients WHERE id = ? LIMIT 1`,
       [id],
     );
     return normalizeClient(rows[0] ?? null);
@@ -44,9 +45,9 @@ export const ClientRepository = {
     await pool.query(
       `
       INSERT INTO clients
-        (id, agent_id, hostname, ip, mac, os, device_type, client_group, status, metrics, details, last_seen_at, updated_at, created_at, archived)
+        (id, agent_id, hostname, ip, mac, os, device_type, client_group, status, metrics, details, agent_version, last_seen_at, updated_at, created_at, archived)
       VALUES
-        (?, ?, ?, ?, ?, ?, ?, ?, 'online', ?, ?, ?, ?, ?, 0)
+        (?, ?, ?, ?, ?, ?, ?, ?, 'online', ?, ?, ?, ?, ?, ?, 0)
       ON DUPLICATE KEY UPDATE
         hostname = VALUES(hostname),
         ip = VALUES(ip),
@@ -55,6 +56,7 @@ export const ClientRepository = {
         device_type = VALUES(device_type),
         metrics = COALESCE(VALUES(metrics), metrics),
         details = COALESCE(VALUES(details), details),
+        agent_version = COALESCE(VALUES(agent_version), agent_version),
         status = 'online',
         last_seen_at = VALUES(last_seen_at),
         updated_at = VALUES(updated_at),
@@ -71,6 +73,7 @@ export const ClientRepository = {
         clientData.group || "Unassigned",
         JSON.stringify(clientData.metrics || {}),
         JSON.stringify(clientData.details || {}),
+        clientData.version || null,
         now,
         now,
         now,

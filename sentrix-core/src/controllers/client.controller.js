@@ -1,6 +1,7 @@
 import * as clientService from "../services/client.services.js";
 import { AppError } from "../utils/appError.utils.js";
 import { logAuditEvent } from "../services/audit.service.js";
+import { generateProvisioningToken, signAgentCommand } from "../services/security.service.js";
 
 const ALLOWED_DEVICE_COMMANDS = new Set([
   "shutdown",
@@ -31,11 +32,9 @@ async function emitAgentCommand(req, clientId, command, args = {}) {
   }
 
   try {
+    const signedPayload = await signAgentCommand(clientId, command, args);
     // Attempt to send the command with a 30s timeout (PowerShell can be slow)
-    return await sockets[0].timeout(30000).emitWithAck("agent:command", {
-      command,
-      args,
-    });
+    return await sockets[0].timeout(30000).emitWithAck("agent:command", signedPayload);
   } catch (error) {
     console.error(`[Socket] Command emission failed for ${clientId}:`, error.message);
     
@@ -107,6 +106,13 @@ export async function sendClientCommand(req, res, next) {
     const enrichedPayload = { ...payload };
     if (req.user && req.user.role) {
       enrichedPayload.senderRole = req.user.role;
+    }
+
+    // Special handling for 'update' command: generate a provisioning token
+    if (command === "update") {
+      console.log(`[CORE] Generating update token for client ${id}`);
+      const token = await generateProvisioningToken(id);
+      enrichedPayload.provisioningToken = token;
     }
 
     const result = await emitAgentCommand(req, id, command, enrichedPayload);
