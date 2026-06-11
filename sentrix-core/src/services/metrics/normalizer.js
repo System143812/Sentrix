@@ -20,9 +20,9 @@ export function normalizeMetrics(metrics = {}) {
     schemaVersion: toNumber(metrics.schemaVersion, 2),
     timestamp: toNumber(metrics.timestamp, Date.now()),
     lastUpdatedAt: toNumber(metrics.lastUpdatedAt, metrics.timestamp || Date.now()),
-    cpu: toNumber(cpu.usage, 0),
-    ram: toNumber(memory.usage, 0),
-    disk: toNumber(disk.usage, 0),
+    cpu: toNumber(cpu.usage, null),
+    ram: toNumber(memory.usage, null),
+    disk: toNumber(disk.usage, null),
     uptime: toNumber(system.uptimeSeconds, 0),
     system,
     network: {
