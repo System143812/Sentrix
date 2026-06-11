@@ -18,6 +18,20 @@ vi.mock('./metrics/index.js', () => ({
   getGlobalTrendData: vi.fn().mockResolvedValue([])
 }));
 
+const { tinyPng } = vi.hoisted(() => ({
+  tinyPng: Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+    'base64'
+  )
+}));
+
+vi.mock('./metrics/chart.service.js', () => ({
+  generateLineChart: vi.fn().mockResolvedValue(tinyPng),
+  generateDoughnutChart: vi.fn().mockResolvedValue(tinyPng),
+  generateShieldLogo: vi.fn().mockResolvedValue(tinyPng),
+  generateFullLogo: vi.fn().mockResolvedValue(tinyPng)
+}));
+
 describe('Professional Analytics Exports', () => {
   it('should generate a valid CSV string', async () => {
     pool.query.mockResolvedValueOnce([[]]); // inventory
