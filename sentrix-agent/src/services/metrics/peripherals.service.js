@@ -5,8 +5,37 @@ import si from "systeminformation";
 const execFileAsync = promisify(execFile);
 
 let usbCache = [];
+let solidUsbCache = [];
+let displayCache = [];
+let pnpBackoffUntil = 0;
+let lastPnpWarning = "";
+
+const PNP_TIMEOUT_MS = Number(process.env.PNP_QUERY_TIMEOUT_MS || 15000);
+const PNP_BACKOFF_MS = Number(process.env.PNP_QUERY_BACKOFF_MS || 10 * 60 * 1000);
+
+function pnpBackoffActive() {
+  return process.platform === "win32" && Date.now() < pnpBackoffUntil;
+}
+
+function summarizeCollectorError(error) {
+  if (error?.signal) return `terminated by ${error.signal}`;
+  if (error?.code) return `exit code ${error.code}`;
+  return error?.message || "unknown error";
+}
+
+function rememberPnpFailure(scope, error) {
+  const message = `${scope}: ${summarizeCollectorError(error)}`;
+  pnpBackoffUntil = Date.now() + PNP_BACKOFF_MS;
+
+  if (message !== lastPnpWarning) {
+    console.warn(`[HARDWARE] ${message}. Using cached peripheral data; retrying PnP queries in ${Math.round(PNP_BACKOFF_MS / 60000)} minute(s).`);
+    lastPnpWarning = message;
+  }
+}
 
 async function getWindowsUsbDevices() {
+  if (pnpBackoffActive()) return usbCache;
+
   try {
     const script = `
       $ProgressPreference = 'SilentlyContinue'
@@ -37,7 +66,7 @@ async function getWindowsUsbDevices() {
     `.trim();
 
     const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
-      timeout: 45000, // Increased to 45s to avoid SIGTERM on slow WMI
+      timeout: PNP_TIMEOUT_MS,
       windowsHide: true,
     });
 
@@ -186,13 +215,14 @@ async function getWindowsUsbDevices() {
     usbCache = results;
     return results;
   } catch (error) {
-    console.error("[HARDWARE] getWindowsUsbDevices Error:", error);
+    rememberPnpFailure("getWindowsUsbDevices", error);
     return usbCache;
   }
 }
 
 export async function collectSolidUsbDevices() {
   if (process.platform !== "win32") return await collectUsbDevices();
+  if (pnpBackoffActive()) return solidUsbCache;
 
   try {
     const script = `
@@ -222,16 +252,16 @@ export async function collectSolidUsbDevices() {
     `.trim();
 
     const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
-      timeout: 25000,
+      timeout: PNP_TIMEOUT_MS,
       windowsHide: true,
     });
 
-    if (!stdout || stdout.trim() === "") return [];
+    if (!stdout || stdout.trim() === "") return solidUsbCache;
 
     const raw = JSON.parse(stdout);
     const skipServiceRegex = /hub|^usbccgp|^pci|^vbus|^usbhost|^hidusb|^monitor|^bthpan|^bthenum|^umpass|^swenum|^iwdbus|^mssmbios|^cad/i;
     
-    return raw
+    solidUsbCache = raw
       .filter(d => d.IsBuiltIn === false)
       .filter(d => {
         const service = (d.Service || "").toLowerCase();
@@ -245,9 +275,10 @@ export async function collectSolidUsbDevices() {
         deviceId: d.InstanceId,
         isBuiltIn: false
       }));
+    return solidUsbCache;
   } catch (err) {
-    console.error("[HARDWARE] collectSolidUsbDevices Error:", err);
-    return [];
+    rememberPnpFailure("collectSolidUsbDevices", err);
+    return solidUsbCache;
   }
 }
 
@@ -261,6 +292,7 @@ export async function collectSolidDisplays() {
       isBuiltIn: false
     }));
   }
+  if (pnpBackoffActive()) return displayCache;
 
   try {
     const script = `
@@ -290,17 +322,17 @@ export async function collectSolidDisplays() {
     `.trim();
 
     const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
-      timeout: 25000,
+      timeout: PNP_TIMEOUT_MS,
       windowsHide: true,
     });
 
-    if (!stdout || stdout.trim() === "") return [];
+    if (!stdout || stdout.trim() === "") return displayCache;
 
     const raw = JSON.parse(stdout);
     const graphics = await si.graphics().catch(() => ({ displays: [] }));
     const siDisplays = graphics.displays || [];
 
-    return raw.map(d => {
+    displayCache = raw.map(d => {
       let finalName = d.FriendlyName;
       const manufacturer = d.Manufacturer;
       
@@ -330,9 +362,10 @@ export async function collectSolidDisplays() {
         isBuiltIn: d.IsBuiltIn
       };
     });
+    return displayCache;
   } catch (err) {
-    console.error("[HARDWARE] collectSolidDisplays Error:", err);
-    return [];
+    rememberPnpFailure("collectSolidDisplays", err);
+    return displayCache;
   }
 }
 
