@@ -141,43 +141,67 @@ export function LoginPage({ onLogin, error: externalError }) {
   const [loading, setLoading] = useState(false);
   const [internalError, setInternalError] = useState(null);
   const [legalType, setLegalType] = useState(null); // 'TERMS' | 'PRIVACY' | null
-  const [hasAuthorized, setHasAuthorized] = useState(false);
+  const [backendUnreachable, setBackendUnreachable] = useState(false);
+  const [checkingBackend, setCheckingBackend] = useState(true); // true while the initial probe is in-flight
 
-  const displayError = hasAuthorized ? null : (internalError || externalError);
-
-  const errorMessage = (typeof displayError === "string" ? displayError : displayError?.message || "").toLowerCase();
-  const isNetworkError = !!displayError && (
-    errorMessage.includes("failed to fetch") ||
-    errorMessage.includes("fetch failed") ||
-    errorMessage.includes("networkerror") ||
-    errorMessage.includes("connection refused")
-  );
-
-  // Real-time "Smart Bridge" detection
+  // --- Proactive backend health check ---
+  // Fires immediately on page load, not only after a failed submit.
   useEffect(() => {
-    let interval;
-    if (isNetworkError) {
-      interval = setInterval(async () => {
-        try {
-          // Attempt a raw fetch with no-cache to verify the connection
-          const res = await fetch(`${getApiUrl()}/health`, { cache: "no-store" });
+    let cancelled = false;
+    let interval = null;
+
+    async function probe() {
+      try {
+        const res = await fetch(`${getApiUrl()}/health`, { cache: "no-store" });
+        if (!cancelled) {
           if (res.ok) {
-            setHasAuthorized(true);
-            setInternalError(null);
+            setBackendUnreachable(false);
+            clearInterval(interval);
+          } else {
+            setBackendUnreachable(true);
           }
-        } catch (err) {
-          // Still blocked
         }
-      }, 1000);
+      } catch {
+        if (!cancelled) setBackendUnreachable(true);
+      } finally {
+        if (!cancelled) setCheckingBackend(false);
+      }
     }
-    return () => clearInterval(interval);
-  }, [isNetworkError]);
+
+    // Initial probe
+    probe();
+
+    // Poll every second until reachable
+    interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${getApiUrl()}/health`, { cache: "no-store" });
+        if (!cancelled && res.ok) {
+          setBackendUnreachable(false);
+          setCheckingBackend(false);
+          clearInterval(interval);
+        }
+      } catch {
+        // Still blocked — keep polling
+      }
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Derive what to show as the login error (not the network probe error)
+  const displayError = internalError || (backendUnreachable ? null : externalError);
+
+  const errorMessage = (
+    typeof displayError === "string" ? displayError : displayError?.message || ""
+  ).toLowerCase();
 
   async function handleSubmit(event) {
     event.preventDefault();
     setLoading(true);
     setInternalError(null);
-    setHasAuthorized(false);
 
     try {
       await onLogin(email, password);
@@ -188,13 +212,7 @@ export function LoginPage({ onLogin, error: externalError }) {
     }
   }
 
-  const isInvalid = (
-    typeof displayError === "string"
-      ? displayError
-      : displayError?.message || ""
-  )
-    .toLowerCase()
-    .includes("invalid");
+  const isInvalid = errorMessage.includes("invalid");
 
   return (
     <div className="page-reveal flex min-h-screen items-center justify-center bg-mist px-4 py-8 text-ink sm:px-6 lg:px-8">
@@ -268,17 +286,28 @@ export function LoginPage({ onLogin, error: externalError }) {
                 />
               </div>
 
-              <LoginAlert error={displayError} />
+              {/* Show backend authorization banner when backend is unreachable */}
+              {backendUnreachable && (
+                <LoginAlert error={{ message: "Failed to fetch" }} />
+              )}
+
+              {/* Show login errors only when backend IS reachable */}
+              {!backendUnreachable && <LoginAlert error={displayError} />}
 
               <button
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-900 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-900 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 type="submit"
-                disabled={loading}
+                disabled={loading || backendUnreachable || checkingBackend}
               >
                 {loading ? (
                   <span className="inline-flex items-center gap-2">
                     <SentrixLogoLoader compact />
                     Signing in...
+                  </span>
+                ) : checkingBackend ? (
+                  <span className="inline-flex items-center gap-2">
+                    <SentrixLogoLoader compact />
+                    Checking connection...
                   </span>
                 ) : (
                   "Sign in"
