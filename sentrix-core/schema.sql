@@ -31,10 +31,17 @@ CREATE TABLE IF NOT EXISTS clients (
   metrics JSON NOT NULL,
   details JSON NOT NULL,
   archived TINYINT(1) NOT NULL DEFAULT 0,
+  hardware_fingerprint VARCHAR(64) NULL,
+  provisioning_token VARCHAR(64) NULL,
+  token_expires_at BIGINT NULL,
+  agent_version VARCHAR(20) NULL,
   last_seen_at BIGINT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
 );
+
+CREATE INDEX idx_clients_fingerprint ON clients(hardware_fingerprint);
+CREATE INDEX idx_clients_token ON clients(provisioning_token);
 
 CREATE TABLE IF NOT EXISTS client_processes (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
