@@ -1,4 +1,4 @@
-import { Eye, EyeOff } from "lucide-react";
+import { Dices, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
 export function FormInput({
@@ -16,6 +16,7 @@ export function FormInput({
   className = "",
   containerClassName = "",
   icon: Icon = null,
+  onGenerate = null,
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === "password";
@@ -49,8 +50,19 @@ export function FormInput({
           aria-describedby={error ? `${name}-error` : undefined}
           className={`h-11 w-full rounded-lg border border-line bg-slate-50 px-3 text-sm outline-none transition focus:border-slate-950 focus:ring-4 focus:ring-slate-950/5 disabled:opacity-50 ${
             error ? "border-red-500 focus:border-red-500 focus:ring-red-100" : ""
-          } ${Icon ? "pl-10" : ""} ${isPassword ? "pr-10" : ""} ${className}`}
+          } ${Icon ? "pl-10" : ""} ${isPassword && onGenerate ? "pr-20" : isPassword ? "pr-10" : ""} ${className}`}
         />
+        {isPassword && onGenerate && (
+          <button
+            type="button"
+            title="Generate a random password"
+            className="absolute right-10 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition"
+            onClick={onGenerate}
+            tabIndex="-1"
+          >
+            <Dices size={18} />
+          </button>
+        )}
         {isPassword && (
           <button
             type="button"

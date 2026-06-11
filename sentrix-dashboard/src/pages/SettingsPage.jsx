@@ -238,6 +238,29 @@ function CredentialCard() {
     }
   }
 
+  function generateNewPassword() {
+    const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lower = "abcdefghijklmnopqrstuvwxyz";
+    const digits = "0123456789";
+    const special = "!@#$%^&*()-_=+[]{}|;:,.<>?";
+    const all = upper + lower + digits + special;
+    const mandatory = [
+      upper[Math.floor(Math.random() * upper.length)],
+      lower[Math.floor(Math.random() * lower.length)],
+      digits[Math.floor(Math.random() * digits.length)],
+      special[Math.floor(Math.random() * special.length)],
+    ];
+    const rest = Array.from({ length: 8 }, () =>
+      all[Math.floor(Math.random() * all.length)]
+    );
+    const combined = [...mandatory, ...rest];
+    for (let i = combined.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [combined[i], combined[j]] = [combined[j], combined[i]];
+    }
+    setNextPassword(combined.join(""));
+  }
+
   return (
     <SettingsSection
       icon={Lock}
@@ -259,6 +282,7 @@ function CredentialCard() {
             placeholder="New password"
             type="password"
             value={nextPassword}
+            onGenerate={generateNewPassword}
             required
           />
           <PasswordValidator password={nextPassword} />
@@ -331,6 +355,31 @@ export function SettingsPage({
     } catch (error) {
       notify(error.message || "Unable to create admin account.", "failed");
     }
+  }
+
+  function generateAdminPassword() {
+    const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lower = "abcdefghijklmnopqrstuvwxyz";
+    const digits = "0123456789";
+    const special = "!@#$%^&*()-_=+[]{}|;:,.<>?";
+    const all = upper + lower + digits + special;
+    // Guarantee at least one of each required category
+    const mandatory = [
+      upper[Math.floor(Math.random() * upper.length)],
+      lower[Math.floor(Math.random() * lower.length)],
+      digits[Math.floor(Math.random() * digits.length)],
+      special[Math.floor(Math.random() * special.length)],
+    ];
+    const rest = Array.from({ length: 8 }, () =>
+      all[Math.floor(Math.random() * all.length)]
+    );
+    // Shuffle the combined array
+    const combined = [...mandatory, ...rest];
+    for (let i = combined.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [combined[i], combined[j]] = [combined[j], combined[i]];
+    }
+    setPassword(combined.join(""));
   }
 
   async function handleDeleteAdmin(id) {
@@ -469,6 +518,7 @@ export function SettingsPage({
                   placeholder="Temporary password"
                   type="password"
                   value={password}
+                  onGenerate={generateAdminPassword}
                   required
                 />
                 <PasswordValidator password={password} />
