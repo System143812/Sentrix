@@ -121,34 +121,39 @@ function parsePingOutput(output = "") {
 }
 
 async function collectPingMetrics() {
-  for (const target of PING_TARGETS) {
+  const pingPromises = PING_TARGETS.map(async (target) => {
     const args = process.platform === "win32"
-      ? ["-n", "3", "-w", "1000", target]
-      : ["-c", "3", "-W", "1", target];
+      ? ["-n", "2", "-w", "800", target]
+      : ["-c", "2", "-W", "1", target];
 
     try {
       const { stdout } = await execFileAsync("ping", args, {
-        timeout: 5000,
+        timeout: 3000,
         windowsHide: true,
       });
 
       const parsed = parsePingOutput(stdout);
       if (parsed.latencyMs != null || parsed.packetLoss != null) {
-        lastGoodPingMetrics = {
-          latencyMs: parsed.latencyMs ?? lastGoodPingMetrics.latencyMs,
-          packetLoss: parsed.packetLoss ?? lastGoodPingMetrics.packetLoss,
-        };
-        return lastGoodPingMetrics;
+        return parsed;
       }
     } catch (error) {
       const parsed = parsePingOutput(`${error.stdout || ""}\n${error.stderr || ""}`);
       if (parsed.latencyMs != null || parsed.packetLoss != null) {
-        lastGoodPingMetrics = {
-          latencyMs: parsed.latencyMs ?? lastGoodPingMetrics.latencyMs,
-          packetLoss: parsed.packetLoss ?? lastGoodPingMetrics.packetLoss,
-        };
-        return lastGoodPingMetrics;
+        return parsed;
       }
+    }
+    return null;
+  });
+
+  const results = await Promise.allSettled(pingPromises);
+
+  for (const result of results) {
+    if (result.status === "fulfilled" && result.value) {
+      lastGoodPingMetrics = {
+        latencyMs: result.value.latencyMs ?? lastGoodPingMetrics.latencyMs,
+        packetLoss: result.value.packetLoss ?? lastGoodPingMetrics.packetLoss,
+      };
+      return lastGoodPingMetrics;
     }
   }
 

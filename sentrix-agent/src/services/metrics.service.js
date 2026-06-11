@@ -1,8 +1,14 @@
 import os from "os";
 import si from "systeminformation";
+import crypto from "crypto";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { getAgentIdAsync } from "../utils/agent-id.js";
 import { getPrimaryNetwork } from "../utils/network.js";
 import { simplifyUsbDevice, classifyPeripherals } from "../utils/peripherals.js";
+
+// Load version safely (Avoid import.meta.url which is undefined in CJS/pkg)
+const VERSION = "1.0.0"; // Hardcoded as primary source for the bundled agent
 import { collectCpuMetrics } from "./metrics/cpu.service.js";
 import { collectDiskMetrics } from "./metrics/disk.service.js";
 import { collectMemoryMetrics } from "./metrics/memory.service.js";
@@ -45,6 +51,31 @@ function getMetricTimestamp(sections) {
   return timestamps.length > 0 ? Math.max(...timestamps) : Date.now();
 }
 
+function isFallbackData(sectionName, data) {
+  if (data == null) return true;
+  switch (sectionName) {
+    case "cpu":
+      return data.usage === null;
+    case "memory":
+      return data.usage === null;
+    case "disk":
+      return data.usage === null;
+    case "network":
+      return data.latencyMs === null && data.packetLoss === null && data.uploadBytesPerSec === null && data.downloadBytesPerSec === null;
+    case "temperature":
+      return data.cpu?.temperatureCelsius === null && data.gpu?.temperatureCelsius === null;
+    case "processes":
+      return !Array.isArray(data) || data.length === 0;
+    case "activity":
+      return !data || (
+        (!Array.isArray(data.activeConnections) || data.activeConnections.length === 0) &&
+        (!Array.isArray(data.dnsCache) || data.dnsCache.length === 0)
+      );
+    default:
+      return false;
+  }
+}
+
 /**
  * Triggers a collection for a specific section if it's stale and not currently running.
  */
@@ -56,7 +87,10 @@ async function refreshMetricSection(sectionName, collector, intervalMs) {
 
   section.collecting = true;
   try {
-    section.data = await collector();
+    const newData = await collector();
+    if (!isFallbackData(sectionName, newData) || isFallbackData(sectionName, section.data)) {
+      section.data = newData;
+    }
     section.updatedAt = Date.now();
   } finally {
     section.collecting = false;
@@ -67,14 +101,19 @@ async function refreshMetricSection(sectionName, collector, intervalMs) {
  * Refreshes all cached metrics in parallel.
  */
 async function refreshMetricsCache() {
+  // Heavy collectors (PowerShell/wmic) use longer minimum intervals to reduce CPU load.
+  // If the user-configured interval is already longer, respect their preference.
+  const activityIntervalMs = Math.max(globalMetricIntervalMs, 10000);
+  const temperatureIntervalMs = Math.max(globalMetricIntervalMs, 15000);
+
   await Promise.all([
     refreshMetricSection("cpu", collectCpuMetrics, globalMetricIntervalMs),
     refreshMetricSection("memory", collectMemoryMetrics, globalMetricIntervalMs),
     refreshMetricSection("disk", collectDiskMetrics, globalMetricIntervalMs),
     refreshMetricSection("network", collectNetworkMetrics, globalMetricIntervalMs),
-    refreshMetricSection("temperature", collectTemperatureMetrics, globalMetricIntervalMs),
+    refreshMetricSection("temperature", collectTemperatureMetrics, temperatureIntervalMs),
     refreshMetricSection("processes", collectProcessMetrics, globalMetricIntervalMs),
-    refreshMetricSection("activity", collectNetworkActivity, globalMetricIntervalMs),
+    refreshMetricSection("activity", collectNetworkActivity, activityIntervalMs),
   ]);
 }
 
@@ -119,6 +158,7 @@ export async function getLiveProfileSnapshot() {
     os: `${osInfo.distro || os.type()} ${osInfo.release || os.release()}`,
     ip: network.ip,
     mac: network.mac,
+    version: VERSION,
   };
 }
 
@@ -142,56 +182,113 @@ export async function getMetrics() {
 }
 
 /**
+ * Generates a unique SHA256 hardware fingerprint for the machine.
+ */
+export async function getHardwareFingerprint() {
+  try {
+    const [system, cpu, disks] = await Promise.all([
+      si.system(),
+      si.cpu(),
+      si.diskLayout(),
+    ]);
+
+    // Use a composite key for reliability
+    const identifiers = [
+      system.uuid || "unknown-uuid",
+      cpu.processorid || "unknown-cpu",
+      disks[0]?.serial || "unknown-disk",
+    ].join("|");
+
+    return crypto.createHash("sha256").update(identifiers).digest("hex");
+  } catch (error) {
+    console.error("[Metrics] Failed to generate hardware fingerprint:", error.message);
+    // Fallback to a less secure but stable identifier if SI fails
+    return crypto.createHash("sha256").update(os.hostname() + os.arch()).digest("hex");
+  }
+}
+
+let detailsLock = false;
+
+/**
  * Collects detailed hardware and peripheral information.
  */
 export async function getDeviceDetails() {
-  const [
-    cpu, memory, memoryLayout, system, bios, baseboard, graphics, disks, usb, 
-    solidUsbDevices, solidDisplays, networkInterfaces,
-  ] = await Promise.all([
-    si.cpu(), si.mem(), si.memLayout().catch(() => []), si.system().catch(() => ({})),
-    si.bios().catch(() => ({})), si.baseboard().catch(() => ({})),
-    si.graphics().catch(() => ({ controllers: [], displays: [] })),
-    si.diskLayout().catch(() => []), 
-    collectUsbDevices().catch(() => []), // RAW for peripheral classification (Untouched)
-    collectSolidUsbDevices().catch(() => []), // Solid for USB Devices module
-    collectSolidDisplays().catch(() => []), // Solid for Displays module
-    si.networkInterfaces().catch(() => []),
-  ]);
+  if (detailsLock) {
+    console.warn("[Metrics] getDeviceDetails already in progress. Skipping concurrent run.");
+    return null;
+  }
+  
+  detailsLock = true;
+  try {
+    const [
+      cpu, memory, memoryLayout, system, bios, baseboard, graphics, disks, usb, 
+      solidUsbDevices, solidDisplays, networkInterfaces,
+    ] = await Promise.all([
+      si.cpu(), si.mem(), si.memLayout().catch(() => []), si.system().catch(() => ({})),
+      si.bios().catch(() => ({})), si.baseboard().catch(() => ({})),
+      si.graphics().catch(() => ({ controllers: [], displays: [] })),
+      si.diskLayout().catch(() => []), 
+      collectUsbDevices().catch(() => []), // RAW for peripheral classification (Untouched)
+      collectSolidUsbDevices().catch(() => []), // Solid for USB Devices module
+      collectSolidDisplays().catch(() => []), // Solid for Displays module
+      si.networkInterfaces().catch(() => []),
+    ]);
 
-  const usbDevices = usb.map(simplifyUsbDevice);
-  const peripherals = classifyPeripherals(usbDevices, graphics);
+    const usbDevices = usb.map(simplifyUsbDevice);
+    const peripherals = classifyPeripherals(usbDevices, graphics);
 
-  return {
-    specs: {
-      manufacturer: system.manufacturer || "Unknown",
-      model: system.model || "Unknown",
-      serial: system.serial || "Unknown",
-      bios: bios.version || "Unknown",
-      baseboard: baseboard.model || "Unknown",
-      cpu: `${cpu.manufacturer || ""} ${cpu.brand || "Unknown CPU"}`.trim(),
-      cpuCores: cpu.physicalCores || cpu.cores || 0,
-      cpuThreads: cpu.cores || 0,
-      totalMemoryGb: Math.round((memory.total / 1024 ** 3) * 10) / 10,
-      memorySlots: memoryLayout.length,
-      disks: disks.map((disk) => ({
-        name: disk.name || disk.device || "Disk",
-        type: disk.type || "Unknown",
-        sizeGb: disk.size ? Math.round((disk.size / 1024 ** 3) * 10) / 10 : 0,
-      })),
-      networkAdapters: networkInterfaces
-        .filter((adapter) => !adapter.internal && !adapter.virtual)
-        .map((adapter) => ({
-          name: adapter.ifaceName || adapter.iface || "Network Adapter",
-          mac: adapter.mac || "Unknown",
-          ip4: adapter.ip4 || "Unknown",
-          type: adapter.type || "Unknown",
+    return {
+      specs: {
+        manufacturer: system.manufacturer || "Unknown",
+        model: system.model || "Unknown",
+        serial: system.serial || "Unknown",
+        bios: bios.version || "Unknown",
+        baseboard: baseboard.model || "Unknown",
+        cpu: `${cpu.manufacturer || ""} ${cpu.brand || "Unknown CPU"}`.trim(),
+        cpuCores: cpu.physicalCores || cpu.cores || 0,
+        cpuThreads: cpu.cores || 0,
+        totalMemoryGb: Math.round((memory.total / 1024 ** 3) * 10) / 10,
+        memorySlots: memoryLayout.length,
+        disks: disks.map((disk) => ({
+          name: disk.name || disk.device || "Disk",
+          type: disk.type || "Unknown",
+          sizeGb: disk.size ? Math.round((disk.size / 1024 ** 3) * 10) / 10 : 0,
         })),
-    },
-    peripherals,
-    usbDevices, // Keep this for Peripheral tracking (Untouched)
-    solidUsbDevices,
-    solidDisplays,
-    metadata: { timestamp: Date.now(), status: "online" },
-  };
+        networkAdapters: networkInterfaces
+          .filter((adapter) => !adapter.internal && !adapter.virtual)
+          .map((adapter) => ({
+            name: adapter.ifaceName || adapter.iface || "Network Adapter",
+            mac: adapter.mac || "Unknown",
+            ip4: adapter.ip4 || "Unknown",
+            type: adapter.type || "Unknown",
+          })),
+      },
+      peripherals,
+      usbDevices, // Keep this for Peripheral tracking (Untouched)
+      solidUsbDevices,
+      solidDisplays,
+      metadata: { timestamp: Date.now(), status: "online" },
+    };
+  } finally {
+    detailsLock = false;
+  }
 }
+
+/**
+ * Generates a SHA256 hash/fingerprint of the metrics payload, excluding dynamic/transient fields
+ * (like timestamp, lastUpdatedAt, system.uptimeSeconds) to detect actual data changes.
+ */
+export function getMetricsFingerprint(metrics) {
+  if (!metrics) return "";
+  const copy = {
+    ...metrics,
+    system: metrics.system ? {
+      ...metrics.system,
+      uptimeSeconds: undefined,
+    } : undefined,
+    timestamp: undefined,
+    lastUpdatedAt: undefined,
+  };
+  return crypto.createHash("sha256").update(JSON.stringify(copy)).digest("hex");
+}
+

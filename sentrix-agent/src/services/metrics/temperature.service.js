@@ -12,6 +12,19 @@ const currentFile = import.meta.url ? fileURLToPath(import.meta.url) : "";
 const currentDir = currentFile ? path.dirname(currentFile) : "";
 
 const TEMP_BRIDGE_PATH = path.resolve(currentDir, "temp-bridge.ps1");
+const BRIDGE_BACKOFF_MS = Number(process.env.TEMP_BRIDGE_BACKOFF_MS || 10 * 60 * 1000);
+
+let bridgeBackoffUntil = 0;
+let bridgeBackoffReason = "";
+
+function backoffBridge(reason) {
+  bridgeBackoffUntil = Date.now() + BRIDGE_BACKOFF_MS;
+
+  if (reason !== bridgeBackoffReason) {
+    console.warn(`[Temperature] LibreHardware bridge unavailable: ${reason}. Retrying in ${Math.round(BRIDGE_BACKOFF_MS / 60000)} minute(s).`);
+    bridgeBackoffReason = reason;
+  }
+}
 
 function normalizeTemperature(value) {
   const temperature = toNumber(value);
@@ -85,6 +98,7 @@ async function getNvidiaGpuTemperature() {
 
 async function getLibreHardwareTemperature() {
   if (process.platform !== "win32") return null;
+  if (Date.now() < bridgeBackoffUntil) return null;
 
   try {
     // When packaged with pkg, files are in a virtual filesystem (snapshot)
@@ -107,17 +121,16 @@ async function getLibreHardwareTemperature() {
     }
 
     if (!fs.existsSync(scriptPath)) {
-      console.warn(`[Temperature] Bridge script missing at: ${scriptPath}. Hardware sensors will be limited.`);
+      backoffBridge(`script missing at ${scriptPath}`);
       return null;
     }
 
-    // Use a more robust execution method: Dot-source and call inside -Command
-    const command = `& '${scriptPath}'`;
+    // Use a more robust execution method: -File for script files
     const { stdout, stderr } = await execFileAsync("powershell.exe", [
       "-NoProfile",
       "-NonInteractive",
       "-ExecutionPolicy", "Bypass",
-      "-Command", command
+      "-File", scriptPath
     ], {
       timeout: 15000,
       windowsHide: true,
@@ -127,16 +140,28 @@ async function getLibreHardwareTemperature() {
       console.warn(`[Temperature] Bridge stderr: ${stderr}`);
     }
 
+    if (!stdout || stdout.trim() === "") {
+      backoffBridge("no output");
+      return null;
+    }
+
     const result = JSON.parse(stdout);
     
     if (result.error) {
-      console.warn(`[Temperature] Bridge script reported error: ${result.error}`);
+      backoffBridge(result.error);
+      return null;
+    }
+
+    const hasCpu = normalizeTemperature(result.cpu?.temperatureCelsius) != null;
+    const hasGpu = normalizeTemperature(result.gpu?.temperatureCelsius) != null;
+    if (!hasCpu && !hasGpu) {
+      backoffBridge(result.info || "no readable temperature sensors");
     }
 
     return result;
   } catch (error) {
-    const stderr = error.stderr ? `\nStderr: ${error.stderr}` : "";
-    console.error(`[Temperature] Failed to run bridge: ${error.message}${stderr}`);
+    const stderr = error.stderr ? ` Stderr: ${String(error.stderr).trim()}` : "";
+    backoffBridge(`${error.message}${stderr}`);
     return null;
   }
 }

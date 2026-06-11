@@ -13,21 +13,21 @@ export async function collectProcessMetrics() {
     const processes = await si.processes();
     const rawList = processes.list || [];
     
-    const simplifiedList = rawList.map(p => ({
-      pid: p.pid,
-      name: safeString(p.name),
-      user: safeString(p.user),
-      cpu: toNumber(p.cpu, 0, 1),
-      memoryMb: toNumber(p.memRss / 1024, 0, 1),
-      state: safeString(p.state)
-    }));
+    // Filter noise BEFORE mapping to avoid unnecessary object creation
+    const filtered = rawList.filter(p => {
+      const name = (p.name || "").toLowerCase();
+      return name !== "idle" && name !== "system";
+    });
 
-    // Filter out Idle/System and Sort by CPU
-    return simplifiedList
-      .filter(p => {
-        const name = p.name.toLowerCase();
-        return name !== "idle" && name !== "system";
-      })
+    return filtered
+      .map(p => ({
+        pid: p.pid,
+        name: safeString(p.name),
+        user: safeString(p.user),
+        cpu: toNumber(p.cpu, 0, 1),
+        memoryMb: toNumber(p.memRss / 1024, 0, 1),
+        state: safeString(p.state)
+      }))
       .sort((a, b) => (b.cpu || 0) - (a.cpu || 0))
       .slice(0, 200);
   }, []);
