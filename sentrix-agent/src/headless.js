@@ -8,6 +8,7 @@ import {
   getDeviceDetails,
   getMetrics,
   setGlobalMetricInterval,
+  getMetricsFingerprint,
 } from "./services/metrics.service.js";
 import { connectToCore } from "./services/socket.service.js";
 import { detectDeviceEvents, buildDomainSummaries } from "./services/event-detector.service.js";
@@ -125,6 +126,8 @@ let socketClient;
 let profile;
 let lastMetrics = null;
 let lastMetricsSentAt = 0;
+let lastMetricsHash = null;
+const FORCE_METRICS_SEND_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 let lastDetails = null;
 let lastDetailsAt = 0;
 let collectingMetrics = false;
@@ -159,10 +162,20 @@ async function collectAndSendMetrics() {
   try {
     lastMetrics = await getMetrics();
     await refreshDetails();
-    socketClient.sendMetrics(lastMetrics, lastDetails);
+
+    const currentHash = getMetricsFingerprint(lastMetrics);
+    const timeSinceLastSend = Date.now() - lastMetricsSentAt;
+
+    if (currentHash !== lastMetricsHash || timeSinceLastSend >= FORCE_METRICS_SEND_INTERVAL_MS) {
+      socketClient.sendMetrics(lastMetrics, lastDetails);
+      lastMetricsHash = currentHash;
+      lastMetricsSentAt = Date.now();
+    } else {
+      log("[Telemetry] Metrics unchanged. Skipping emission.");
+    }
+
     socketClient.sendDomains(buildDomainSummaries(lastMetrics));
     socketClient.sendEvents(detectDeviceEvents(lastMetrics, lastDetails));
-    lastMetricsSentAt = Date.now();
   } catch (error) {
     log("Failed to collect metrics:", error.message);
   } finally {
@@ -216,14 +229,15 @@ async function start() {
   detailsTimer = setInterval(() => refreshDetails(), detailsIntervalMs);
   softwareTimer = setInterval(collectAndSendSoftwareInventory, softwareInventoryIntervalMs);
 
-  // Aggressive standalone heartbeat: ignores whether metrics are "ready" to keep the socket alive
+  // Standalone heartbeat using minimal status packet to avoid redundant telemetry transfers
   setInterval(() => {
     const now = Date.now();
-    // Send heartbeat if it's been longer than the interval, regardless of metrics status
     if (now - lastHeartbeatSentAt >= heartbeatIntervalMs) {
-      // FIX: If lastMetrics is null (e.g., first collection hanging), send a minimal heartbeat
-      // to let the server know we are ALIVE and just busy.
-      const heartbeatData = lastMetrics || { status: "online", timestamp: now, busy: collectingMetrics || collectingDetails };
+      const heartbeatData = {
+        status: "online",
+        timestamp: now,
+        lastMetricsAt: lastMetrics?.timestamp || lastMetrics?.lastUpdatedAt || null,
+      };
       socketClient.sendHeartbeat(heartbeatData);
       lastHeartbeatSentAt = now;
     }
