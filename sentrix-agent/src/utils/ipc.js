@@ -54,7 +54,7 @@ export async function sendMessage(port, payload) {
  * @param {number} port 
  * @param {Function} callback 
  */
-export function listenForMessages(port, callback) {
+export function listenForMessages(port, callback, options = {}) {
   const server = net.createServer((socket) => {
     socket.on("data", (data) => {
       try {
@@ -69,6 +69,15 @@ export function listenForMessages(port, callback) {
     socket.on("error", (err) => {
       console.error("[IPC] Socket error:", err);
     });
+  });
+
+  server.on("error", (err) => {
+    if (typeof options.onError === "function") {
+      options.onError(err);
+      return;
+    }
+
+    console.error("[IPC] Server error:", err);
   });
 
   server.listen(port, "127.0.0.1", () => {
