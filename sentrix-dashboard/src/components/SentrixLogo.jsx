@@ -68,17 +68,17 @@ const logoSizes = {
   sm: {
     shell: "h-8 w-8",
     mark: "h-[1.35em] w-auto",
-    title: "text-lg",
+    title: "text-base",
   },
   md: {
     shell: "h-10 w-10",
     mark: "h-[1.45em] w-auto",
-    title: "text-xl",
+    title: "text-lg",
   },
   lg: {
     shell: "h-12 w-12",
     mark: "h-[1.75em] w-auto",
-    title: "text-2xl",
+    title: "text-xl",
   },
 };
 
@@ -126,7 +126,7 @@ export function SentrixLogo({
   );
 }
 
-export function SentrixLogoLoader({ label = "Loading", compact = false }) {
+export function SentrixLogoLoader({ label = "Loading", compact = false, className = "text-slate-800" }) {
   if (compact) {
     return (
       <span className="grid h-6 w-6 place-items-center text-current">
@@ -136,13 +136,13 @@ export function SentrixLogoLoader({ label = "Loading", compact = false }) {
   }
 
   return (
-    <div className="grid place-items-center gap-4 text-center">
-      <span className="grid h-16 w-16 place-items-center text-slate-800">
+    <div className={`grid place-items-center gap-4 text-center ${className}`}>
+      <span className="grid h-16 w-16 place-items-center text-current">
         <SentrixMark className="h-14 w-14" loading />
       </span>
       {label ? (
         <p 
-          className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-800"
+          className="text-[10px] font-bold uppercase tracking-[0.2em]"
           style={{ fontFamily: "'Inter', sans-serif" }}
         >
           {label}

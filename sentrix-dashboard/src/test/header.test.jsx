@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { DashboardShell } from '../app/App.jsx';
 import { ToastProvider } from '../components/ToastProvider.jsx';
+import { SentrixLogo, SentrixLogoLoader } from '../components/SentrixLogo.jsx';
 
 // Mock dependencies
 vi.mock('../hooks/useDevices.js', () => ({
@@ -88,5 +89,24 @@ describe('Header Verification', () => {
     render(<WrappedDashboard />);
     const status = screen.getAllByText(/Connected/i);
     expect(status.length).toBeGreaterThan(0);
+  });
+
+  it('should scale down brandname text size to be smaller than the brand logo', () => {
+    const { container: containerSm } = render(<SentrixLogo size="sm" />);
+    expect(containerSm.querySelector('.text-base')).toHaveTextContent('Sentrix');
+
+    const { container: containerMd } = render(<SentrixLogo size="md" />);
+    expect(containerMd.querySelector('.text-lg')).toHaveTextContent('Sentrix');
+
+    const { container: containerLg } = render(<SentrixLogo size="lg" />);
+    expect(containerLg.querySelector('.text-xl')).toHaveTextContent('Sentrix');
+  });
+
+  it('should support rendering without a label and custom className', () => {
+    const { container, queryByText } = render(
+      <SentrixLogoLoader label={null} className="text-white" />
+    );
+    expect(queryByText(/Loading/i)).toBeNull();
+    expect(container.firstChild).toHaveClass('text-white');
   });
 });

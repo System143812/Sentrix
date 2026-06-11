@@ -110,10 +110,12 @@ export default function App() {
   if (!authReady) {
     return (
       <main className="min-h-screen bg-mist text-ink">
-        <BlurOverlay isOpen={true} containerClassName="w-fit">
-          <div className="aspect-square w-48 rounded-xl border border-line bg-white flex flex-col items-center justify-center text-center shadow-xl shadow-slate-200/40 p-4">
-            <SentrixLogoLoader label="Checking status" />
-          </div>
+        <BlurOverlay 
+          isOpen={true} 
+          className="bg-white"
+          containerClassName="w-fit"
+        >
+          <SentrixLogoLoader label={null} className="text-slate-900" />
         </BlurOverlay>
       </main>
     );
