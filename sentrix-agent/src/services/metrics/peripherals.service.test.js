@@ -11,7 +11,7 @@ vi.mock('systeminformation');
 
 describe('Peripherals Service (Sanity Check)', async () => {
   // Import the service after mocking
-  const { collectUsbDevices } = await import('./peripherals.service.js');
+  const { collectUsbDevices, resetPnpCache } = await import('./peripherals.service.js');
 
   beforeEach(() => {
     vi.resetModules();
@@ -128,5 +128,33 @@ describe('Peripherals Service (Sanity Check)', async () => {
     // Radio controls, System board (generic manufacturer + not priority), and Hub (service) should be gone.
     expect(results.length).toBe(1);
     expect(results[0].name).toBe('Real Peripheral Mouse');
+  });
+
+  it('should cache PnP query results in production/non-test environment', async () => {
+    resetPnpCache();
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const mockResult = JSON.stringify([
+        { FriendlyName: 'Mouse', InstanceId: 'USB\\1', Class: 'USB' }
+      ]);
+
+      let callCount = 0;
+      execFile.mockImplementation((cmd, args, opts, cb) => {
+        callCount++;
+        cb(null, { stdout: mockResult });
+      });
+
+      // Trigger two collections in parallel
+      await Promise.all([
+        collectUsbDevices(),
+        collectUsbDevices()
+      ]);
+
+      // Verification: Should only have executed execFile once due to caching
+      expect(callCount).toBe(1);
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+    }
   });
 });

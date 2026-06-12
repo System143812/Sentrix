@@ -14,7 +14,7 @@ const PNP_TIMEOUT_MS = Number(process.env.PNP_QUERY_TIMEOUT_MS || 15000);
 const PNP_BACKOFF_MS = Number(process.env.PNP_QUERY_BACKOFF_MS || 10 * 60 * 1000);
 
 function pnpBackoffActive() {
-  return process.platform === "win32" && Date.now() < pnpBackoffUntil;
+  return process.env.NODE_ENV !== "test" && process.platform === "win32" && Date.now() < pnpBackoffUntil;
 }
 
 function summarizeCollectorError(error) {
@@ -24,6 +24,10 @@ function summarizeCollectorError(error) {
 }
 
 function rememberPnpFailure(scope, error) {
+  // SIGTERM means the agent is shutting down cleanly (e.g., during an update swap).
+  // Don't treat it as a hardware failure — no backoff, no log noise.
+  if (error?.signal === "SIGTERM") return;
+
   const message = `${scope}: ${summarizeCollectorError(error)}`;
   pnpBackoffUntil = Date.now() + PNP_BACKOFF_MS;
 
@@ -33,48 +37,78 @@ function rememberPnpFailure(scope, error) {
   }
 }
 
-async function getWindowsUsbDevices() {
-  if (pnpBackoffActive()) return usbCache;
+let pnpCache = null;
+let pnpCacheTime = 0;
+let pnpActivePromise = null;
 
-  try {
-    const script = `
-      $ProgressPreference = 'SilentlyContinue'
-      $devs = Get-PnpDevice -PresentOnly | Where-Object { 
-        $_.InstanceId -match '^USB|^BTHENUM|^DISPLAY|^HID' -and ($_.ConfigManagerErrorCode -eq 0 -or $_.ConfigManagerErrorCode -eq 31)
-      }
-      if ($devs) {
-        # Optimized: Batch retrieve properties in ONE call
-        $props = Get-PnpDeviceProperty -InstanceId $devs.InstanceId -KeyName 'DEVPKEY_Device_InLocalMachineContainer' -ErrorAction SilentlyContinue
-        $propMap = @{}
-        if ($props) {
-            foreach ($p in $props) { if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data } }
+async function getPnpDevices() {
+  const now = Date.now();
+  if (process.env.NODE_ENV !== "test" && pnpCache && (now - pnpCacheTime < 15000)) {
+    return pnpCache;
+  }
+
+  if (pnpActivePromise) {
+    return pnpActivePromise;
+  }
+
+  if (pnpBackoffActive()) return pnpCache || [];
+
+  pnpActivePromise = (async () => {
+    try {
+      const script = `
+        $ProgressPreference = 'SilentlyContinue'
+        # Phase 1: Filter devices first to minimize property queries
+        $devs = Get-PnpDevice -PresentOnly | Where-Object { 
+          ($_.InstanceId -match '^USB|^BTHENUM|^DISPLAY|^HID' -or $_.Class -eq 'Monitor') -and ($_.ConfigManagerErrorCode -eq 0 -or $_.ConfigManagerErrorCode -eq 31)
         }
-
-        $results = foreach ($dev in $devs) {
-          $isBuiltIn = if ($propMap.ContainsKey($dev.InstanceId)) { $propMap[$dev.InstanceId] } else { $true }
-          [PSCustomObject]@{
-            FriendlyName = $dev.FriendlyName
-            InstanceId = $dev.InstanceId
-            Class = $dev.Class
-            Service = $dev.Service
-            Manufacturer = $dev.Manufacturer
-            IsBuiltIn = $isBuiltIn
+        if ($devs) {
+          # Phase 2: Only query properties for the filtered set
+          $props = Get-PnpDeviceProperty -InstanceId $devs.InstanceId -KeyName 'DEVPKEY_Device_InLocalMachineContainer' -ErrorAction SilentlyContinue
+          $propMap = @{}
+          if ($props) {
+              foreach ($p in $props) { if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data } }
           }
-        }
-        $results | ConvertTo-Json -Compress
-      } else { "[]" }
-    `.trim();
 
-    const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
-      timeout: PNP_TIMEOUT_MS,
-      windowsHide: true,
-    });
+          $results = foreach ($dev in $devs) {
+            $isBuiltIn = if ($propMap.ContainsKey($dev.InstanceId)) { $propMap[$dev.InstanceId] } else { $true }
+            [PSCustomObject]@{
+              FriendlyName = $dev.FriendlyName
+              InstanceId = $dev.InstanceId
+              Class = $dev.Class
+              Service = $dev.Service
+              Manufacturer = $dev.Manufacturer
+              IsBuiltIn = $isBuiltIn
+            }
+          }
+          $results | ConvertTo-Json -Compress
+        } else { "[]" }
+      `.trim();
 
-    if (!stdout || stdout.trim() === "") return usbCache;
+      const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
+        timeout: PNP_TIMEOUT_MS,
+        windowsHide: true,
+      });
 
-    const rawDevices = JSON.parse(stdout);
-    const devices = Array.isArray(rawDevices) ? rawDevices : [rawDevices];
+      if (!stdout || stdout.trim() === "") return pnpCache || [];
 
+      const rawDevices = JSON.parse(stdout);
+      pnpCache = Array.isArray(rawDevices) ? rawDevices : [rawDevices];
+      pnpCacheTime = Date.now();
+      return pnpCache;
+    } catch (error) {
+      rememberPnpFailure("getPnpDevices", error);
+      return pnpCache || [];
+    } finally {
+      pnpActivePromise = null;
+    }
+  })();
+
+  return pnpActivePromise;
+}
+
+async function getWindowsUsbDevices() {
+  try {
+    const devices = await getPnpDevices();
     const physicalMap = new Map();
 
     const highPriorityClasses = new Set(["mouse", "keyboard", "image", "camera", "biometric", "net", "bluetooth", "monitor"]);
@@ -225,43 +259,11 @@ export async function collectSolidUsbDevices() {
   if (pnpBackoffActive()) return solidUsbCache;
 
   try {
-    const script = `
-      $ProgressPreference = 'SilentlyContinue'
-      $devs = Get-PnpDevice -PresentOnly | Where-Object { 
-        $_.InstanceId -match '^USB' -and ($_.ConfigManagerErrorCode -eq 0 -or $_.ConfigManagerErrorCode -eq 31)
-      }
-      if ($devs) {
-        $props = Get-PnpDeviceProperty -InstanceId $devs.InstanceId -KeyName 'DEVPKEY_Device_InLocalMachineContainer' -ErrorAction SilentlyContinue
-        $propMap = @{}
-        if ($props) {
-            foreach ($p in $props) { if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data } }
-        }
-        $results = foreach ($dev in $devs) {
-          $isBuiltIn = if ($propMap.ContainsKey($dev.InstanceId)) { $propMap[$dev.InstanceId] } else { $true }
-          [PSCustomObject]@{
-            FriendlyName = $dev.FriendlyName
-            InstanceId = $dev.InstanceId
-            Class = $dev.Class
-            Service = $dev.Service
-            Manufacturer = $dev.Manufacturer
-            IsBuiltIn = $isBuiltIn
-          }
-        }
-        $results | ConvertTo-Json -Compress
-      } else { "[]" }
-    `.trim();
-
-    const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
-      timeout: PNP_TIMEOUT_MS,
-      windowsHide: true,
-    });
-
-    if (!stdout || stdout.trim() === "") return solidUsbCache;
-
-    const raw = JSON.parse(stdout);
+    const raw = await getPnpDevices();
     const skipServiceRegex = /hub|^usbccgp|^pci|^vbus|^usbhost|^hidusb|^monitor|^bthpan|^bthenum|^umpass|^swenum|^iwdbus|^mssmbios|^cad/i;
     
     solidUsbCache = raw
+      .filter(d => (d.InstanceId || "").toUpperCase().startsWith("USB"))
       .filter(d => d.IsBuiltIn === false)
       .filter(d => {
         const service = (d.Service || "").toLowerCase();
@@ -295,40 +297,8 @@ export async function collectSolidDisplays() {
   if (pnpBackoffActive()) return displayCache;
 
   try {
-    const script = `
-      $ProgressPreference = 'SilentlyContinue'
-      $devs = Get-PnpDevice -PresentOnly | Where-Object { 
-        $_.Class -eq 'Monitor' -and ($_.ConfigManagerErrorCode -eq 0 -or $_.ConfigManagerErrorCode -eq 31)
-      }
-      if ($devs) {
-        $props = Get-PnpDeviceProperty -InstanceId $devs.InstanceId -KeyName 'DEVPKEY_Device_InLocalMachineContainer' -ErrorAction SilentlyContinue
-        $propMap = @{}
-        if ($props) {
-            foreach ($p in $props) { if ($p.InstanceId) { $propMap[$p.InstanceId] = [bool]$p.Data } }
-        }
-        $results = foreach ($dev in $devs) {
-          $isBuiltIn = if ($propMap.ContainsKey($dev.InstanceId)) { $propMap[$dev.InstanceId] } else { $true }
-          [PSCustomObject]@{
-            FriendlyName = $dev.FriendlyName
-            InstanceId = $dev.InstanceId
-            Class = $dev.Class
-            Service = $dev.Service
-            Manufacturer = $dev.Manufacturer
-            IsBuiltIn = $isBuiltIn
-          }
-        }
-        $results | ConvertTo-Json -Compress
-      } else { "[]" }
-    `.trim();
-
-    const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
-      timeout: PNP_TIMEOUT_MS,
-      windowsHide: true,
-    });
-
-    if (!stdout || stdout.trim() === "") return displayCache;
-
-    const raw = JSON.parse(stdout);
+    const rawAll = await getPnpDevices();
+    const raw = rawAll.filter(d => (d.Class || "").toLowerCase() === "monitor");
     const graphics = await si.graphics().catch(() => ({ displays: [] }));
     const siDisplays = graphics.displays || [];
 
@@ -405,4 +375,10 @@ export async function collectUsbDevices() {
   }
 
   return merged;
+}
+
+export function resetPnpCache() {
+  pnpCache = null;
+  pnpCacheTime = 0;
+  pnpActivePromise = null;
 }
