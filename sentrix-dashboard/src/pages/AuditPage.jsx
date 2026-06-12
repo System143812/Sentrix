@@ -770,7 +770,7 @@ export function AuditPage({ user }) {
         <div className="overflow-x-auto">
           {activeTab === "logs" ? (
             <>
-              <div className={`hidden min-w-[1000px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:grid border-b border-slate-100 ${
+              <div className={`hidden lg:grid gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100 ${
                 user?.role === "network_admin"
                   ? "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px]"
                   : "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr]"
@@ -785,7 +785,7 @@ export function AuditPage({ user }) {
                 {paginatedLogs.length ? (
                   paginatedLogs.map((log) => (
                     <article
-                      className={`group min-w-[1000px] flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:items-center lg:gap-6 ${
+                      className={`group flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:items-center lg:gap-6 ${
                         user?.role === "network_admin"
                           ? "lg:grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px]"
                           : "lg:grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr]"
@@ -926,7 +926,7 @@ export function AuditPage({ user }) {
           ) : (
             <>
               <div
-                className={`hidden min-w-[1000px] gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:grid border-b border-slate-100 ${
+                className={`hidden lg:grid gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100 ${
                   activeTab === "whitelist"
                     ? "grid-cols-[1.5fr_1fr_1.2fr_130px]"
                     : "grid-cols-[1.5fr_1fr_1.8fr_1.2fr_130px]"
@@ -954,7 +954,7 @@ export function AuditPage({ user }) {
                 {paginatedAuthority.length ? (
                   paginatedAuthority.map((subject) => (
                     <article
-                      className={`group min-w-[1000px] flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:items-center lg:gap-6 ${
+                      className={`group flex flex-col gap-6 p-6 transition-all hover:bg-slate-50/30 lg:grid lg:items-center lg:gap-6 ${
                         activeTab === "whitelist"
                           ? "lg:grid-cols-[1.5fr_1fr_1.2fr_130px]"
                           : "lg:grid-cols-[1.5fr_1fr_1.8fr_1.2fr_130px]"
