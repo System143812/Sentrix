@@ -184,9 +184,9 @@ export async function runMaintenanceAction(action, args = {}) {
   }
 
   try {
-    // Increase timeout to 25s for agent execution
+    // Increase timeout to 120s for agent execution
     console.log(`[Maintenance] Executing command: ${finalCommand.substring(0, 50)}...`);
-    const { stdout, stderr } = await execAsync(finalCommand, { timeout: 25000 });
+    const { stdout, stderr } = await execAsync(finalCommand, { timeout: 120000 });
     
     if (action === "broadcast-message") {
         console.log(`[Broadcast-Fallback] Stdout: ${stdout || "none"}`);
