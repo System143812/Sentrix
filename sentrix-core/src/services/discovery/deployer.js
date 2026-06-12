@@ -133,7 +133,8 @@ export async function deployAgentToHost(ip, lastScanResults, credentials = null,
         ip 
       };
     } catch (error) {
-      return { success: false, message: error.message, ip };
+      // Return agentId so the caller can clean up the ghost provisioning record
+      return { success: false, message: error.message, ip, agentId };
     }
   }
 

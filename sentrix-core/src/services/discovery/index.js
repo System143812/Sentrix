@@ -1,6 +1,6 @@
 import os from "os";
 import pool from "../../lib/database.js";
-import { getAllClients } from "../client.services.js";
+import { getAllClients, archiveClient } from "../client.services.js";
 import {
   AUTO_SCAN_INTERVAL_MS,
 } from "./constants.js";
@@ -451,6 +451,10 @@ export function startDiscoveryScheduler(io) {
 
 export async function deployAgentToHost(ip, credentials = null, userId = null, action = "deploy") {
   const scanRecord = lastScanResults.get(ip);
+  // Capture whether a real, registered client existed BEFORE this deployment attempt.
+  // This lets us safely archive ghost records without touching a real client on update failures.
+  const hadPreExistingClient = Boolean(scanRecord?.registered_client_id);
+
   await recordAgentDeployment({
     ip,
     mac: scanRecord?.mac,
@@ -465,6 +469,18 @@ export async function deployAgentToHost(ip, credentials = null, userId = null, a
       ? "prepared"
       : "success"
     : "failed";
+
+  // If the SMB push failed and a ghost provisioning record was created by generateProvisioningToken,
+  // archive it immediately so it does not appear as a phantom device in the dashboard.
+  if (deploymentStatus === "failed" && result.agentId && !hadPreExistingClient) {
+    try {
+      await archiveClient(result.agentId);
+      console.log(`[Discovery] Archived ghost client record ${result.agentId} after failed deployment to ${ip}`);
+    } catch (err) {
+      console.warn(`[Discovery] Could not archive ghost client ${result.agentId}:`, err.message);
+    }
+  }
+
   await recordAgentDeployment({
     ip,
     mac: scanRecord?.mac,
