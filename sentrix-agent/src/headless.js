@@ -1,15 +1,16 @@
 import fs from "fs";
 import path from "path";
+import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { isAdmin, isSystem, elevate } from "./utils/elevation.js";
-import {
-  getAgentProfile,
+import { getAgentProfile,
   getDeviceDetails,
   getMetrics,
   setGlobalMetricInterval,
   getMetricsFingerprint,
 } from "./services/metrics.service.js";
+import { collectSolidUsbDevices, collectSolidDisplays } from "./services/metrics/peripherals.service.js";
 import { connectToCore } from "./services/socket.service.js";
 import { detectDeviceEvents, buildDomainSummaries } from "./services/event-detector.service.js";
 import { collectSoftwareInventory } from "./services/software-inventory.service.js";
@@ -120,7 +121,7 @@ runSetupIfNeeded().then(() => {
 
   let metricsIntervalMs = Number(process.env.METRICS_INTERVAL_MS || 5000);
 let detailsIntervalMs = metricsIntervalMs;
-const heartbeatIntervalMs = Number(process.env.HEARTBEAT_INTERVAL_MS || 10000);
+const heartbeatIntervalMs = Number(process.env.HEARTBEAT_INTERVAL_MS || 5000);
 
 let socketClient;
 let profile;
@@ -223,13 +224,52 @@ async function start() {
   await collectAndSendSoftwareInventory();
   startHelperWatchdog();
 
+  // ---- Zero-Lag Native Peripheral Listener (SYSTEM) ----
+  // Uses a background PowerShell process to listen for native WMI hardware events.
+  // This eliminates polling and ensures instant (sub-second) updates when a device is plugged/unplugged.
+  const startPeripheralListener = () => {
+    const script = `
+      $ProgressPreference = 'SilentlyContinue'
+      $query = "SELECT * FROM Win32_DeviceChangeEvent"
+      Register-WmiEvent -Query $query -Action { Write-Host "HARDWARE_CHANGE" }
+      while($true) { Start-Sleep -Seconds 1 }
+    `.trim();
+
+    const encoded = Buffer.from(script, "utf16le").toString("base64");
+    const listener = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", encoded], {
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+
+    listener.stdout.on("data", (data) => {
+      const output = data.toString();
+      if (output.includes("HARDWARE_CHANGE")) {
+        log("[Peripheral] Native hardware event detected. Triggering instant refresh...");
+        // Trigger one-time instant refresh
+        refreshDetails(true).then(() => {
+          socketClient.sendMetrics(lastMetrics, lastDetails);
+        });
+      }
+    });
+
+    listener.on("exit", () => {
+      log("[Peripheral] Native listener exited. Restarting in 5s...");
+      setTimeout(startPeripheralListener, 5000);
+    });
+  };
+
+  if (process.platform === "win32") {
+    startPeripheralListener();
+  }
+
   let lastHeartbeatSentAt = 0;
 
   metricsTimer = setInterval(collectAndSendMetrics, metricsIntervalMs);
   detailsTimer = setInterval(() => refreshDetails(), detailsIntervalMs);
   softwareTimer = setInterval(collectAndSendSoftwareInventory, softwareInventoryIntervalMs);
 
-  // Standalone heartbeat using minimal status packet to avoid redundant telemetry transfers
+  // Standalone heartbeat — tightened to 5s to keep last_seen_at fresh
+  // and prevent false offline flips caused by brief reconnect storms.
   setInterval(() => {
     const now = Date.now();
     if (now - lastHeartbeatSentAt >= heartbeatIntervalMs) {

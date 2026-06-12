@@ -208,6 +208,7 @@ export async function getHardwareFingerprint() {
 }
 
 let detailsLock = false;
+let cachedStaticSpecs = null;
 
 /**
  * Collects detailed hardware and peripheral information.
@@ -220,12 +221,36 @@ export async function getDeviceDetails() {
   
   detailsLock = true;
   try {
+    let cpu, memoryLayout, system, bios, baseboard, totalMemoryGb;
+
+    if (cachedStaticSpecs) {
+      cpu = cachedStaticSpecs.cpu;
+      memoryLayout = cachedStaticSpecs.memoryLayout;
+      system = cachedStaticSpecs.system;
+      bios = cachedStaticSpecs.bios;
+      baseboard = cachedStaticSpecs.baseboard;
+      totalMemoryGb = cachedStaticSpecs.totalMemoryGb;
+    } else {
+      const [c, ml, s, b, bb, mem] = await Promise.all([
+        si.cpu(),
+        si.memLayout().catch(() => []),
+        si.system().catch(() => ({})),
+        si.bios().catch(() => ({})),
+        si.baseboard().catch(() => ({})),
+        si.mem(),
+      ]);
+      cpu = c;
+      memoryLayout = ml;
+      system = s;
+      bios = b;
+      baseboard = bb;
+      totalMemoryGb = Math.round((mem.total / 1024 ** 3) * 10) / 10;
+      cachedStaticSpecs = { cpu, memoryLayout, system, bios, baseboard, totalMemoryGb };
+    }
+
     const [
-      cpu, memory, memoryLayout, system, bios, baseboard, graphics, disks, usb, 
-      solidUsbDevices, solidDisplays, networkInterfaces,
+      graphics, disks, usb, solidUsbDevices, solidDisplays, networkInterfaces,
     ] = await Promise.all([
-      si.cpu(), si.mem(), si.memLayout().catch(() => []), si.system().catch(() => ({})),
-      si.bios().catch(() => ({})), si.baseboard().catch(() => ({})),
       si.graphics().catch(() => ({ controllers: [], displays: [] })),
       si.diskLayout().catch(() => []), 
       collectUsbDevices().catch(() => []), // RAW for peripheral classification (Untouched)
@@ -247,7 +272,7 @@ export async function getDeviceDetails() {
         cpu: `${cpu.manufacturer || ""} ${cpu.brand || "Unknown CPU"}`.trim(),
         cpuCores: cpu.physicalCores || cpu.cores || 0,
         cpuThreads: cpu.cores || 0,
-        totalMemoryGb: Math.round((memory.total / 1024 ** 3) * 10) / 10,
+        totalMemoryGb: totalMemoryGb,
         memorySlots: memoryLayout.length,
         disks: disks.map((disk) => ({
           name: disk.name || disk.device || "Disk",
