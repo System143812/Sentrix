@@ -1,6 +1,6 @@
 import { getAllClients, markClientOffline, getClientSummary } from "./client.services.js";
 
-const HEARTBEAT_TIMEOUT_MS = Number(process.env.HEARTBEAT_TIMEOUT_MS || 30000);
+const HEARTBEAT_TIMEOUT_MS = Number(process.env.HEARTBEAT_TIMEOUT_MS || 60000);
 const REGISTRATION_GRACE_MS = 60000;
 
 const missedChecks = new Map();
@@ -46,11 +46,12 @@ export function startOfflineWatcher(io) {
             continue;
           }
 
-          // Status Dampening: Require 2 consecutive missed checks (approx 10s of confirmed silence)
+          // Status Dampening: Require 4 consecutive missed checks (~20-25s of confirmed silence)
+          // before marking offline. This prevents false flips during brief reconnect storms.
           const currentMisses = (missedChecks.get(client.id) || 0) + 1;
           missedChecks.set(client.id, currentMisses);
 
-          if (currentMisses >= 2) {
+          if (currentMisses >= 4) {
             await markClientOffline(client.id);
             missedChecks.delete(client.id);
             changed = true;
