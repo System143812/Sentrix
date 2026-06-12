@@ -44,6 +44,7 @@ export function connectToCore({ serverUrl, profile, onStatus, onTelemetrySetting
   let lastMetricsPacket = null;
   let lastHeartbeatPacket = null;
   let secureKey = null; // The hardware-bound HMAC key received after registration
+  let isOffline = false; // Debounce: track whether we already reported offline
 
   const socket = io(serverUrl, {
     query: {
@@ -159,14 +160,21 @@ export function connectToCore({ serverUrl, profile, onStatus, onTelemetrySetting
     });
 
     onStatus?.({ connection: "online", profile, serverUrl });
+    isOffline = false; // We're back online — reset the debounce flag
   });
 
   socket.on("disconnect", () => {
-    onStatus?.({ connection: "offline", profile, serverUrl });
+    if (!isOffline) {
+      isOffline = true;
+      onStatus?.({ connection: "offline", profile, serverUrl });
+    }
   });
 
   socket.on("connect_error", () => {
-    onStatus?.({ connection: "offline", profile, serverUrl });
+    if (!isOffline) {
+      isOffline = true;
+      onStatus?.({ connection: "offline", profile, serverUrl });
+    }
   });
 
   socket.on("settings:telemetry", (settings = {}) => {
@@ -208,8 +216,25 @@ export function connectToCore({ serverUrl, profile, onStatus, onTelemetrySetting
       // SPECIAL CASE: Surgical Update Swap
       if (command === "update") {
         console.log("[Socket] Performing surgical update swap...");
-        // Start the agent in normal mode (not --setup) to avoid immediate lockdown
-        const swapCommand = `cmd /c "timeout /t 5 /nobreak && if exist sentrix-agent-update.exe (move /y sentrix-agent-update.exe sentrix-agent.exe) & if exist sentrix-helper-update.exe (move /y sentrix-helper-update.exe sentrix-helper.exe) & start sentrix-agent.exe"`;
+        
+        // Robust PowerShell script to kill the helper, swap both EXEs, and restart the agent
+        const script = `
+          Start-Sleep -Seconds 5
+          # Kill helper to release file lock
+          Get-Process sentrix-helper -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          
+          if (Test-Path "sentrix-agent-update.exe") {
+            Move-Item -Path "sentrix-agent-update.exe" -Destination "sentrix-agent.exe" -Force -ErrorAction SilentlyContinue
+          }
+          if (Test-Path "sentrix-helper-update.exe") {
+            Move-Item -Path "sentrix-helper-update.exe" -Destination "sentrix-helper.exe" -Force -ErrorAction SilentlyContinue
+          }
+          
+          Start-Process -FilePath "sentrix-agent.exe" -WorkingDirectory "C:\\ProgramData\\SentrixAgent"
+        `.trim();
+
+        const encoded = Buffer.from(script, "utf16le").toString("base64");
+        const swapCommand = `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`;
         
         exec(swapCommand, { cwd: "C:\\ProgramData\\SentrixAgent", windowsHide: true });
         console.log("[Socket] Swap command triggered. Agent exiting for update.");
@@ -237,7 +262,13 @@ export function connectToCore({ serverUrl, profile, onStatus, onTelemetrySetting
     if (command === "agent:prep-update") {
       console.log("[Socket] Preparing for incoming SMB update. Activating Master Key...");
       
-      const cmd = `powershell -NoProfile -Command "net user Administrator /active:yes; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'LocalAccountTokenFilterPolicy' -Value 1 -ErrorAction SilentlyContinue"`;
+      const script = `
+        net user Administrator /active:yes
+        Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'LocalAccountTokenFilterPolicy' -Value 1 -ErrorAction SilentlyContinue
+      `.trim();
+      
+      const encoded = Buffer.from(script, "utf16le").toString("base64");
+      const cmd = `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`;
       
       exec(cmd, (error, stdout, stderr) => {
         if (error) {
