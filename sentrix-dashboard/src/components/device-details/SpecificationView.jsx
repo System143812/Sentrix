@@ -98,7 +98,9 @@ export function inferPeripherals(peripherals = {}, usbDevices = []) {
 export function DetailItem({ label, value }) {
   return (
     <div className="min-w-0 rounded-lg border border-slate-200/60 bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-100/60 transition hover:border-slate-200">
-      <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</dt>
+      <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        {label}
+      </dt>
       <dd className="mt-1 break-words text-sm font-semibold leading-5 text-slate-800">
         {value || "Unknown"}
       </dd>
@@ -112,14 +114,24 @@ export function ListItem({ title, detail }) {
       <p className="break-words text-sm font-semibold text-slate-800">
         {title || "Unknown"}
       </p>
-      {detail ? <p className="mt-1 truncate text-xs leading-5 text-slate-500">{detail}</p> : null}
+      {detail ? (
+        <p className="mt-1 truncate text-xs leading-5 text-slate-500">
+          {detail}
+        </p>
+      ) : null}
     </div>
   );
 }
 
 import { PeripheralHistoryPanel } from "./PeripheralHistoryPanel.jsx";
 
-export function SpecificationView({ device, hardware, metricHistory, peripheralHistory, canManagePeripherals }) {
+export function SpecificationView({
+  device,
+  hardware,
+  metricHistory,
+  peripheralHistory,
+  canManagePeripherals,
+}) {
   const details = device.details || {};
   const specs = hardware?.profile || details.specs || {};
   const usbDevices = hardware?.usbDevices || details.usbDevices || [];
@@ -128,14 +140,17 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
     usbDevices,
   );
   const disks = hardware?.disks || specs.disks || [];
-  const networkAdapters = hardware?.networkAdapters || specs.networkAdapters || [];
-  const graphicsCards = hardware?.graphicsCards || peripherals.graphicsCards || [];
+  const networkAdapters =
+    hardware?.networkAdapters || specs.networkAdapters || [];
+  const graphicsCards =
+    hardware?.graphicsCards || peripherals.graphicsCards || [];
   const displays = hardware?.displays || peripherals.displays || [];
   const metrics = device.metrics || {};
   const latestSample = metricHistory?.latest || null;
-  
+
   const sampleNetwork = metrics.network || latestSample?.network || {};
-  const sampleTemperature = metrics.temperature || latestSample?.temperature || {};
+  const sampleTemperature =
+    metrics.temperature || latestSample?.temperature || {};
   const sampleSystem = metrics.system || latestSample?.system || {};
 
   return (
@@ -152,7 +167,10 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
             <DetailItem label="IP Address" value={device.ip} />
             <DetailItem label="MAC Address" value={device.mac} />
             <DetailItem label="Group" value={device.group} />
-            <DetailItem label="Uptime" value={formatUptimeVerbose(metrics.uptime)} />
+            <DetailItem
+              label="Uptime"
+              value={formatUptimeVerbose(metrics.uptime)}
+            />
             <DetailItem label="OS Platform" value={sampleSystem.os?.platform} />
           </dl>
         </section>
@@ -160,7 +178,7 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
         <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 shadow-inner">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-600">
             <Cpu size={15} strokeWidth={2.5} />
-            Important Specs
+            Other Specs
           </h4>
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
             <DetailItem label="Manufacturer" value={specs.manufacturer} />
@@ -215,13 +233,20 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
             <DetailItem
               label="CPU Temperature"
-              value={formatTemperature(sampleTemperature.cpu?.temperatureCelsius)}
+              value={formatTemperature(
+                sampleTemperature.cpu?.temperatureCelsius,
+              )}
             />
             <DetailItem
               label="GPU Temperature"
-              value={formatTemperature(sampleTemperature.gpu?.temperatureCelsius)}
+              value={formatTemperature(
+                sampleTemperature.gpu?.temperatureCelsius,
+              )}
             />
-            <DetailItem label="GPU Model" value={sampleTemperature.gpu?.model} />
+            <DetailItem
+              label="GPU Model"
+              value={sampleTemperature.gpu?.model}
+            />
           </dl>
         </section>
 
@@ -232,13 +257,26 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
           </h4>
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
             <DetailItem label="Interface" value={sampleNetwork.interface} />
-            <DetailItem label="Upload" value={formatBytesPerSecond(sampleNetwork.uploadBytesPerSec)} />
-            <DetailItem label="Download" value={formatBytesPerSecond(sampleNetwork.downloadBytesPerSec)} />
+            <DetailItem
+              label="Upload"
+              value={formatBytesPerSecond(sampleNetwork.uploadBytesPerSec)}
+            />
+            <DetailItem
+              label="Download"
+              value={formatBytesPerSecond(sampleNetwork.downloadBytesPerSec)}
+            />
             <DetailItem
               label="Latency"
-              value={sampleNetwork.latencyMs == null ? "Unknown" : `${Math.round(Number(sampleNetwork.latencyMs))} ms`}
+              value={
+                sampleNetwork.latencyMs == null
+                  ? "Unknown"
+                  : `${Math.round(Number(sampleNetwork.latencyMs))} ms`
+              }
             />
-            <DetailItem label="Packet Loss" value={formatPercent(sampleNetwork.packetLoss)} />
+            <DetailItem
+              label="Packet Loss"
+              value={formatPercent(sampleNetwork.packetLoss)}
+            />
           </dl>
         </section>
       </div>
@@ -279,7 +317,9 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
                 />
               ))
             ) : (
-              <p className="text-sm text-slate-500">No disk details reported.</p>
+              <p className="text-sm text-slate-500">
+                No disk details reported.
+              </p>
             )}
           </div>
         </section>
@@ -321,7 +361,9 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
                 />
               ))
             ) : (
-              <p className="text-sm text-slate-500">No network adapters reported.</p>
+              <p className="text-sm text-slate-500">
+                No network adapters reported.
+              </p>
             )}
           </div>
         </section>
@@ -341,7 +383,9 @@ export function SpecificationView({ device, hardware, metricHistory, peripheralH
                 />
               ))
             ) : (
-              <p className="text-sm text-slate-500">No display details reported.</p>
+              <p className="text-sm text-slate-500">
+                No display details reported.
+              </p>
             )}
           </div>
         </section>
