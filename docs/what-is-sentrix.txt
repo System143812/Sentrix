@@ -1,0 +1,60 @@
+SENTRIX: SYSTEM DESCRIPTION & ARCHITECTURE
+
+1. SYSTEM OVERVIEW
+Sentrix is a professional-grade, real-time network monitoring and remote management system (RMM) specifically engineered for Windows computer laboratories. It provides a centralized, secure dashboard for administrators to discover network devices, deploy monitoring agents remotely, and oversee fleet health with granular hardware telemetry.
+
+2. VISION
+To be the industry-standard, privacy-conscious RMM solution for educational and training environments, enabling instructors and technicians to manage complex computer laboratories with zero-touch efficiency while maintaining immutable audit trails and strict data privacy standards.
+
+3. CORE GOALS
+- Zero-Touch Provisioning: Enable rapid, automated deployment of monitoring agents across heterogeneous Windows laboratory environments.
+- Real-Time Observability: Provide instant, accurate hardware telemetry and network status for every device in the fleet.
+- Administrative Control: Offer secure, RBAC-based remote management capabilities including power control, software inventory tracking, and remote screen monitoring.
+- Security-First Design: Implement immutable audit logging, secure P2P communication, and privacy controls (consent management) by design.
+
+4. TARGET ENVIRONMENT
+- Windows computer laboratories (educational, training, corporate workshops).
+- Environments requiring centralized oversight of multiple client PCs by administrators/instructors.
+- Scenarios necessitating high visibility into device health with stringent privacy/compliance requirements (GDPR/FERPA).
+
+5. KEY FEATURES
+- Network Discovery: Automated ARP/NetBIOS/Nmap scans to identify and inventory laboratory devices.
+- Remote Deployment: SMB-based payload delivery with automated WMI task registration.
+- Telemetry Monitoring: Real-time hardware performance tracking (CPU, RAM, Disk, Network) with historical trending.
+- Remote PowerShell & Commands: Secure command execution (shutdown, restart, etc.) validated via RBAC.
+- Peripheral Monitoring: Tracking of hardware changes, USB/peripheral connections.
+- Screen Monitoring (New): Privacy-conscious instructional support using focused WebRTC P2P streaming and periodic background screenshots.
+- Audit System: Comprehensive, tamper-resistant logging of all administrative actions and system events.
+
+6. ARCHITECTURE
+Sentrix utilizes a tiered, distributed architecture:
+- Layer 1: Network Layer (ARP/NetBIOS/Nmap for discovery).
+- Layer 2: Core Server (Node.js/Express, MySQL, Socket.io for orchestration and real-time signaling).
+- Layer 3: Agent Client (Node.js service, installed as SYSTEM on target machines, handles telemetry, capture, and command execution).
+- Layer 4: Dashboard UI (React/Vite/Tailwind, provides admin interface and data visualization).
+
+7. WORKFLOWS
+- Discovery & Deployment: Automated scanning -> Device identification -> Admin selection -> SMB payload push -> Persistent agent installation -> Server registration.
+- Telemetry Collection: Agent metrics collection -> Socket.io WSS transport -> Core server aggregation/store -> Dashboard consumer updates.
+- Screen Monitoring: Admin initiates -> Server signals agent -> Consent prompt -> Visual indicator enabled -> Secure WebRTC session established.
+- Remote Control Flow: Admin command -> RBAC validation -> Core server signing -> WebSocket signaling to target agent -> Secure execution.
+
+8. TECHNOLOGY STACK
+- Backend: Node.js, Express.js, MySQL (MariaDB compatible), Socket.io (real-time).
+- Agent: Node.js service, Windows Graphics Capture API, Crypto (AES-256).
+- Dashboard: React, Vite, Tailwind CSS, Lucide React, Charts.js.
+- Database: MySQL Community Server (raw SQL queries with parameterized statements).
+- Deployment: Custom PowerShell provisioner (enabled built-in Admin, configures Remote UAC, manages Watchdog task).
+
+9. SECURITY & PRIVACY
+- Authentication: JWT-based with refresh token rotation.
+- Authorization: Granular Role-Based Access Control (RBAC).
+- Data Protection: All transit (WSS/HTTPS) and screen data (DTLS) encrypted.
+
+- Privacy-by-Design: Mandatory user consent for screen monitoring, persistent visual indicators, configurable application exclusions, and automated logging of all actions.
+
+10. SCREEN MONITORING FEATURE (ACTIVE IMPLEMENTATION)
+- Purpose: Enable instructional support and technical assistance in laboratory environments via focused WebRTC P2P streams and periodic background tile previews.
+- Hybrid Architecture: Combines real-time WebRTC for focused streams with bandwidth-optimized periodic screenshot polling for background tiles.
+- Privacy-First: Mandatory user consent per session, persistent on-screen visual indicators, admin-configurable exclusion lists (apps/regions), and zero-persistence of raw stream data.
+- Implementation Status: Active; foundational signaling and meta-data structures in development.
