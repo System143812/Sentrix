@@ -1,0 +1,679 @@
+                                                                               SENTRIX ARCHITECTURE & DATA FLOW MASTER DOCUMENT
+                                                                               ================================================================
+
+LAST UPDATED: 2026-10-10 (Based on architectural planning session)
+CREATED BY: Collaborative effort between human architect and AI assistant
+PURPOSE: Single source of truth for Sentrix system architecture, replacing scattered documentation
+
+================================================================
+TABLE OF CONTENTS
+================================================================
+1. SYSTEM OVERVIEW
+2. CORE ARCHITECTURAL PRINCIPLES
+3. LAYERED SYSTEM ARCHITECTURE
+4. FEATURE MODULES (CURRENT & PLANNED)
+5. DATA FLOWS (DETAILED)
+6. TECHNOLOGY STACK
+7. PERFORMANCE CONSIDERATIONS
+8. SECURITY & PRIVACY FRAMEWORK
+9. SCREEN MONITORING FEATURE (NEW)
+10. IMPLEMENTATION ROADMAP
+11. ASSUMPTIONS & CONSTRAINTS
+
+================================================================
+1. SYSTEM OVERVIEW
+================================================================
+
+Sentrix is a professional-grade, real-time network monitoring and remote management system (RMM) specifically engineered for Windows computer laboratories. It provides a centralized dashboard for administrators to discover network devices, deploy monitoring agents remotely, and oversee fleet health with high-granularity hardware metrics.
+
+PRIMARY USE CASES:
+- Laboratory device discovery and inventory
+- Zero-touch agent deployment
+- Real-time hardware telemetry monitoring
+- Remote power management (shutdown/restart/sleep)
+- Group-based laboratory oversight
+- Historical performance trending and reporting
+- Screen monitoring for instructional support (NEW FEATURE)
+
+TARGET ENVIRONMENT:
+- Windows computer laboratories (educational/training environments)
+- Admin/professor/instructor accounts monitoring multiple client PCs per lab
+- Need for real-time visibility with privacy-conscious controls
+
+================================================================
+2. CORE ARCHITECTURAL PRINCIPLES
+================================================================
+
+2.1 FEATURE-BASED MODULE ORGANIZATION (CORE BACKEND)
+Each feature module owns its complete stack:
+```
+src/modules/<feature>/
+  <feature>.route.js      - HTTP endpoints & route-level middleware
+  <feature>.controller.js - Request translation & service coordination
+  <feature>.service.js    - Business rules & cross-module coordination
+  <feature>.repository.js - Database access ONLY (pool.query calls)
+```
+
+2.2 DATA FLOW SEPARATION BY CONCERN
+- Real-time Media: WebRTC (Socket.io for signaling only)
+- Control/Config: Socket.io (reliable, ordered delivery)
+- Metadata/Batch: REST API (cacheable, scalable)
+- Persistence: Database (MySQL) - metadata only, no raw storage
+
+2.3 PRIVACY BY DESIGN
+- Explicit, revocable consent required per session
+- Persistent visual indicator on client (cannot be spoofed/disabled by user)
+- Optional application/window exclusion and region blurring
+- Minimal data retention (ephemeral streams, configurable tile retention)
+- End-to-end encryption for all screen data (WebRTC DTLS, HTTPS/WSS)
+
+2.4 SECURITY INTEGRATION
+- Reuses existing authentication/JWT system
+- Integrates with RBAC for feature-specific permissions
+- All actions audited via existing audit service
+- Secure channels only (WSS for Socket.io, HTTPS for REST, DTLS for WebRTC)
+
+2.5 SCALABILITY & PERFORMANCE
+- WebRTC minimizes server load for primary stream (P2P preferred)
+- Background tiles use configurable intervals and compression
+- Database stores only metadata and session logs, not imagery
+- Horizontal scaling possible for stateless services (API, WS)
+- Virtualized rendering in dashboard for large tile grids
+
+================================================================
+3. LAYERED SYSTEM ARCHITECTURE
+================================================================
+
+3.1 NETWORK LAYER
+- Responsible for: Device discovery, initial communication
+- Protocols: ARP/NetBIOS/Nmap (discovery), SMB (deployment)
+- Components: Network switches, target PCs, admin PCs
+
+3.2 CORE SERVER LAYER (sentrix-core/)
+- Responsible for: Orchestration, business logic, data persistence
+- Technology: Node.js, Express, Socket.io, MySQL
+- Key Services:
+  * Discovery Service (network scanning)
+  * Deployment Service (SMB-based agent delivery)
+  * Auth Service (JWT authentication)
+  * API Gateway (REST route aggregation)
+  * WebSocket Service (Socket.io real-time communication)
+  * Feature Services (Analytics, Behavior, Audit, Groups, Settings, System, Security)
+  * NEW: Screen Monitor Service
+
+3.3 AGENT CLIENT LAYER (sentrix-agent/)
+- Responsible for: Telemetry collection, command execution, privacy controls
+- Technology: Node.js, esbuild, Vercel pkg, systeminformation (Compiled as a standalone Windows executable running headlessly as a background service)
+- Communication: Outbound reverse-tunnel Socket.io connections
+- Key Components:
+  * Screen Capture Module (Windows Graphics Capture API)
+  * WebRTC Encoder/Decoder
+  * Screenshot Processor (JPEG compression)
+  * Privacy Controls (consent management, visual indicators, blur/exclude)
+  * Telemetry Service (CPU/RAM/Disk/Network/Peripherals)
+  * Hardware Abstraction (systeminformation wrapper)
+  * Config Manager (local settings persistence)
+  * Command Dispatcher & Executor
+  * Security Module (encryption, secure storage)
+
+3.4 DASHBOARD UI LAYER (sentrix-dashboard/)
+- Responsible for: Administrative interface, visualization, control
+- Technology: React, Vite, Tailwind CSS, Lucide React
+- Communication: RESTful APIs + Socket.io real-time telemetry
+- Key Components:
+  * Screen Monitor View (WebRTC player + controls)
+  * Tile Grid Display (virtualized rendering for background previews)
+  * Control Panel (start/stop, select screen, settings)
+  * Authentication & Authorization wrappers
+  * Real-time telemetry consumers (Socket.io)
+  * Historical data fetchers (REST API)
+  * Navigation & layout components
+
+3.5 EXTERNAL SYSTEMS
+- TURN/STUN Servers (WebRTC fallback relay)
+- NTP Servers (time synchronization)
+- Syslog Servers (centralized logging)
+- Email/SMS Gateways (alerting)
+- AD/LDAP (optional authentication integration)
+- MySQL Database (primary persistence layer)
+
+================================================================
+4. FEATURE MODULES (CURRENT & PLANNED)
+================================================================
+
+CURRENT FEATURE MODULES (sentrix-core/src/modules/):
+- groups - migrated
+- settings - migrated
+- users - migrated
+- auth - migrated
+- audit - migrated
+- clients - migrated
+- discovery - migrated
+- metrics - migrated as internal domain module
+- analytics - migrated
+- behavior - migrated as internal domain module
+- security - migrated as cross-cutting module
+- jobs and background schedulers - migrated to src/system
+
+PLANNED/NEW FEATURE MODULES:
+- screen-monitor - NEW (detailed in Section 9)
+
+MODULE STRUCTURE TEMPLATE:
+```
+src/modules/<feature>/
+  <feature>.route.js
+  <feature>.controller.js
+  <feature>.service.js
+  <feature>.repository.js
+```
+
+TEST STRUCTURE (tests/):
+- unit/
+- integration/
+  - routes/
+- helpers/
+- fixtures/
+
+================================================================
+5. DATA FLOWS (DETAILED)
+================================================================
+
+5.1 NETWORK DISCOVERY FLOW
+[Network Switch] --[ARP/NetBIOS/Nmap Scan]--> [Core: Discovery Service]
+                                    | [DF: Device List Results]
+                                    V
+                             [Core: Discovery Repository] --[DB Write]--> [MySQL: devices table]
+                                    | [DF: Read for Dashboard]
+                                    V
+                            [Dashboard UI] <--[Real-time via Socket.io]-- [Core: WebSocket Service]
+                                    | [DF: Display discovered devices]
+                                    V
+                             [User Action: Select Device for Deployment]
+
+5.2 ZERO-TOUCH DEPLOYMENT FLOW
+[Dashboard: Deploy Button] --[REST: POST /deploy]--> [Core: API Gateway]
+                                             | [DF: Route to Deployment Svc]
+                                             V
+                          [Core: Deployment Service] --[Validate Creds/Perms]--> [SMB Share]
+                                             | [DF: Copy Agent Payload]
+                                             V
+                               [Target PC: SMB Share] --[Run Bootstrap Script]--> [Agent Install]
+                                             | [DF: Auto-execution & Registration]
+                                             V
+                        [Agent Client] --[Socket.io Register]--> [Core: Auth Service]
+                                             | [DF: Store Agent Record]
+                                             V
+                                        [MySQL: agents table]
+                                             | [DF: Confirmation to Dashboard]
+                                             V
+                              [Dashboard UI] <--[Deployment Success]-- [Core: API Gateway]
+
+5.3 REAL-TIME TELEMETRY FLOW (EXISTING)
+[Agent: Telemetry Service] --[Collect Metrics]--> [Agent: Hardware Abstraction]
+                                     | [DF: Format Data Packet]
+                                     V
+                           [Agent: Socket.io Client] --[WSS Secure Send]--> [Core: WebSocket Service]
+                                             | [DF: Broadcast to Subscribers]
+                                             V
+                    [Core: Analytics/Behavior/etc Services] --[Process/Store]--> [MySQL: telemetry tables]
+                                             | [DF: Read for Dashboard]
+                                             V
+                    [Dashboard UI] <--[Real-time Updates]-- [Core: WebSocket Service]
+                                             | [DF: Display live metrics/charts]
+                                             V
+                    [Dashboard UI] <--[Poll REST: /api/metrics]-- [Core: API Gateway]
+                                             | [DF: Route to Analytics Svc]
+                                             V
+                                  [MySQL: historical telemetry]
+
+5.4 POWER CONTROL FLOW
+[Dashboard: Power Button] --[Socket.io: Command (shutdown/restart/sleep)]--> [Core: WebSocket Service]
+                                                                   | [DF: Route to Auth Svc (Validate)]
+                                                                   V
+                                                         [Core: Auth Service] --[Check RBAC Perms]--> [Core: Power Svc]
+                                                                   | [DF: Authorized?]
+                                                                   V
+                                                    [Core: Power Svc] --[Generate Command]--> [Core: WebSocket Service]
+                                                                   | [DF: Send to Target Agent]
+                                                                   V
+                 [Agent: Socket.io Client] --[Receive Command]--> [Agent: Command Dispatcher]
+                                                                   | [DF: Validate & Execute]
+                                                                   V
+          [Agent: System Commands] --[shutdown /r /h]--> [Windows OS Power Management]
+                                                                   | [DF: Execute Power Action]
+                                                                   V
+                              [Target PC State Change] --[Event]--> [Agent: Telemetry Service]
+                                                                   | [DF: Report Status Change]
+                                                                   V
+             [Agent: Socket.io Client] --[Status Update]--> [Core: WebSocket Service]
+                                                                   | [DF: Route to Dashboard]
+                                                                   V
+                     [Dashboard UI] <--[Power Action Complete]-- [Core: API Gateway]
+
+================================================================
+6. TECHNOLOGY STACK
+================================================================
+
+6.1 CORE SERVER (Node.js Backend)
+- Runtime: Node.js (v20.x LTS)
+- Framework: Express.js
+- Real-time: Socket.io (v4.x)
+- Database: MySQL Community Server (v8.0+)
+- ORM/Query: Raw SQL queries via mysql2 parameterized statements (security)
+- Validation: Joi (input validation)
+- Auth: JSON Web Tokens (JWT) with refresh token rotation
+- Testing: Jest (unit), Supertest (integration API)
+- Logging: Winston (structured logging)
+- Config: dotenv (environment variables)
+
+6.2 AGENT CLIENT
+- Runtime: Node.js (v20.x LTS / v18+ target for packaging)
+- Bundling & Compilation: esbuild (bundling) + Vercel pkg (compiling to standalone Windows executable .exe)
+- System Info: systeminformation library
+- Process Management & Persistence: Windows Scheduled Task Watchdog (`watchdog.ps1`) managing auto-updates and service continuity
+- Screen Capture: Windows Graphics Capture API (Win10+) + GDI fallback
+- WebRTC: simple-peer library (WebRTC in Node.js)
+- Screenshots: sharp or jpeg-js (JPEG compression/processing)
+- Encryption: crypto module (AES-GCM for data at rest/TLS for transit)
+- Privacy: Custom Canvas drawing for indicators/blurring
+- Packaging: Vercel pkg via `scripts/build-dist.ps1` (for standalone Windows .exe distribution)
+- Native Addons: Optional for performance-critical operations
+
+6.3 DASHBOARD FRONTEND
+- Framework: React (v18.x)
+- Build Tool: Vite
+- Styling: Tailwind CSS
+- Icons: Lucide React
+- State Management: Zustand or Redux Toolkit
+- WebRTC: simple-webrtc-react or react-webrtc wrapper
+- Virtual Lists: react-window or react-virtualized
+- Charts: Chart.js or Recharts (for analytics)
+- Forms: React Hook Form + Yup validation
+- Routing: React Router v6
+- Testing: React Testing Library + Vitest
+- Code Quality: ESLint + Prettier
+
+6.4 DATABASE SCHEMA (Key Tables)
+- devices: id, hostname, ip, mac, os_info, last_seen, status
+- agents: id, device_id, version, install_date, last_heartbeat
+- telemetry_sessions: id, agent_id, timestamp, cpu_usage, ram_usage, disk_usage, network_io
+- screen_monitor_sessions: id, agent_id, admin_id, start_time, end_time, consent_status
+- screen_monitor_tiles: id, session_id, tile_data_url, timestamp, resolution, quality
+- screen_monitor_audit: id, session_id, action, performed_by, timestamp, details
+- users: id, username, email, role_id, password_hash, created_at
+- groups: id, name, description, created_at
+- group_membership: id, user_id, group_id
+- permissions: id, role_id, resource, action
+- audit_logs: id, user_id, action, resource, timestamp, ip_address, details
+
+================================================================
+7. PERFORMANCE CONSIDERATIONS
+================================================================
+
+7.1 IDENTIFIED PERFORMANCE BOTTLENECKS (FROM USER FEEDBACK)
+- System sometimes slow during peak usage
+- Potential causes:
+  * Database connection pool exhaustion
+  - Inefficient queries lacking proper indexing
+  - Socket.io event flooding without rate limiting
+  - Large payload transfers without compression
+  - Synchronous blocking operations in Node.js event loop
+
+7.2 PERFORMANCE OPTIMIZATIONS APPLIED/PLANNED
+- Database:
+  * Added indexes on frequently queried columns (last_seen, status, agent_id)
+  * Connection pooling with proper sizing (min: 10, max: 100)
+  * Query optimization using EXPLAIN ANALYZE
+  * Read replicas for heavy reporting queries
+- Core Server:
+  * Async/await throughout to prevent blocking
+  * Socket.io room-based broadcasting (not broadcast to all)
+  * Rate limiting on API endpoints (express-rate-limit)
+  * Compression middleware (compression) for REST responses
+  * Caching layer (Redis) for frequently accessed data
+- Agent Client:
+  * Non-blocking I/O for all operations
+  * Batch telemetry sends (every 5s instead of per-second)
+  * Lazy initialization of heavy modules
+  * Memory leak monitoring and prevention
+- Dashboard:
+  * Virtualized lists for large device/telemetry tables
+  * Memoized React components (React.memo, useMemo)
+  * Code splitting and lazy loading
+  * Request debouncing for user inputs
+  * Web Worker for heavy computations (chart processing)
+- Network:
+  * WebRTC minimizes server load for primary stream (P2P preferred)
+  - Background tiles use configurable intervals (2-10s) and compression (JPEG 70-85%)
+  - Control signals use efficient Socket.io binary encoding
+  - TURN server only used when P2P fails (minimizes relay bandwidth)
+
+7.3 PERFORMANCE TARGETS
+- Agent CPU overhead: <5% additional when monitoring active
+- Agent memory overhead: <50MB additional
+- Dashboard load time: <3s for initial load
+- Real-time update latency: <500ms for telemetry
+- Screen monitoring stream latency: <2s end-to-end (focused)
+- Background tile update frequency: 2-10s (configurable)
+- Concurrent users supported: 50+ admins monitoring 200+ devices
+
+================================================================
+8. SECURITY & PRIVACY FRAMEWORK
+================================================================
+
+8.1 AUTHENTICATION & AUTHORIZATION
+- Authentication: JWT with HS256 signing, 15min access token + 7d refresh token
+- Password Security: bcrypt hashing (cost 12+), rate limiting on login attempts
+- Session Security: HTTPS-only cookies, HttpOnly and Secure flags, CSRF tokens
+- Authorization: Role-Based Access Control (RBAC) with resource/action permissions
+- Admin Roles: Super Admin, Lab Administrator, Instructor (customizable permissions)
+- Multi-Factor: Planned for future enhancement (TOTP/WebAuthn)
+
+8.2 DATA PROTECTION
+- Data in Transit:
+  * All Socket.io connections: WSS (TLS 1.3)
+  * All REST API: HTTPS (TLS 1.3)
+  * WebRTC streams: DTLS 1.3 encryption
+  * SMB deployment: SMBv3 encryption (when available)
+- Data at Rest:
+  * Database: MySQL Transparent Data Encryption (TDE) or application-level encryption for sensitive fields
+  * Backups: Encrypted with AES-256
+  * Agent storage: Encrypted local storage for configuration/secrets
+- Key Management: Environment variables for secrets, HashiCorp Vault planned
+
+8.3 AUDITING & COMPLIANCE
+- Comprehensive Audit Log: All user actions, system events, data access
+- Immutable Logs: Write-once storage for critical audit trails
+- Philippine Data Privacy Act (RA 10173 / NPC) Considerations:
+  * Data minimization: Only collect necessary telemetry/metadata
+  * Purpose limitation: Clear data usage policies in UI
+  * Consent management: Explicit opt-in for screen monitoring
+  * Right to access: Admin portal to view collected data
+  * Right to deletion: Automated purge based on retention policies
+  * Data portability: Export functionality for user/device data
+  * Breach notification: Automated alerts for security incidents
+- Retention Policies:
+  * Raw telemetry: 90 days (aggregated forever)
+  * Screen monitoring sessions: 30 days metadata, 0 days raw streams
+  * Audit logs: 365 days (regulatory requirement)
+  * Deployment logs: 90 days
+
+8.4 NETWORK SECURITY
+- Firewall Rules:
+  * Core Server: Only ports 3000 (API), 3001 (WSS), 443 (HTTPS) open
+  * Agent Clients: Outbound only to Core Server (no inbound ports required)
+  * TURN/STUN: Only if WebRTC P2P fails
+- Intrusion Detection: Fail2ban for brute force protection
+- Regular Scanning: Monthly vulnerability scans and penetration tests
+- Secure Boot: Agent verifies Core Server certificate pinning
+
+================================================================
+9. SCREEN MONITORING FEATURE (NEW)
+================================================================
+Based on architectural planning session with human architect on 2026-10-10
+
+9.1 FEATURE OVERVIEW
+Purpose: Enable instructors/professors to monitor student computer screens for instructional support, technical assistance, and academic integrity monitoring in laboratory environments.
+
+Key Requirements from Human Architect:
+- Admin/professor accounts monitor multiple client PCs per lab
+- Performance is primary concern (system sometimes slow)
+- WebRTC confirmed as best approach for focused stream
+- Limited knowledge of Philippine Data Privacy Act (RA 10173) / NPC guidelines (will need guidance)
+- Admin chooses which screen to focus on and which PC to start/stop monitoring
+- Start/stop control essential for bandwidth savings
+- Multiple admins should monitor same client simultaneously
+- Feature must integrate with existing Sentrix architecture without degrading performance
+
+9.2 MODULE STRUCTURE
+```
+src/modules/screen-monitor/
+  screen-monitor.route.js
+  screen-monitor.controller.js
+  screen-monitor.service.js
+  screen-monitor.repository.js
+```
+
+9.3 TECHNICAL APPROACH
+9.3.1 HYBRID STREAMING ARCHITECTURE
+- Focused Screen Stream: WebRTC for low-latency, real-time streaming of actively selected screen
+- Background Tile Previews: Periodic screenshots (every 2-5 seconds) for non-focused screens to minimize network bandwidth
+- Rationale: Balance real-time responsiveness (WebRTC) with network efficiency (periodic REST)
+
+9.3.2 DATA FLOWS
+A. FOCUSED SCREEN STREAM (WebRTC - Low Latency):
+   [Agent: Screen Capture] --> [Agent: WebRTC Encoder] --> [Agent: Socket.io Client (Signaling)]
+                                   | [DF: WebRTC Signaling via Socket.io]
+                                   V
+                           [Core: WebSocket Service] <--[Offer/Answer/ICE]-- [Agent: Socket.io Client]
+                                   | [DF: Media Relay (P2P preferred, TURN fallback)]
+                                   V
+                           [Core: Screen Monitor Service] --> [Core: Screen Metadata Repository] --> [MySQL: screen_monitor_sessions table]
+                                   | [DF: Store Session Metadata Only]
+                                   V
+                           [Dashboard UI] <--[WebRTC Stream via Socket.io/Core]-- [Core: WebSocket Service]
+                                                 (OR Direct P2P if established)
+
+B. BACKGROUND TILE UPDATES (Periodic Screenshots - Bandwidth Optimized):
+   [Agent: Screenshot Processor] --> [Agent: Telemetry Service (Compress JPEG)] --> [Agent: Socket.io Client]
+                                             | [DF: REST API Call (batched)]
+                                             V
+                                   [Core: API Gateway] <--[POST /api/screen-monitor/tiles]-- [Agent: Socket.io Client]
+                                             | [DF: Validate/Auth/Store Metadata]
+                                             V
+                                   [Core: Screen Monitor Service] --> [Core: Screen Tile Repository] --> [MySQL: screen_monitor_tiles table]
+                                             | [DF: Store Tile Metadata (URL/Reference)]
+                                             V
+                                   [MySQL: screen_monitor_tiles table]
+                                             | [DF: Read for Dashboard (Polling)]
+                                             V
+                                   [Dashboard UI] <--[GET /api/screen-monitor/tiles/:deviceId]-- [Core: API Gateway]
+                                                 (Updated every 2-5s per tile)
+
+C. CONTROL AND SIGNALING FLOW:
+   [Dashboard UI] --> [Dashboard: Socket.io Client] --> [Core: WebSocket Service] --> [Core: Screen Monitor Service]
+                                              | [DF: Validate Perms/RBAC]
+                                              V
+                                   [Core: Screen Monitor Service] --> [Core: WebSocket Service] --> [Agent: Socket.io Client]
+                                              | [DF: Route to Appropriate Handler]
+                                              V
+                           [Agent: WebRTC Engine / Screenshot Processor] <--[Control Commands]-- [Agent: Telemetry Service]
+
+D. PRIVACY AND CONSENT FLOW:
+   [Dashboard UI] --> [Dashboard: Socket.io Client] --> [Core: WebSocket Service] --> [Core: Screen Monitor Service]
+                                              | [DF: Check Existing Consent/Log]
+                                              V
+                                   [Core: Screen Monitor Service] --> [Core: WebSocket Service] --> [Dashboard UI]
+                                              | [DF: Consent Token/Prompt (Show UI)]
+                                              |
+                                              V
+                           [Agent: Socket.io Client] <--[Consent Request]-- [Core: WebSocket Service] (when Admin confirms)
+                                              | [DF: Show Consent Prompt to User]
+                                              V
+                      [Agent: Privacy Controls] <--[User Consent Decision]-- [Agent: Telemetry Service]
+                                              | [DF: If Consented: Enable Monitoring]
+                                              V
+             [Agent: Privacy Controls] --> [Visual Indicator On] --> [Target PC Display]
+                                              (Persistent tray icon/overlay indicating active monitoring)
+                                              |
+                                              V
+             [Agent: Privacy Controls] --> [Apply Blur/Exclude Rules] --> [Agent: Screen Capture / Screenshot Processor]
+                                              (Based on configured policies)
+
+E. AUDIT AND SECURITY FLOW:
+   [Any Screen Monitor Action] --> [Core: Screen Monitor Service] --> [Core: Audit Service] --> [MySQL: screen_monitor_audit table]
+                                              | [DF: Write Audit Log]
+                                              V
+                                   [MySQL: screen_monitor_audit table]
+                                              | [DF: Read for Dashboard/Compliance]
+                                              V
+                                   [Dashboard UI] <--[GET /api/audit/screen-monitor]-- [Core: API Gateway]
+
+9.4 PRIVACY CONTROLS (USER-SPECIFIED REQUIREMENTS)
+- Explicit Consent: Required per monitoring session (cannot be bypassed)
+- Visual Indicator: Persistent on client machine when monitoring active (cannot be disabled by user)
+- Application/Window Exclusion: Admin-configurable list of applications/windows to exclude from capture
+- Region Blurring: Optional blurring of specific screen regions (e.g., taskbar, title bars)
+- Session Timeout: Automatic end after configurable period (e.g., 60 minutes)
+- Recording Disclaimer: Clear notification that sessions may be logged for audit purposes
+- Data Minimization: No persistent storage of raw screen data by default
+- Access Control: Integrated with existing RBAC system (screen_monitor:watch permission)
+
+9.5 STORAGE & RETENTION
+- Real-time Streams: Ephemeral, not persisted (zero storage footprint)
+- Screen Captures:
+  * Metadata only stored in database (URL references to temporary storage)
+  * Temporary buffer: Last 5 minutes of screenshots for replay functionality (configurable)
+  * Automatic cleanup: Files older than retention period deleted
+- Configuration Options:
+  * Tile update interval: 2-10 seconds (default 5s)
+  * Tile resolution: 320x180 to 640x360 (default 480x270)
+  * Tile quality: JPEG 70-85% (default 80%)
+  * Focused stream resolution: Up to 1920x1080 (default 1280x720)
+  * Focused stream framerate: 5-15 FPS adaptive (default 10 FPS)
+  * Retention policy: Keep last 1 hour of captures (default)
+
+9.6 SECURITY CONSIDERATIONS
+- Encryption:
+  * WebRTC streams: DTLS 1.3
+  * Control signals: WSS (TLS 1.3)
+  * Metadata storage: Application-level encryption for sensitive fields
+- Access Control:
+  * RBAC integration: screen_monitor:watch, screen_monitor:control permissions
+  * Session binding: Tied to specific admin/user and agent/device
+  * Replay protection: Nonces and timestamps in all messages
+- Audit Logging:
+  * All consent actions granted/denied
+  * All start/stop/monitor actions
+  * All setting changes (exclusions, blurring, etc.)
+  * Admin identity, timestamp, IP address for all actions
+- Input Validation:
+  * Strict validation on all API inputs
+  * Sanitization to prevent injection attacks
+  * File type validation for any uploads
+- Network Security:
+  * WebRTC only connects to authorized peers
+  * Socket.io rooms enforce session isolation
+  * Rate limiting prevents abuse
+
+================================================================
+10. IMPLEMENTATION ROADMAP
+================================================================
+
+PHASE 1: FOUNDATION & CORE INFRASTRUCTURE (Weeks 1-2)
+- [x] Create screen-monitor module structure
+- [x] Implement basic REST API endpoints (consent, start/stop)
+- [x] Add basic WebRTC signaling via Socket.io
+- [x] Build minimal dashboard UI for testing
+- [x] Define database schema for screen monitoring
+- [x] Update ARCHITECTURE.md with feature overview
+- [x] Create initial ASCII diagram for review
+
+PHASE 2: FEATURE COMPLETION (Weeks 3-4)
+- [ ] Implement screen capture (Windows Graphics Capture API)
+- [ ] Add WebRTC encoding/decoding (using simple-peer)
+- [ ] Implement screenshot processor with JPEG compression
+- [ ] Add privacy controls (consent UI, visual indicator, blur/exclude)
+- [ ] Complete audit logging and RBAC integration
+- [ ] Implement session management and timeouts
+- [ ] Add adaptive bitrate/framerate control
+- [ ] Create comprehensive unit tests
+
+PHASE 3: OPTIMIZATION & HARDENING (Weeks 5-6)
+- [ ] Implement motion detection for frame rate optimization
+- [ ] Add TURN server integration for WebRTC fallback
+- [ ] Enhance security: encryption validation, penetration testing
+- [ ] Optimize database schema for tile metadata retention
+- [ ] Add performance monitoring and metrics collection
+- [ ] Implement error handling and recovery mechanisms
+- [ ] Create integration tests for data flows
+- [ ] Document RA 10173 (Philippine Data Privacy Act) compliance approach
+
+PHASE 4: DASHBOARD INTEGRATION (Weeks 7-8)
+- [ ] Build full-screen monitor view with WebRTC player
+- [ ] Implement tile grid with virtualized rendering
+- [ ] Add control panel (start/stop, select screen, settings)
+- [ ] Integrate with existing navigation and layout
+- [ ] Add multi-admin support (simultaneous monitoring)
+- [ ] Implement bandwidth monitoring and QoS controls
+- [ ] Create end-to-end test scenarios
+- [ ] Prepare deployment packages and rollout plan
+
+PHASE 5: TESTING, DEPLOYMENT & TRAINING (Weeks 9-10)
+- [ ] Conduct performance testing under load (50+ admins, 200+ devices)
+- [ ] Conduct security audit and penetration testing
+- [ ] Gather feedback from pilot user group
+- [ ] Refine based on user feedback and test results
+- [ ] Create administrator training materials
+- [ ] Develop rollout communication plan
+- [ ] Execute gradual rollout: opt-in beta → group policy → mandatory (if applicable)
+- [ ] Establish monitoring and alerting for production
+
+================================================================
+11. ASSUMPTIONS & CONSTRAINTS
+================================================================
+
+11.1 ASSUMPTIONS
+- Target clients are Windows 10/11 (Graphics Capture API available)
+- Existing Socket.io infrastructure can handle additional WebRTC signaling
+- Network infrastructure supports sufficient bandwidth for intended use case
+- Admin users receive appropriate training for privacy-aware usage
+- MySQL server has adequate capacity for metadata storage
+- Organizational policies permit screen monitoring with proper consent
+- Laboratory environment has controlled physical access
+- Users are aware monitoring may occur for instructional/support purposes
+
+11.2 CONSTRAINTS (NON-NEGOTIABLE)
+- Must not increase agent CPU usage by more than 5% during active monitoring
+- Must not increase agent memory usage by more than 50MB
+- Must work behind corporate firewalls/NATs (hence WebRTC + TURN fallback requirement)
+- Must comply with organizational privacy policies and applicable regulations (RA 10173 / Philippine Data Privacy Act primary concern)
+- Must integrate seamlessly with existing user experience and workflows
+- Must maintain backward compatibility with existing agent versions (no forced updates)
+- Must not degrade performance of existing telemetry/monitoring features
+- Must provide clear visual indication when monitoring is active (cannot be disabled by end-user)
+- Must require explicit consent for each monitoring session
+- Must store zero raw screen imagery by default (metadata only)
+- Must allow immediate termination of monitoring by admin or system
+- Must support simultaneous monitoring by multiple administrators
+
+11.3 KNOWN LIMITATIONS (TO BE ADDRESSED)
+- Initial release: Windows 10/11 only (Windows 7/8.1 not supported due to API limitations)
+- WebRTC P2P may fail in strict corporate networks (reliant on TURN fallback)
+- Background tile quality limited by JPEG compression artifacts at lower qualities
+- No built-in OCR or content analysis (privacy-preserving by design)
+- Audio capture not included in initial scope (video-only)
+- Multi-monitor support: Primary monitor only in initial release (configurable selection planned)
+- GPU acceleration for encoding: Software encoding only in initial release (hardware acceleration planned)
+
+================================================================
+12. RELATED DOCUMENTATION (NOW CONSOLIDATED HERE)
+================================================================
+This document replaces and consolidates the following files:
+- sentrix-core/ARCHITECTURE.md (overview retained in Section 1-2)
+- README.md (overview retained in Section 1)
+- screen-monitoring-ascii.txt (details in Section 9)
+- FULL_SYSTEM_ARCHITECTURE.txt (details in Sections 3-8)
+- SYSTEM_ARCHITECTURE_ASCII.txt (visual representation in Section 3)
+- All scattered architecture notes and planning documents
+
+FUTURE UPDATES:
+This document should be updated whenever:
+- New features are added or existing features significantly modified
+- Architectural decisions are changed based on performance/security findings
+- Technology stack updates occur (major version changes)
+- Deployment architecture or scaling strategies evolve
+- Compliance requirements change (new regulations, audits)
+- Performance bottlenecks are identified and resolved
+
+To update this file:
+1. Consult with architecture stakeholders
+2. Gather requirements and constraints
+3. Draft changes in a separate file first
+4. Review with team for accuracy and completeness
+5. Replace this file with the updated version
+6. Notify relevant teams of changes
+
+================================================================
+END OF DOCUMENT
+================================================================
