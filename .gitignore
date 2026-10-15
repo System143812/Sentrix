@@ -149,3 +149,6 @@ sentrix-dashboard/.vite/
 
 #GEMINI
 GEMINI.md
+
+#Provisioner build files
+tools/Sentrix-Provisioner/obj/
