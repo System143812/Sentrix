@@ -770,7 +770,7 @@ export function AuditPage({ user }) {
         <div className="overflow-x-auto">
           {activeTab === "logs" ? (
             <>
-              <div className={`hidden lg:grid gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100 ${
+              <div className={`hidden lg:grid gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100 min-w-[1000px] ${
                 user?.role === "network_admin"
                   ? "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px]"
                   : "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr]"
