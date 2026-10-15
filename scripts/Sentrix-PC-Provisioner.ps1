@@ -136,12 +136,27 @@ if ($null -eq $agentProcess) {
 '@
     $watchdogScript | Out-File -FilePath $watchdogFile -Encoding utf8 -Force
 
-    # Create the permanent watchdog task (runs every minute as SYSTEM)
-    $taskAction = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""$watchdogFile"""
-    & schtasks.exe /create /tn "Sentrix Watchdog" /tr "$taskAction" /sc minute /mo 1 /ru SYSTEM /rl HIGHEST /f | Out-Null
-    
-    # Trigger the first run immediately
-    & schtasks.exe /run /tn "Sentrix Watchdog" | Out-Null
+    # Create the permanent watchdog task using PowerShell cmdlets for better control
+    $watchdogScriptPath = $watchdogFile
+
+    # Remove any existing task first
+    Unregister-ScheduledTask -TaskName "Sentrix Watchdog" -Confirm:$false -ErrorAction SilentlyContinue
+
+    # Build a robust task with BOTH triggers so it runs immediately and survives reboots:
+    #   1. AtStartup — fires on every boot (covers reboots and fresh deployments)
+    #   2. Once + RepetitionInterval — repeats every minute indefinitely (keeps the agent alive)
+    # Using a safe epoch start time so the repeating trigger is never "in the past"
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watchdogScriptPath`""
+    $startupTrigger = New-ScheduledTaskTrigger -AtStartup
+    $repeatTrigger = New-ScheduledTaskTrigger -Once -At "2020-01-01T00:00:00" -RepetitionInterval (New-TimeSpan -Minutes 1)
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
+    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+
+    # Register with BOTH triggers — the repeating trigger fires immediately (start time is in the past + StartWhenAvailable)
+    Register-ScheduledTask -TaskName "Sentrix Watchdog" -Action $action -Trigger @($startupTrigger, $repeatTrigger) -Settings $settings -Principal $principal -Force | Out-Null
+
+    # Start it now so it doesn't wait for the next trigger cycle
+    Start-ScheduledTask -TaskName "Sentrix Watchdog"
     
     Write-Host " [OK]" -ForegroundColor Green
 } catch {
