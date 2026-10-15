@@ -5,20 +5,24 @@ import {
   registerClient,
   touchClientHeartbeat,
   updateClientMetrics,
-} from "../services/client.services.js";
+} from "../modules/clients/clients.service.js";
 import {
   getDiscoverySnapshot,
   runDiscoveryScan,
   setPreferredSubnet,
-} from "../services/discovery/index.js";
-import { getTelemetrySettings } from "../services/settings.service.js";
+} from "../modules/discovery/discovery.service.js";
+import { getTelemetrySettings } from "../modules/settings/settings.service.js";
 import {
   saveDeviceEvents,
   saveDomainSummaries,
   saveSoftwareInventory,
-} from "../services/behavior.service.js";
-import { isRequestRateLimited, isRequestAuthorized, verifyHardwareSignature } from "../services/security.service.js";
-import { grantRegistrationGrace } from "../services/heartbeat.service.js";
+} from "../modules/behavior/behavior.service.js";
+import {
+  isRequestRateLimited,
+  isRequestAuthorized,
+  verifyHardwareSignature,
+} from "../modules/security/security.service.js";
+import { grantRegistrationGrace } from "../system/heartbeat/heartbeat.service.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "sentrix-secret";
 

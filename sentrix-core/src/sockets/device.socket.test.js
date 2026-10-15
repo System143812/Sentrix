@@ -4,38 +4,38 @@ import { registerDeviceSocket } from "./device.socket.js";
 import {
   isRequestAuthorized,
   isRequestRateLimited,
-} from "../services/security.service.js";
+} from "../modules/security/security.service.js";
 
-vi.mock("../services/client.services.js", () => ({
+vi.mock("../modules/clients/clients.service.js", () => ({
   getClientSummary: vi.fn().mockResolvedValue({ clients: [] }),
   registerClient: vi.fn(),
   touchClientHeartbeat: vi.fn(),
   updateClientMetrics: vi.fn(),
 }));
 
-vi.mock("../services/discovery/index.js", () => ({
+vi.mock("../modules/discovery/discovery.service.js", () => ({
   getDiscoverySnapshot: vi.fn().mockReturnValue({ devices: [] }),
   runDiscoveryScan: vi.fn(),
   setPreferredSubnet: vi.fn(),
 }));
 
-vi.mock("../services/settings.service.js", () => ({
+vi.mock("../modules/settings/settings.service.js", () => ({
   getTelemetrySettings: vi.fn().mockResolvedValue({ intervalMs: 5000 }),
 }));
 
-vi.mock("../services/behavior.service.js", () => ({
+vi.mock("../modules/behavior/behavior.service.js", () => ({
   saveDeviceEvents: vi.fn(),
   saveDomainSummaries: vi.fn(),
   saveSoftwareInventory: vi.fn(),
 }));
 
-vi.mock("../services/security.service.js", () => ({
+vi.mock("../modules/security/security.service.js", () => ({
   isRequestRateLimited: vi.fn(),
   isRequestAuthorized: vi.fn(),
   verifyHardwareSignature: vi.fn(),
 }));
 
-vi.mock("../services/heartbeat.service.js", () => ({
+vi.mock("../system/heartbeat/heartbeat.service.js", () => ({
   grantRegistrationGrace: vi.fn(),
 }));
 
