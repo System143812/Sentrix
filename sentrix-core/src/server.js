@@ -14,12 +14,14 @@ import { Server } from "socket.io";
 const { default: createApp } = await import("./app.js");
 const { ensureDatabaseSchema } = await import("./lib/schema.js");
 const { registerDeviceSocket } = await import("./sockets/device.socket.js");
-const { startOfflineWatcher } = await import("./services/heartbeat.service.js");
-const { initAuditService } = await import("./services/audit.service.js");
-const { initSecurityService } = await import("./services/security.service.js");
+const { startOfflineWatcher } =
+  await import("./system/heartbeat/heartbeat.service.js");
+const { initAuditService } = await import("./modules/audit/audit.service.js");
+const { initSecurityService } = await import("./modules/security/security.service.js");
 const { startDiscoveryScheduler } =
-  await import("./services/discovery/index.js");
-const { startPruningService } = await import("./services/pruning.service.js");
+  await import("./modules/discovery/discovery.service.js");
+const { startPruningService } =
+  await import("./system/pruning/pruning.service.js");
 
 await ensureDatabaseSchema();
 

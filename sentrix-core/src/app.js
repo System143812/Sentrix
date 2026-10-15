@@ -6,7 +6,11 @@ import rateLimit from "express-rate-limit";
 import router from "./routes/main.route.js";
 import { notFound, errorHandler } from "./middlewares/error.middleware.js";
 import jwt from "jsonwebtoken";
-import { isUserRateLimited, isRequestRateLimited, isRequestAuthorized } from "./services/security.service.js";
+import {
+  isUserRateLimited,
+  isRequestRateLimited,
+  isRequestAuthorized,
+} from "./modules/security/security.service.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "sentrix-secret";
 

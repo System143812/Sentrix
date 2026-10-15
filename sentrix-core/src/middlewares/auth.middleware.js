@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { isUserRateLimited } from "../services/security.service.js";
+import { isUserRateLimited } from "../modules/security/security.service.js";
 
 const secret = process.env.JWT_SECRET || "sentrix-secret";
 

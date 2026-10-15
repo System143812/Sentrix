@@ -1,11 +1,11 @@
-import clientRouter from "./client.route.js";
-import discoveryRouter from "./discovery.route.js";
-import analyticsRouter from "./analytics.route.js";
-import authRouter from "./auth.route.js";
-import userRouter from "./user.route.js";
-import groupRouter from "./group.route.js";
-import auditRouter from "./audit.route.js";
-import settingsRouter from "./settings.route.js";
+import clientRouter from "../modules/clients/clients.route.js";
+import discoveryRouter from "../modules/discovery/discovery.route.js";
+import analyticsRouter from "../modules/analytics/analytics.route.js";
+import authRouter from "../modules/auth/auth.route.js";
+import userRouter from "../modules/users/users.route.js";
+import groupRouter from "../modules/groups/groups.route.js";
+import auditRouter from "../modules/audit/audit.route.js";
+import settingsRouter from "../modules/settings/settings.route.js";
 import { authenticate } from "../middlewares/auth.middleware.js";
 import express from "express";
 
