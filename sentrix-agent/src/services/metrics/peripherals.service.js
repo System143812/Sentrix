@@ -12,6 +12,7 @@ let lastPnpWarning = "";
 
 const PNP_TIMEOUT_MS = Number(process.env.PNP_QUERY_TIMEOUT_MS || 15000);
 const PNP_BACKOFF_MS = Number(process.env.PNP_QUERY_BACKOFF_MS || 10 * 60 * 1000);
+const PNP_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours (effectively infinite until invalidated by WMI events)
 
 function pnpBackoffActive() {
   return process.env.NODE_ENV !== "test" && process.platform === "win32" && Date.now() < pnpBackoffUntil;
@@ -43,7 +44,7 @@ let pnpActivePromise = null;
 
 async function getPnpDevices() {
   const now = Date.now();
-  if (process.env.NODE_ENV !== "test" && pnpCache && (now - pnpCacheTime < 15000)) {
+  if (process.env.NODE_ENV !== "test" && pnpCache && (now - pnpCacheTime < PNP_CACHE_TTL_MS)) {
     return pnpCache;
   }
 
@@ -381,4 +382,8 @@ export function resetPnpCache() {
   pnpCache = null;
   pnpCacheTime = 0;
   pnpActivePromise = null;
+}
+
+export function invalidatePnpCache() {
+  pnpCacheTime = 0;
 }
