@@ -10,7 +10,7 @@ import { getAgentProfile,
   setGlobalMetricInterval,
   getMetricsFingerprint,
 } from "./services/metrics.service.js";
-import { collectSolidUsbDevices, collectSolidDisplays } from "./services/metrics/peripherals.service.js";
+import { collectSolidUsbDevices, collectSolidDisplays, invalidatePnpCache } from "./services/metrics/peripherals.service.js";
 import { connectToCore } from "./services/socket.service.js";
 import { detectDeviceEvents, buildDomainSummaries } from "./services/event-detector.service.js";
 import { collectSoftwareInventory } from "./services/software-inventory.service.js";
@@ -134,7 +134,6 @@ let lastDetailsAt = 0;
 let collectingMetrics = false;
 let collectingDetails = false;
 let metricsTimer = null;
-let detailsTimer = null;
 let softwareTimer = null;
 const softwareInventoryIntervalMs = Number(process.env.SOFTWARE_INVENTORY_INTERVAL_MS || 6 * 60 * 60 * 1000);
 
@@ -162,7 +161,6 @@ async function collectAndSendMetrics() {
 
   try {
     lastMetrics = await getMetrics();
-    await refreshDetails();
 
     const currentHash = getMetricsFingerprint(lastMetrics);
     const timeSinceLastSend = Date.now() - lastMetricsSentAt;
@@ -204,12 +202,9 @@ async function start() {
     profile,
     onTelemetrySettings(settings = {}) {
       metricsIntervalMs = Math.min(Math.max(Number(settings.intervalMs) || metricsIntervalMs, 1000), 60000);
-      detailsIntervalMs = metricsIntervalMs;
       setGlobalMetricInterval(metricsIntervalMs);
       if (metricsTimer) clearInterval(metricsTimer);
       metricsTimer = setInterval(collectAndSendMetrics, metricsIntervalMs);
-      if (detailsTimer) clearInterval(detailsTimer);
-      detailsTimer = setInterval(() => refreshDetails(), detailsIntervalMs);
       log(`Telemetry interval set to ${metricsIntervalMs}ms`);
     },
     onStatus(status) {
@@ -241,14 +236,20 @@ async function start() {
       stdio: ["ignore", "pipe", "ignore"]
     });
 
+    let debounceTimer = null;
+
     listener.stdout.on("data", (data) => {
       const output = data.toString();
       if (output.includes("HARDWARE_CHANGE")) {
-        log("[Peripheral] Native hardware event detected. Triggering instant refresh...");
-        // Trigger one-time instant refresh
-        refreshDetails(true).then(() => {
-          socketClient.sendMetrics(lastMetrics, lastDetails);
-        });
+        // Debounce rapid-fire hardware events (Windows often emits 3-5 events per plug/unplug)
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          log("[Peripheral] Native hardware event detected. Triggering instant refresh...");
+          invalidatePnpCache();
+          refreshDetails(true).then(() => {
+            socketClient.sendMetrics(lastMetrics, lastDetails);
+          });
+        }, 1500);
       }
     });
 
@@ -265,7 +266,6 @@ async function start() {
   let lastHeartbeatSentAt = 0;
 
   metricsTimer = setInterval(collectAndSendMetrics, metricsIntervalMs);
-  detailsTimer = setInterval(() => refreshDetails(), detailsIntervalMs);
   softwareTimer = setInterval(collectAndSendSoftwareInventory, softwareInventoryIntervalMs);
 
   // Standalone heartbeat — tightened to 5s to keep last_seen_at fresh
