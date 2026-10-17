@@ -22,6 +22,7 @@ vi.mock('child_process', () => ({
 describe('Agent Profiling Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.SENTRIX_AGENT_ID = 'test-agent-id';
     
     // Default systeminformation mocks
     si.currentLoad.mockResolvedValue({ currentLoad: 10.5 });

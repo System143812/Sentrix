@@ -103,8 +103,8 @@ async function refreshMetricSection(sectionName, collector, intervalMs) {
 async function refreshMetricsCache() {
   // Heavy collectors (PowerShell/wmic) use longer minimum intervals to reduce CPU load.
   // If the user-configured interval is already longer, respect their preference.
-  const activityIntervalMs = Math.max(globalMetricIntervalMs, 10000);
-  const temperatureIntervalMs = Math.max(globalMetricIntervalMs, 15000);
+  const activityIntervalMs = Math.max(globalMetricIntervalMs, 30000);
+  const temperatureIntervalMs = Math.max(globalMetricIntervalMs, 30000);
 
   await Promise.all([
     refreshMetricSection("cpu", collectCpuMetrics, globalMetricIntervalMs),

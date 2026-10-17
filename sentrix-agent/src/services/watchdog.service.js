@@ -22,9 +22,8 @@ export function startHelperWatchdog() {
       if (!isRunning) {
         console.warn("[Watchdog] Sentrix Helper is NOT running. Rebirthing via Scheduled Task...");
 
-        // Simple, clean command: Start the existing permanent task
-        // Windows handles the user session and hidden window because the task is already configured.
-        const command = `powershell -NoProfile -Command "Start-ScheduledTask -TaskName 'Sentrix Helper' -ErrorAction SilentlyContinue"`;
+        // Direct schtasks execution avoids spawning a full PowerShell runtime every 30s
+        const command = `schtasks /run /tn "Sentrix Helper"`;
 
         exec(command, (err) => {
             if (err) {
