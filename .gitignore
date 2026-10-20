@@ -147,8 +147,9 @@ vite.config.ts.timestamp-*
 # Vite dependency cache
 sentrix-dashboard/.vite/
 
-#GEMINI
+#setup and rulings
 GEMINI.md
+CLAUDE.md
 
 #Provisioner build files
 tools/Sentrix-Provisioner/obj/
