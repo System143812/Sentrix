@@ -164,6 +164,7 @@ export function SpecificationView({
           <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
             <DetailItem label="Hostname" value={device.hostname} />
             <DetailItem label="OS" value={device.os} />
+            <DetailItem label="Agent Version" value={device.agentVersion ? `v${device.agentVersion}` : "v1.0.0"} />
             <DetailItem label="IP Address" value={device.ip} />
             <DetailItem label="MAC Address" value={device.mac} />
             <DetailItem label="Group" value={device.group} />

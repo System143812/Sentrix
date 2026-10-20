@@ -325,9 +325,16 @@ export function DeviceTable({
                         {device.hostname}
                       </strong>
                     </div>
-                    <span className="mt-1 block truncate text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                      {device.os}
-                    </span>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                        {device.os}
+                      </span>
+                      {device.agentVersion && (
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">
+                          v{device.agentVersion}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50/50 p-4 xl:border-0 xl:bg-transparent xl:p-0">
