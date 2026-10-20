@@ -22,7 +22,7 @@ export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading
             </div>
             <div>
               <h3 className="text-lg font-bold">
-                {mode === "activate" ? "Activate Agent" : mode === "update" ? "Update Agent" : "Remote Setup"}
+                {mode === "update" ? "Update Agent" : "Remote Setup"}
               </h3>
               <p className="text-sm text-slate-500">Target IP: {ip}</p>
             </div>
@@ -40,10 +40,8 @@ export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <p className="text-sm text-slate-600">
             Enter administrative credentials for the target PC. This allows Sentrix to{" "}
-            {mode === "activate"
-              ? "start the existing agent task or reinstall the agent if it is missing."
-              : mode === "update"
-                ? "replace the current agent with the latest build and restart it."
+            {mode === "update"
+              ? "replace the current agent with the latest build and restart it."
               : "set up the agent as a SYSTEM service."}
           </p>
 
@@ -98,10 +96,10 @@ export function DeployDialog({ ip, mode = "deploy", onCancel, onConfirm, loading
               {loading ? (
                 <>
                   <LoaderCircle className="animate-spin" size={16} />
-                  <span>{mode === "activate" ? "Activating..." : mode === "update" ? "Updating..." : "Setting up..."}</span>
+                  <span>{mode === "update" ? "Updating..." : "Setting up..."}</span>
                 </>
               ) : (
-                mode === "activate" ? "Start Activation" : mode === "update" ? "Start Update" : "Start Setup"
+                mode === "update" ? "Start Update" : "Start Setup"
               )}
             </button>
           </div>
