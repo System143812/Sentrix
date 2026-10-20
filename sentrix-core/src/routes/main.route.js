@@ -24,7 +24,7 @@ router.get("/api/health", sendHealth);
 router.use("/api/auth", authRouter);
 router.use("/api/analytics", authenticate, analyticsRouter);
 router.use("/api/clients", authenticate, clientRouter);
-router.use("/api/discovery", authenticate, discoveryRouter);
+router.use("/api/discovery", discoveryRouter);
 router.use("/api/audit", authenticate, auditRouter);
 router.use("/api/settings", authenticate, settingsRouter);
 router.use("/api/users", userRouter);

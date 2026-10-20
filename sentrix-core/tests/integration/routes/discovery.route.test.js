@@ -18,6 +18,8 @@ import {
   getInterfaces,
 } from "../../../src/modules/discovery/discovery.service.js";
 
+// Removed fs mock to use actual built binaries on disk
+
 vi.mock("../../../src/modules/audit/audit.service.js");
 vi.mock("../../../src/modules/security/security.service.js", () => ({
   signAgentCommand: vi.fn((clientId, command, args = {}) => Promise.resolve({
@@ -89,26 +91,24 @@ describe('Discovery Controller (Full Coverage)', () => {
     expect(res.body.success).toBe(true);
   });
 
-  it('POST /api/discovery/deploy (Surgical Update with Handshake)', async () => {
-    deployAgentToHost.mockResolvedValue({ success: true, message: 'Updated' });
+  it('POST /api/discovery/deploy (Zero-Touch Update)', async () => {
     getDiscoverySnapshot.mockReturnValue({ devices: [{ ip: '192.168.1.10', registered_client_id: 'agent-123' }] });
     getAllClients.mockResolvedValue([{ ip: '192.168.1.10', id: 'agent-123' }]);
 
     const res = await request(app)
       .post('/api/discovery/deploy')
-      .send({ 
-        ip: '192.168.1.10', 
-        credentials: { user: 'a', pass: 'p' },
+      .send({
+        ip: '192.168.1.10',
         action: 'update'
       });
-    
+
     expect(res.status).toBe(200);
-    expect(mockIo.emitWithAck).toHaveBeenCalledWith('agent:command', {
-      data: { command: 'agent:prep-update', args: {} },
+    expect(mockIo.to).toHaveBeenCalledWith('agent:agent-123');
+    expect(mockIo.emit).toHaveBeenCalledWith('agent:command', {
+      data: { command: 'update', args: { agentBinaryUrl: expect.any(String), helperBinaryUrl: expect.any(String) } },
       hmac: 'signed-hmac',
       timestamp: 1234567890
     });
-    expect(deployAgentToHost).toHaveBeenCalledWith('192.168.1.10', expect.any(Object), undefined, 'update');
   });
 
   it('POST /api/discovery/deploy (missing ip)', async () => {

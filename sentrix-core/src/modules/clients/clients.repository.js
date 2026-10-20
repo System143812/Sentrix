@@ -132,6 +132,19 @@ export const ClientRepository = {
     return rows.affectedRows > 0;
   },
 
+  async updateClientStatusOnly(id, status, now) {
+    const [rows] = await pool.query(
+      `
+      UPDATE clients
+      SET status = ?,
+          updated_at = ?
+      WHERE id = ? AND archived = 0
+      `,
+      [status, now, id],
+    );
+    return rows.affectedRows > 0;
+  },
+
   async updateGroup(id, group, now) {
     const [rows] = await pool.query(
       `

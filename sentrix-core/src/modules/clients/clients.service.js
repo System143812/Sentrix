@@ -28,15 +28,17 @@ import {
   resolvePeripheral,
 } from "../metrics/hardware.service.js";
 
-export async function getAllClients() {
-  return await ClientRepository.findAll();
+function normalizeMac(mac = "") {
+  return String(mac || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-F0-9]/g, "");
 }
 
-export async function getClientById(id) {
-  const client = await ClientRepository.findById(id);
+function formatClient(client) {
   if (!client) return null;
 
-  // Explicitly return only safe fields. 
+  // Explicitly return only safe fields.
   // DO NOT spread (...client) to avoid leaking hardware_fingerprint or provisioning_token literal strings.
   return {
     id: client.id,
@@ -63,6 +65,16 @@ export async function getClientById(id) {
   };
 }
 
+export async function getAllClients() {
+  const clients = await ClientRepository.findAll();
+  return clients.map(formatClient);
+}
+
+export async function getClientById(id) {
+  const client = await ClientRepository.findById(id);
+  return formatClient(client);
+}
+
 export async function registerClient(clientData) {
   const id = clientData.agentId ?? clientData.id;
   if (!id) throw new Error("Client id is required.");
@@ -71,21 +83,25 @@ export async function registerClient(clientData) {
   const existing = await getClientById(id);
 
   // --- Identity Grafting (Deduplication) ---
-  // If this is a 'new' ID to the server, check if we already have this machine 
-  // under a different ID (by MAC or Hardware Fingerprint).
-  if (!existing) {
-    const allClients = await getAllClients();
-    const duplicate = allClients.find(c => 
-      c.id !== id && (
-        (clientData.mac && c.mac === clientData.mac) || 
-        (clientData.fingerprint && c.security?.isHardwareBound && c.details?.specs?.fingerprint === clientData.fingerprint)
-      )
-    );
+  // Check if we already have this machine or IP under a different active ID
+  // (by normalized MAC, Hardware Fingerprint, or IP address match).
+  const allClients = await getAllClients();
+  const incomingMacNorm = normalizeMac(clientData.mac);
+  const incomingFingerprint = clientData.fingerprint || clientData.details?.specs?.fingerprint;
 
-    if (duplicate) {
-      console.log(`[CORE] Deduplication: Archiving stale record ${duplicate.id} for new ID ${id} (MAC/Fingerprint match)`);
-      await archiveClient(duplicate.id);
-    }
+  const duplicate = allClients.find(c => {
+    if (c.id === id) return false;
+    const cMacNorm = normalizeMac(c.mac);
+    const macMatch = incomingMacNorm && incomingMacNorm !== "" && incomingMacNorm !== "UNKNOWN" && cMacNorm === incomingMacNorm;
+    const fingerprintMatch = incomingFingerprint && c.security?.isHardwareBound && c.details?.specs?.fingerprint === incomingFingerprint;
+    const ipMatch = clientData.ip && c.ip === clientData.ip;
+
+    return macMatch || fingerprintMatch || ipMatch;
+  });
+
+  if (duplicate) {
+    console.log(`[CORE] Deduplication: Archiving stale active record ${duplicate.id} (IP: ${duplicate.ip}, MAC: ${duplicate.mac}) for new registration ${id}`);
+    await archiveClient(duplicate.id);
   }
 
   console.log(`[CORE] Registering agent: ${id} (${clientData.hostname})`);
@@ -273,6 +289,15 @@ export async function markClientOffline(id) {
   const success = await ClientRepository.updateStatus(id, "offline", now);
   if (!success) return null;
   await recordUptimeStatus(id, "offline", now);
+
+  return getClientById(id);
+}
+
+export async function markClientOnline(id) {
+  const now = Date.now();
+  const success = await ClientRepository.updateClientStatusOnly(id, "online", now);
+  if (!success) return null;
+  await recordUptimeStatus(id, "online", now);
 
   return getClientById(id);
 }
