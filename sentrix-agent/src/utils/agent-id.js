@@ -14,7 +14,7 @@ async function getAgentDataDir() {
   }
 
   // Unified location for Sentrix data on Windows
-  if (process.platform === "win32") {
+  if (process.platform === "win32" && !process.env.VITEST && process.env.NODE_ENV !== "test") {
     return "C:\\ProgramData\\SentrixAgent";
   }
 
