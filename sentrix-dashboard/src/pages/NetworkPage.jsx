@@ -244,26 +244,32 @@ export function NetworkPage({
   }, [snapshot?.lastScanAt]);
 
   async function handleDeploy(credentials) {
-    let action = "deploy";
-
     try {
       if (!canDeploy) {
         throw new Error("Only network admins can deploy agents.");
       }
-      action =
-        selectedHost?.deployment_action === "activate"
-          ? "activate"
-          : selectedHost?.deployment_action === "update"
-            ? "update"
-            : "deploy";
-      await onDeploy(selectedIp, "PC", credentials, action);
-      notify(`${action === "activate" ? "Activation" : action === "update" ? "Update" : "Setup"} started for ${selectedIp}.`, "success");
+      await onDeploy(selectedIp, "PC", credentials, "deploy");
+      notify(`Setup started for ${selectedIp}.`, "success");
       setSelectedIp(null);
     } catch (error) {
       const failure = getDeploymentFailure(error, selectedIp);
-      setRetryRequest({ ip: selectedIp, credentials, action });
+      setRetryRequest({ ip: selectedIp, credentials, action: "deploy" });
       setDeploymentFailure(failure);
       setSelectedIp(null);
+      notify(failure.title, "failed");
+    }
+  }
+
+  async function handleDirectUpdate(ip) {
+    try {
+      if (!canDeploy) {
+        throw new Error("Only network admins can update agents.");
+      }
+      await onDeploy(ip, "PC", null, "update");
+      notify(`Zero-touch update command sent for ${ip}.`, "success");
+    } catch (error) {
+      const failure = getDeploymentFailure(error, ip);
+      setDeploymentFailure(failure);
       notify(failure.title, "failed");
     }
   }
@@ -276,7 +282,7 @@ export function NetworkPage({
 
     try {
       await onDeploy(ip, "PC", credentials, action);
-      notify(`${action === "activate" ? "Activation" : action === "update" ? "Update" : "Setup"} started for ${ip}.`, "success");
+      notify(`Setup started for ${ip}.`, "success");
       setRetryRequest(null);
       setSelectedIp(null);
     } catch (error) {
@@ -488,7 +494,13 @@ export function NetworkPage({
                   {canDeploy ? (
                     <button
                       type="button"
-                      onClick={() => setSelectedIp(host.ip)}
+                      onClick={() => {
+                        if (host.deployment_action === "update") {
+                          handleDirectUpdate(host.ip);
+                        } else {
+                          setSelectedIp(host.ip);
+                        }
+                      }}
                       disabled={!host.deploy_eligible || deployingIp === host.ip}
                       className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-900 px-3 text-[10px] font-semibold uppercase tracking-wider text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                       title={
@@ -508,11 +520,7 @@ export function NetworkPage({
                         ? deployingIp === host.ip
                           ? "Updating"
                           : "Update"
-                        : host.deployment_action === "activate"
-                          ? deployingIp === host.ip
-                            ? "Activating"
-                            : "Activate"
-                          : host.deploy_eligible
+                        : host.deploy_eligible
                         ? deployingIp === host.ip
                           ? "Preparing"
                           : "Deploy"
