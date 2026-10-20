@@ -17,7 +17,8 @@ const { registerDeviceSocket } = await import("./sockets/device.socket.js");
 const { startOfflineWatcher } =
   await import("./system/heartbeat/heartbeat.service.js");
 const { initAuditService } = await import("./modules/audit/audit.service.js");
-const { initSecurityService } = await import("./modules/security/security.service.js");
+const { initSecurityService } =
+  await import("./modules/security/security.service.js");
 const { startDiscoveryScheduler } =
   await import("./modules/discovery/discovery.service.js");
 const { startPruningService } =

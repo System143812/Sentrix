@@ -7,6 +7,13 @@ import {
 import { logAuditEvent } from "../audit/audit.service.js";
 import { getAllClients } from "../clients/clients.service.js";
 import { signAgentCommand } from "../security/security.service.js";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import jwt from "jsonwebtoken";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function scan(req, res, next) {
   try {
@@ -36,7 +43,7 @@ export async function scan(req, res, next) {
   }
 }
 
-export async function getInterfaces(req, res, next) {
+export async function getInterfaces(_req, res, next) {
   try {
     res.json({
       success: true,
@@ -47,7 +54,7 @@ export async function getInterfaces(req, res, next) {
   }
 }
 
-export async function getSnapshot(req, res, next) {
+export async function getSnapshot(_req, res, next) {
   try {
     res.json({
       success: true,
@@ -68,87 +75,96 @@ export async function deploy(req, res, next) {
         .json({ success: false, message: "IP address is required." });
     }
 
-    // --- Surgical Unlock Flow ---
-    if (action === "update" && credentials) {
-      const io = req.app.get("io");
-      if (io) {
-        // Find if this IP has an online agent
-        const snapshot = getDiscoverySnapshot();
-        const registered = await getAllClients();
-        const snapshotDevice = snapshot.devices?.find((d) => d.ip === ip);
-        const registeredDevice = registered.find(c => c.ip === ip);
-        
-        const targetAgentId = snapshotDevice?.registered_client_id || registeredDevice?.id;
+    const io = req.app.get("io");
+    const snapshot = getDiscoverySnapshot();
+    const registered = await getAllClients();
+    const snapshotDevice = snapshot.devices?.find((d) => d.ip === ip);
+    const registeredDevice = registered.find(c => c.ip === ip);
+    const targetAgentId = snapshotDevice?.registered_client_id || registeredDevice?.id;
 
-        if (targetAgentId) {
-          const rooms = io.sockets?.adapter?.rooms;
-          const agentRoom = rooms?.get(`agent:${targetAgentId}`);
-          const isAgentOnline = agentRoom && agentRoom.size > 0;
+    // --- Zero-Touch WebSocket Update ---
+    if (action === "update") {
+      console.log(`[CORE] Zero-touch update requested for IP: ${ip}, targetAgentId resolution: snapshotDeviceId=${snapshotDevice?.registered_client_id}, registeredDeviceId=${registeredDevice?.id}`);
 
-          if (!isAgentOnline) {
-            console.log(`[CORE] Agent on ${ip} (ID: ${targetAgentId}) is offline. Skipping surgical unlock handshake.`);
-          } else {
-            console.log(`[CORE] Attempting surgical unlock for update on ${ip} (Agent ID: ${targetAgentId})...`);
-            try {
-              // Handshake: Wait for agent to confirm Master Key activation
-              const signedCommand = await signAgentCommand(targetAgentId, "agent:prep-update");
-              const response = await io.timeout(15000).to(`agent:${targetAgentId}`).emitWithAck("agent:command", { 
-                ...signedCommand,
-              });
-              
-              console.log(`[CORE] Surgical unlock response from agent on ${ip}:`, JSON.stringify(response));
-
-              if (response?.[0]?.success) {
-                console.log(`[CORE] Surgical unlock acknowledged by agent on ${ip}. Waiting 3s for system to settle...`);
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                console.log(`[CORE] System settled. Proceeding with push.`);
-              } else {
-                console.warn(`[CORE] Agent on ${ip} refused unlock or reported failure:`, response?.[0]?.message || "No error message");
-              }
-            } catch (err) {
-              console.error(`[CORE] Handshake TIMEOUT for surgical unlock on ${ip}. The signal never reached the agent or the agent hung.`);
-            }
-          }
-        }
+      if (!targetAgentId) {
+        console.warn(`[CORE] Update rejected: No registered agent found for IP ${ip}.`);
+        return res.status(400).json({ success: false, message: "No registered agent found for update." });
       }
+
+      const rooms = io?.sockets?.adapter?.rooms;
+      const agentRoom = rooms?.get(`agent:${targetAgentId}`);
+      const isAgentOnline = agentRoom && agentRoom.size > 0;
+
+      console.log(`[CORE] Socket.IO room check for agent:${targetAgentId} -> online: ${isAgentOnline} (room size: ${agentRoom?.size || 0})`);
+
+      if (!isAgentOnline) {
+        console.warn(`[CORE] Update rejected: Agent ${targetAgentId} is offline (room empty or missing).`);
+        return res.status(400).json({ success: false, message: "Agent is offline. Cannot perform zero-touch update until agent reconnects." });
+      }
+
+      const agentExePath = path.resolve(__dirname, "../../../../sentrix-agent/dist/sentrix-agent.exe");
+      const helperExePath = path.resolve(__dirname, "../../../../sentrix-agent/dist/sentrix-helper.exe");
+
+      console.log(`[CORE] Checking update binaries: agentExePath=${agentExePath} (exists: ${fs.existsSync(agentExePath)}), helperExePath=${helperExePath} (exists: ${fs.existsSync(helperExePath)})`);
+
+      const hasAgentBinary = fs.existsSync(agentExePath);
+      const hasHelperBinary = fs.existsSync(helperExePath);
+
+      if (!hasAgentBinary && !hasHelperBinary) {
+        console.error("[CORE] Update failed: Neither agent nor helper binaries found on server.");
+        return res.status(500).json({ success: false, message: "Agent binaries not found on server. Please build sentrix-agent first." });
+      }
+
+      let backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get("host")}`;
+      if (!backendUrl.startsWith("http://") && !backendUrl.startsWith("https://")) {
+        backendUrl = `https://${backendUrl}`;
+      }
+      const downloadToken = jwt.sign(
+        { agentId: targetAgentId, purpose: "update_download" },
+        process.env.JWT_SECRET || "sentrix-secret",
+        { expiresIn: "15m" }
+      );
+
+      const agentBinaryUrl = hasAgentBinary ? `${backendUrl}/api/discovery/update/binary?type=agent&agentId=${targetAgentId}&token=${downloadToken}` : null;
+      const helperBinaryUrl = hasHelperBinary ? `${backendUrl}/api/discovery/update/binary?type=helper&agentId=${targetAgentId}&token=${downloadToken}` : null;
+
+      console.log(`[CORE] Sending zero-touch update command with HTTP download URLs to agent ${targetAgentId} at ${ip}...`);
+      const signedCommand = await signAgentCommand(targetAgentId, "update", {
+        agentBinaryUrl,
+        helperBinaryUrl,
+      });
+      io.to(`agent:${targetAgentId}`).emit("agent:command", signedCommand);
+      console.log(`[CORE] Zero-touch update command successfully emitted to room agent:${targetAgentId}`);
+
+      await logAuditEvent({
+        req,
+        action: "agent_update_requested",
+        targetType: "host",
+        targetId: ip,
+        targetLabel: ip,
+        details: { action: "update", success: true, message: "Zero-touch update command with HTTP download URLs sent." },
+      });
+
+      return res.json({
+        success: true,
+        data: { success: true, message: "Zero-touch update command sent to agent." }
+      });
     }
 
-    const result = await deployAgentToHost(ip, credentials, req.user?.id, action);
-
-    const auditAction =
-      action === "activate"
-        ? "agent_activate_requested"
-        : action === "update"
-          ? "agent_update_requested"
-          : "agent_deploy_requested";
+    // --- Standard Deploy (Setup) ---
+    const result = await deployAgentToHost(ip, credentials, req.user?.id, "deploy");
 
     await logAuditEvent({
       req,
-      action: auditAction,
+      action: "agent_deploy_requested",
       targetType: "host",
       targetId: ip,
       targetLabel: ip,
-      details: { action, success: Boolean(result.success), message: result.message },
+      details: { action: "deploy", success: Boolean(result.success), message: result.message },
     });
 
     if (!result.success) {
       return res.status(200).json({ success: false, ...result });
-    }
-
-    // --- Immediate Update Trigger ---
-    if (action === "update" && result.success) {
-      const io = req.app.get("io");
-      const snapshot = getDiscoverySnapshot();
-      const registered = await getAllClients();
-      const snapshotDevice = snapshot.devices?.find((d) => d.ip === ip);
-      const registeredDevice = registered.find(c => c.ip === ip);
-      const targetAgentId = snapshotDevice?.registered_client_id || registeredDevice?.id;
-      
-      if (targetAgentId) {
-        console.log(`[CORE] Sending immediate update trigger to ${ip} (Agent ID: ${targetAgentId})...`);
-        const signedCommand = await signAgentCommand(targetAgentId, "update");
-        io?.to(`agent:${targetAgentId}`).emit("agent:command", signedCommand);
-      }
     }
 
     res.json({
@@ -159,3 +175,40 @@ export async function deploy(req, res, next) {
     next(error);
   }
 }
+
+export async function downloadUpdateBinary(req, res) {
+  try {
+    const { type, agentId, token } = req.query;
+    if (!type || !agentId || !token) {
+      return res.status(400).json({ success: false, message: "Missing type, agentId, or token." });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "sentrix-secret");
+      if (decoded.agentId !== agentId || decoded.purpose !== "update_download") {
+        return res.status(403).json({ success: false, message: "Invalid update download token." });
+      }
+    } catch (err) {
+      return res.status(403).json({ success: false, message: "Update download token expired or invalid." });
+    }
+
+    let filePath = null;
+    if (type === "agent") {
+      filePath = path.resolve(__dirname, "../../../../sentrix-agent/dist/sentrix-agent.exe");
+    } else if (type === "helper") {
+      filePath = path.resolve(__dirname, "../../../../sentrix-agent/dist/sentrix-helper.exe");
+    } else {
+      return res.status(400).json({ success: false, message: "Invalid binary type." });
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: `Binary ${type} not found on server.` });
+    }
+
+    return res.download(filePath);
+  } catch (error) {
+    console.error("[Discovery] Error serving update binary:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+

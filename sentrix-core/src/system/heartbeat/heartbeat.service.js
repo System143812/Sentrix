@@ -1,8 +1,10 @@
 import {
   getAllClients,
   markClientOffline,
+  markClientOnline,
   getClientSummary,
 } from "../../modules/clients/clients.service.js";
+import { isDeviceAliveInDiscovery } from "../../modules/discovery/discovery.service.js";
 
 const HEARTBEAT_TIMEOUT_MS = Number(process.env.HEARTBEAT_TIMEOUT_MS || 60000);
 const REGISTRATION_GRACE_MS = 60000;
@@ -45,6 +47,19 @@ export function startOfflineWatcher(io) {
         const timedOut = now - client.last_seen_at > HEARTBEAT_TIMEOUT_MS;
 
         if (timedOut) {
+          // Hybrid Check: If agent heartbeats stopped, check if the physical device
+          // is still confirmed alive in network discovery scan results or direct ping.
+          const aliveViaDiscovery = await isDeviceAliveInDiscovery(client.ip, client.mac);
+
+          if (aliveViaDiscovery) {
+            missedChecks.delete(client.id);
+            if (client.status === "offline") {
+              await markClientOnline(client.id);
+              changed = true;
+            }
+            continue;
+          }
+
           if (client.status === "offline") {
             missedChecks.delete(client.id);
             continue;
@@ -63,6 +78,10 @@ export function startOfflineWatcher(io) {
         } else {
           // Reset counter if client is seen
           missedChecks.delete(client.id);
+          if (client.status === "offline") {
+            await markClientOnline(client.id);
+            changed = true;
+          }
         }
       }
 
