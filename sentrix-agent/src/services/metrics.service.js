@@ -1,14 +1,28 @@
 import os from "os";
 import si from "systeminformation";
 import crypto from "crypto";
-import { readFileSync } from "fs";
-import { join } from "path";
+import fs, { readFileSync } from "fs";
+import path, { join } from "path";
+import { fileURLToPath } from "url";
 import { getAgentIdAsync } from "../utils/agent-id.js";
 import { getPrimaryNetwork } from "../utils/network.js";
 import { simplifyUsbDevice, classifyPeripherals } from "../utils/peripherals.js";
 
-// Load version safely (Avoid import.meta.url which is undefined in CJS/pkg)
-const VERSION = "1.0.0"; // Hardcoded as primary source for the bundled agent
+// Load version safely
+let VERSION = process.env.AGENT_VERSION || "1.0.1";
+try {
+  const currentFile = typeof import.meta.url === "string" ? fileURLToPath(import.meta.url) : "";
+  const currentDir = currentFile ? path.dirname(currentFile) : process.cwd();
+  const pkgPath = process.pkg
+    ? path.join(path.dirname(process.execPath), "package.json")
+    : path.join(currentDir, "../../package.json");
+  if (fs.existsSync(pkgPath)) {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+    if (pkg.version) VERSION = pkg.version;
+  }
+} catch (e) {
+  // fallback
+}
 import { collectCpuMetrics } from "./metrics/cpu.service.js";
 import { collectDiskMetrics } from "./metrics/disk.service.js";
 import { collectMemoryMetrics } from "./metrics/memory.service.js";
