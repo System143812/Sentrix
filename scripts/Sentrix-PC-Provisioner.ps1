@@ -80,30 +80,78 @@ function Log-Message($msg) {
     Add-Content -Path $log -Value "[$timestamp] $msg"
 }
 
-# 1. Check for pending updates
-if (Test-Path $updateExe) {
-    Log-Message "Found pending agent update. Preparing for swap..."
-    
-    # Kill the current agent if it's running
-    $running = Get-Process -Name "sentrix-agent" -ErrorAction SilentlyContinue
-    if ($running) {
-        Log-Message "Stopping running agent for update..."
-        $running | Stop-Process -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
-    }
-    
-    # Swap files
-    try {
-        Move-Item -Path $updateExe -Destination $exe -Force -ErrorAction Stop
-        Log-Message "Agent binary updated successfully."
-        
-        if (Test-Path $updateHelperExe) {
-            Move-Item -Path $updateHelperExe -Destination $helperExe -Force -ErrorAction SilentlyContinue
-            Log-Message "Helper binary updated successfully."
+# 1. Check for pending updates (helper or agent)
+if ((Test-Path $updateExe) -or (Test-Path $updateHelperExe)) {
+    Log-Message "Detected pending update binaries. Preparing for surgical swap..."
+
+    # Stop scheduled tasks to release file locks
+    Stop-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
+    Stop-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
+
+    # Kill running processes
+    Get-Process sentrix-helper -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-Process sentrix-agent -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    taskkill /F /IM sentrix-helper* 2>&1 | Out-Null
+    taskkill /F /IM sentrix-agent* 2>&1 | Out-Null
+
+    Start-Sleep -Seconds 2
+
+    # Swap helper first if pending update exists
+    if (Test-Path $updateHelperExe) {
+        Log-Message "Swapping sentrix-helper.exe with retries..."
+        $helperSwapped = $false
+        for ($i = 1; $i -le 5; $i++) {
+            try {
+                Get-Process sentrix-helper -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+                taskkill /F /IM sentrix-helper* 2>&1 | Out-Null
+                if (Test-Path $helperExe) {
+                    Remove-Item -Path $helperExe -Force -ErrorAction SilentlyContinue
+                }
+                Move-Item -Path $updateHelperExe -Destination $helperExe -Force -ErrorAction Stop
+                $helperSwapped = $true
+                Log-Message "Successfully swapped sentrix-helper.exe on attempt $i."
+                break
+            } catch {
+                Log-Message "Attempt $i to swap sentrix-helper.exe failed: $_. Retrying in 1s..."
+                Start-Sleep -Seconds 1
+            }
         }
-    } catch {
-        Log-Message "FAILED to swap binaries: $($_.Exception.Message)"
+        if (-not $helperSwapped) {
+            Log-Message "WARNING: Failed to swap sentrix-helper.exe after 5 attempts. Removing update binary."
+            Remove-Item -Path $updateHelperExe -Force -ErrorAction SilentlyContinue
+        }
     }
+
+    # Swap agent second if pending update exists
+    if (Test-Path $updateExe) {
+        Log-Message "Swapping sentrix-agent.exe with retries..."
+        $agentSwapped = $false
+        for ($i = 1; $i -le 5; $i++) {
+            try {
+                Get-Process sentrix-agent -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+                taskkill /F /IM sentrix-agent* 2>&1 | Out-Null
+                if (Test-Path $exe) {
+                    Remove-Item -Path $exe -Force -ErrorAction SilentlyContinue
+                }
+                Move-Item -Path $updateExe -Destination $exe -Force -ErrorAction Stop
+                $agentSwapped = $true
+                Log-Message "Successfully swapped sentrix-agent.exe on attempt $i."
+                break
+            } catch {
+                Log-Message "Attempt $i to swap sentrix-agent.exe failed: $_. Retrying in 1s..."
+                Start-Sleep -Seconds 1
+            }
+        }
+        if (-not $agentSwapped) {
+            Log-Message "WARNING: Failed to swap sentrix-agent.exe after 5 attempts. Removing update binary."
+            Remove-Item -Path $updateExe -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Restart scheduled tasks
+    Log-Message "Restarting Sentrix Helper and Sentrix Agent tasks..."
+    Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
+    Start-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
 }
 
 # 2. Ensure agent is running
