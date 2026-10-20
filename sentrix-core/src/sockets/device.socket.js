@@ -5,6 +5,7 @@ import {
   registerClient,
   touchClientHeartbeat,
   updateClientMetrics,
+  markClientOffline,
 } from "../modules/clients/clients.service.js";
 import {
   getDiscoverySnapshot,
@@ -23,6 +24,7 @@ import {
   verifyHardwareSignature,
 } from "../modules/security/security.service.js";
 import { grantRegistrationGrace } from "../system/heartbeat/heartbeat.service.js";
+import { serverTraceLog } from "../utils/tracing.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "sentrix-secret";
 
@@ -65,11 +67,16 @@ async function broadcastUpdate(io) {
  * Helper to verify hardware signature before processing data.
  * Strictly rejects any unsigned packets — no legacy fallback.
  */
-async function withSignatureCheck(agentId, payload, callback, handler) {
+async function withSignatureCheck(socketAgentId, payload, callback, handler) {
   const { data, hmac, timestamp } = payload;
-  
+  const traceId = data?.traceId || payload.traceId;
+  const agentId = data?.agentId || payload.agentId || socketAgentId;
+
+  serverTraceLog(traceId, "Core Receive", { agentId, event: payload.type || "packet" });
+
   if (!hmac || !timestamp || !data) {
     console.error(`[SOCKET] Rejected unsigned packet from ${agentId}. All data must be HMAC-signed.`);
+    serverTraceLog(traceId, "Core Reject", { reason: "unsigned packet" });
     callback?.({ success: false, message: "Signed packet required." });
     return;
   }
@@ -77,10 +84,12 @@ async function withSignatureCheck(agentId, payload, callback, handler) {
   const isValid = await verifyHardwareSignature(agentId, data, hmac, timestamp);
   if (!isValid) {
     console.error(`[SOCKET] Invalid hardware signature from ${agentId}. Potential spoofing attempt blocked.`);
+    serverTraceLog(traceId, "Core Reject", { reason: "invalid signature" });
     callback?.({ success: false, message: "Security verification failed." });
     return;
   }
 
+  serverTraceLog(traceId, "Core Verify Success", { agentId });
   return handler(data);
 }
 
@@ -130,8 +139,11 @@ export function registerDeviceSocket(io) {
 
   io.on("connection", async (socket) => {
     const role = socket.handshake.query.role || "unknown";
-    // FIX: Initialize agentId immediately from the handshake headers to prevent "No fingerprint bound for null" on reconnection.
-    let agentId = socket.handshake.headers["x-sentrix-agent-id"] || null;
+    // FIX: Initialize agentId immediately from the handshake headers or query to prevent "No fingerprint bound for null" on reconnection.
+    let agentId = socket.handshake.headers["x-sentrix-agent-id"]
+               || socket.handshake.headers["X-Sentrix-Agent-ID"]
+               || socket.handshake.query.agentId
+               || null;
 
     if (role === "dashboard") {
       socket.join("dashboards");
@@ -263,8 +275,15 @@ export function registerDeviceSocket(io) {
     });
 
     socket.on("disconnect", async () => {
-      // Offline state is decided by the heartbeat watcher. This avoids false
-      // offline flips during brief Wi-Fi, sleep, or Socket.IO reconnect gaps.
+      if (agentId) {
+        console.log(`[SOCKET] Agent disconnected: ${agentId}. Marking offline immediately.`);
+        try {
+          await markClientOffline(agentId);
+          await broadcastUpdate(io);
+        } catch (err) {
+          console.error(`[SOCKET] Failed to mark agent ${agentId} offline on disconnect:`, err.message);
+        }
+      }
     });
 
     socket.on("discovery:rescan", async (callback) => {

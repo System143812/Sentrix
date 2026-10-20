@@ -1,8 +1,10 @@
 import express from "express";
-import { scan, deploy, getSnapshot, getInterfaces } from "./discovery.controller.js";
+import { scan, deploy, getSnapshot, getInterfaces, downloadUpdateBinary } from "./discovery.controller.js";
 import { authenticate, requireRole } from "../../middlewares/auth.middleware.js";
 
 const discoveryRouter = express.Router();
+
+discoveryRouter.get("/update/binary", downloadUpdateBinary);
 
 discoveryRouter.use(authenticate);
 discoveryRouter.get("/", getSnapshot);
