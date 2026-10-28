@@ -26,8 +26,6 @@ function getClientUrls() {
 }
 
 function isDevDashboardOrigin(origin) {
-  if (process.env.NODE_ENV === "production") return false;
-
   try {
     const { hostname, port } = new URL(origin);
     const isDashboardPort = port === "5173" || port === "5174";
@@ -35,7 +33,8 @@ function isDevDashboardOrigin(origin) {
     const isPrivateLan =
       /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
       /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-      /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname);
+      /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      /^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname); // Tailscale CGNAT range
 
     return (
       isDashboardPort &&
