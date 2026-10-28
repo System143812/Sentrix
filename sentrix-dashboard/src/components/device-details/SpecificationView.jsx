@@ -123,7 +123,6 @@ export function ListItem({ title, detail }) {
   );
 }
 
-import { PeripheralHistoryPanel } from "./PeripheralHistoryPanel.jsx";
 
 export function SpecificationView({
   device,
@@ -392,11 +391,6 @@ export function SpecificationView({
         </section>
       </div>
 
-      <PeripheralHistoryPanel
-        canControl={canManagePeripherals}
-        deviceId={device.id}
-        history={peripheralHistory}
-      />
     </div>
   );
 }
