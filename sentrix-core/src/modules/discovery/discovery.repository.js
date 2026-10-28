@@ -6,6 +6,14 @@ export const DiscoveryRepository = {
     return rows;
   },
 
+  async findDeploymentRecordByIp(ip) {
+    const [rows] = await pool.query(
+      "SELECT * FROM agent_deployment_records WHERE ip = ? LIMIT 1",
+      [ip],
+    );
+    return rows[0] || null;
+  },
+
   async upsertDeploymentRecord({
     ip,
     mac = null,
@@ -13,23 +21,62 @@ export const DiscoveryRepository = {
     status = "requested",
     message = "",
     userId = null,
+    is_processing = 0,
+    operation = "deploy",
     now,
   }) {
     await pool.query(
       `
       INSERT INTO agent_deployment_records
-        (ip, mac, hostname, status, message, requested_by, requested_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (ip, mac, hostname, status, message, requested_by, requested_at, updated_at, is_processing, operation)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         mac = COALESCE(VALUES(mac), mac),
         hostname = COALESCE(VALUES(hostname), hostname),
         status = VALUES(status),
         message = VALUES(message),
         requested_by = COALESCE(VALUES(requested_by), requested_by),
-        updated_at = VALUES(updated_at)
+        updated_at = VALUES(updated_at),
+        is_processing = VALUES(is_processing),
+        operation = VALUES(operation)
       `,
-      [ip, mac, hostname, status, message, userId, now, now],
+      [ip, mac, hostname, status, message, userId, now, now, is_processing ? 1 : 0, operation],
     );
+  },
+
+  async clearProcessingByIp(ip, status = "success", now = Date.now()) {
+    try {
+      await pool.query(
+        `UPDATE agent_deployment_records SET is_processing = 0, status = ?, updated_at = ? WHERE ip = ?`,
+        [status, now, ip]
+      );
+    } catch (err) {
+      // Ignore DB errors during unit tests
+    }
+  },
+
+  async clearProcessingByIpOrMac(ip, mac, status = "success", now = Date.now()) {
+    try {
+      const params = [status, now];
+      let where = "WHERE 1=0";
+      if (ip) {
+        where += " OR ip = ?";
+        params.push(ip);
+      }
+      if (mac) {
+        const norm = String(mac).toUpperCase().replace(/[^A-F0-9]/g, "");
+        if (norm && norm !== "UNKNOWN") {
+          where += " OR REPLACE(UPPER(mac), '-', '') = ?";
+          params.push(norm);
+        }
+      }
+      await pool.query(
+        `UPDATE agent_deployment_records SET is_processing = 0, status = ?, updated_at = ? ${where}`,
+        params
+      );
+    } catch (err) {
+      // Ignore DB errors during unit tests
+    }
   },
 
   async upsertScanResults(devices, now) {

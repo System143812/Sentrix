@@ -2,6 +2,7 @@ import { ClientRepository } from "./clients.repository.js";
 import {
   authorizeDevice,
   bindHardwareFingerprint,
+  computeSecureFingerprint,
 } from "../security/security.service.js";
 import {
   getClientHardware,
@@ -27,6 +28,8 @@ import {
   recoverPeripheral,
   resolvePeripheral,
 } from "../metrics/hardware.service.js";
+import { DiscoveryRepository } from "../discovery/discovery.repository.js";
+import { clearDeploymentCacheState } from "../discovery/discovery.service.js";
 
 function normalizeMac(mac = "") {
   return String(mac || "")
@@ -57,6 +60,7 @@ function formatClient(client) {
     createdAt: client.created_at,
     updatedAt: client.updated_at,
     agentVersion: client.agent_version,
+    hardwareFingerprint: client.hardware_fingerprint,
     security: {
       isHardwareBound: Boolean(client.hardware_fingerprint),
       hasPendingUpdate: Boolean(client.provisioning_token),
@@ -76,98 +80,132 @@ export async function getClientById(id) {
 }
 
 export async function registerClient(clientData) {
-  const id = clientData.agentId ?? clientData.id;
-  if (!id) throw new Error("Client id is required.");
+  const incomingId = clientData.agentId ?? clientData.id;
+  if (!incomingId) throw new Error("Client id is required.");
 
   const now = Date.now();
-  const existing = await getClientById(id);
+  const allClientsRaw = await ClientRepository.findAllIncludingArchived();
+  const allClients = allClientsRaw.map(formatClient);
 
-  // --- Identity Grafting (Deduplication) ---
-  // Check if we already have this machine or IP under a different active ID
-  // (by normalized MAC, Hardware Fingerprint, or IP address match).
-  const allClients = await getAllClients();
   const incomingMacNorm = normalizeMac(clientData.mac);
   const incomingFingerprint = clientData.fingerprint || clientData.details?.specs?.fingerprint;
+  const incomingSecureFingerprint = incomingFingerprint ? computeSecureFingerprint(incomingFingerprint) : null;
 
-  const duplicate = allClients.find(c => {
-    if (c.id === id) return false;
-    const cMacNorm = normalizeMac(c.mac);
-    const macMatch = incomingMacNorm && incomingMacNorm !== "" && incomingMacNorm !== "UNKNOWN" && cMacNorm === incomingMacNorm;
-    const fingerprintMatch = incomingFingerprint && c.security?.isHardwareBound && c.details?.specs?.fingerprint === incomingFingerprint;
-    const ipMatch = clientData.ip && c.ip === clientData.ip;
+  console.log(`[CORE DEBUG] Registering client incomingId: ${incomingId}, incomingMac: ${clientData.mac} (norm: ${incomingMacNorm}), incomingFingerprint present: ${Boolean(incomingFingerprint)}`);
 
-    return macMatch || fingerprintMatch || ipMatch;
-  });
+  // 1. Check if an existing client matches by ID
+  let match = allClients.find(c => c.id === incomingId);
+  if (match) console.log(`[CORE DEBUG] Matched by ID: ${match.id}`);
 
-  if (duplicate) {
-    console.log(`[CORE] Deduplication: Archiving stale active record ${duplicate.id} (IP: ${duplicate.ip}, MAC: ${duplicate.mac}) for new registration ${id}`);
-    await archiveClient(duplicate.id);
+  // 2. If not by ID, check by hardware fingerprint or normalized MAC address
+  if (!match) {
+    // Priority A: Hardware fingerprint match (secure hash or specs fingerprint)
+    match = allClients.find(c => {
+      const secureMatch = incomingSecureFingerprint && c.hardwareFingerprint === incomingSecureFingerprint;
+      const specsMatch = incomingFingerprint && c.details?.specs?.fingerprint === incomingFingerprint;
+      if (secureMatch || specsMatch) {
+        console.log(`[CORE DEBUG] Matched by Fingerprint on client ${c.id}`);
+      }
+      return secureMatch || specsMatch;
+    });
+
+    // Priority B: Normalized MAC address match (if no fingerprint match)
+    if (!match) {
+      match = allClients.find(c => {
+        const cMacNorm = normalizeMac(c.mac);
+        const macMatch = incomingMacNorm && incomingMacNorm !== "" && incomingMacNorm !== "UNKNOWN" && cMacNorm === incomingMacNorm;
+        if (macMatch) {
+          console.log(`[CORE DEBUG] Matched by MAC: ${c.mac} (norm: ${cMacNorm}) on client ${c.id}`);
+        }
+        return macMatch;
+      });
+    }
   }
 
-  console.log(`[CORE] Registering agent: ${id} (${clientData.hostname})`);
+  if (!match) {
+    console.log(`[CORE DEBUG] NO MATCH FOUND. Existing clients in DB:`, allClients.map(c => ({ id: c.id, agentId: c.agentId, mac: c.mac, normMac: normalizeMac(c.mac), hasFingerprint: Boolean(c.hardwareFingerprint) })));
+  }
+
+  const effectiveId = match ? match.id : incomingId;
+  const existing = match ? match : await getClientById(incomingId);
+
+  if (match && match.id !== incomingId) {
+    console.log(`[CORE] Identity Grafting: Reusing existing record ${match.id} (MAC: ${match.mac}) for new agent ID ${incomingId}. Unarchiving & updating in place.`);
+  }
+
+  console.log(`[CORE] Registering agent: ${effectiveId} (incoming ID: ${incomingId}, hostname: ${clientData.hostname})`);
 
   // Auto-authorize the device
   await authorizeDevice({
     ip: clientData.ip,
     mac: clientData.mac,
-    headers: { "x-sentrix-agent-id": id }
-  }, { label: clientData.hostname, type: 'agent_id', identifier: id });
+    headers: { "x-sentrix-agent-id": effectiveId }
+  }, { label: clientData.hostname, type: 'agent_id', identifier: effectiveId });
 
-  // 1. Determine which metrics/details to use. 
+  // 1. Determine which metrics/details to use.
   const incomingMetrics = clientData.metrics || {};
   const incomingDetails = clientData.details || {};
-  
+
   const hasIncomingMetrics = Object.keys(incomingMetrics).length > 0;
   const hasIncomingDetails = Object.keys(incomingDetails).length > 0;
 
   // For the main table, we want normalized metrics
-  const metricsToPersist = hasIncomingMetrics 
-    ? await normalizeMetrics(incomingMetrics) 
+  const metricsToPersist = hasIncomingMetrics
+    ? await normalizeMetrics(incomingMetrics)
     : (existing?.metrics || await normalizeMetrics({}));
 
-  const detailsToPersist = hasIncomingDetails 
-    ? incomingDetails 
+  const detailsToPersist = hasIncomingDetails
+    ? incomingDetails
     : (existing?.details || {});
 
-  // 2. Create or Update the client record FIRST (Source of Truth)
-  await ClientRepository.upsert(id, {
+  // 2. Create or Update the client record FIRST (Source of Truth) using effectiveId
+  await ClientRepository.upsert(effectiveId, {
     ...clientData,
+    agentId: incomingId,
     metrics: metricsToPersist,
     details: detailsToPersist
   }, now);
+
+  // Clear any active deployment processing record for this IP or MAC upon successful registration
+  try {
+    await DiscoveryRepository.clearProcessingByIpOrMac(clientData.ip, clientData.mac, "success", now);
+    clearDeploymentCacheState(clientData.ip, clientData.mac);
+  } catch (err) {
+    // ignore
+  }
 
   // 3. Hardware Binding (Security Overhaul Phase 2)
   // Now that the record exists, we can safely bind the hardware fingerprint.
   let secureFingerprint = null;
   if (clientData.fingerprint) {
     try {
-      secureFingerprint = await bindHardwareFingerprint(id, clientData.fingerprint, clientData.provisioningToken);
-      console.log(`[CORE] Hardware bound successfully for ${id}`);
+      secureFingerprint = await bindHardwareFingerprint(effectiveId, clientData.fingerprint, clientData.provisioningToken);
+      console.log(`[CORE] Hardware bound successfully for ${effectiveId}`);
     } catch (err) {
-      console.error(`[CORE] Hardware binding failed for ${id}:`, err.message);
-      // NOTE: We don't throw here to avoid a total registration crash, 
+      console.error(`[CORE] Hardware binding failed for ${effectiveId}:`, err.message);
+      // NOTE: We don't throw here to avoid a total registration crash,
       // but the agent won't get a secureKey back, so it won't be able to send signed data.
     }
   }
 
   // 4. Update child-table records
   if (hasIncomingMetrics) {
-    await processIncomingMetrics(id, incomingMetrics, now);
+    await processIncomingMetrics(effectiveId, incomingMetrics, now);
   }
-  
-  await recordUptimeStatus(id, "online", now);
+
+  await recordUptimeStatus(effectiveId, "online", now);
 
   if (hasIncomingDetails) {
     try {
-      await saveHardwareDetails(id, incomingDetails);
+      await saveHardwareDetails(effectiveId, incomingDetails);
     } catch (err) {
-      console.error(`[CORE] Initial hardware save failed for ${id}:`, err);
+      console.error(`[CORE] Initial hardware save failed for ${effectiveId}:`, err);
     }
   }
 
-  console.log(`[CORE] Agent ${id} registered successfully. Data preservation: ${!hasIncomingMetrics}`);
+  console.log(`[CORE] Agent ${effectiveId} registered successfully. Data preservation: ${!hasIncomingMetrics}`);
 
-  const client = await getClientById(id);
+  const client = await getClientById(effectiveId);
   return { ...client, secureKey: secureFingerprint };
 }
 
@@ -195,11 +233,20 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
   const success = await ClientRepository.updateMetrics(id, normalizedMetrics, "online", now, details);
   if (!success) return null;
 
+  if (currentClient.ip) {
+    try {
+      await DiscoveryRepository.clearProcessingByIp(currentClient.ip, "success", now);
+    } catch (err) {}
+  }
+
   return getClientById(id);
 }
 
 export async function touchClientHeartbeat(id, metrics = null) {
   const now = Date.now();
+  const currentClient = await getClientById(id);
+  if (!currentClient || currentClient.archived) return null;
+
   let normalizedMetrics = null;
 
   const hasTelemetry = metrics && (
@@ -211,14 +258,18 @@ export async function touchClientHeartbeat(id, metrics = null) {
   );
 
   if (metrics && hasTelemetry) {
-    const currentClient = await getClientById(id);
-    if (!currentClient || currentClient.archived) return null;
     normalizedMetrics = await processIncomingMetrics(id, metrics, now);
   }
 
   const success = await ClientRepository.updateStatus(id, "online", now, normalizedMetrics);
   if (!success) return null;
   await recordUptimeStatus(id, "online", now);
+
+  if (currentClient.ip) {
+    try {
+      await DiscoveryRepository.clearProcessingByIp(currentClient.ip, "success", now);
+    } catch (err) {}
+  }
 
   return getClientById(id);
 }

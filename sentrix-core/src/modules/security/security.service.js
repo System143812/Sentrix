@@ -34,6 +34,14 @@ export async function generateProvisioningToken(clientId) {
   return token;
 }
 
+export function computeSecureFingerprint(fingerprint) {
+  if (!fingerprint) return null;
+  return crypto
+    .createHmac("sha256", SERVER_SECURITY_SECRET)
+    .update(fingerprint)
+    .digest("hex");
+}
+
 /**
  * Verifies if a given fingerprint and token are valid for binding or re-registration.
  */
@@ -43,10 +51,7 @@ export async function bindHardwareFingerprint(clientId, fingerprint, token) {
   if (!client) throw new Error("Client not found.");
 
   // Salt and Hash the incoming fingerprint for comparison/storage
-  const secureFingerprint = crypto
-    .createHmac("sha256", SERVER_SECURITY_SECRET)
-    .update(fingerprint)
-    .digest("hex");
+  const secureFingerprint = computeSecureFingerprint(fingerprint);
   
   // CASE 1: Provisioning/Update Flow (Token provided)
   if (token) {

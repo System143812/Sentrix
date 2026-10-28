@@ -109,8 +109,12 @@ function normalizeMac(mac = "") {
 }
 
 async function getDeploymentRecordsByIp() {
-  const rows = await DiscoveryRepository.findDeploymentRecords();
-  return new Map(rows.map((row) => [row.ip, row]));
+  try {
+    const rows = await DiscoveryRepository.findDeploymentRecords();
+    return new Map(rows.map((row) => [row.ip, row]));
+  } catch {
+    return new Map();
+  }
 }
 
 export async function recordAgentDeployment({
@@ -120,16 +124,61 @@ export async function recordAgentDeployment({
   status = "requested",
   message = "",
   userId = null,
+  is_processing = 0,
+  operation = "deploy",
 }) {
-  await DiscoveryRepository.upsertDeploymentRecord({
-    ip,
-    mac,
-    hostname,
-    status,
-    message,
-    userId,
-    now: Date.now(),
-  });
+  try {
+    await DiscoveryRepository.upsertDeploymentRecord({
+      ip,
+      mac,
+      hostname,
+      status,
+      message,
+      userId,
+      is_processing,
+      operation,
+      now: Date.now(),
+    });
+
+    const isUpdate = operation === "update";
+    const targetStatus = is_processing === 1 ? (isUpdate ? "updating" : "deploying") : status;
+    const device = lastScanResults.get(ip);
+    if (device) {
+      device.agent_status = targetStatus;
+      device.deployment_action = targetStatus;
+    }
+    if (latestSnapshot.devices) {
+      const snapDev = latestSnapshot.devices.find(d => d.ip === ip);
+      if (snapDev) {
+        snapDev.agent_status = targetStatus;
+        snapDev.deployment_action = targetStatus;
+      }
+    }
+  } catch (err) {
+    console.warn("[Discovery] Failed to persist deployment record:", err.message);
+  }
+}
+
+export function clearDeploymentCacheState(ip, mac) {
+  const normMac = normalizeMac(mac);
+  for (const [deviceIp, device] of lastScanResults.entries()) {
+    const matchIp = ip && deviceIp === ip;
+    const matchMac = normMac && normMac !== "UNKNOWN" && normalizeMac(device.mac) === normMac;
+    if (matchIp || matchMac) {
+      device.agent_status = "running";
+      device.deployment_action = "update";
+    }
+  }
+  if (latestSnapshot.devices) {
+    latestSnapshot.devices.forEach((device) => {
+      const matchIp = ip && device.ip === ip;
+      const matchMac = normMac && normMac !== "UNKNOWN" && normalizeMac(device.mac) === normMac;
+      if (matchIp || matchMac) {
+        device.agent_status = "running";
+        device.deployment_action = "update";
+      }
+    });
+  }
 }
 
 function getAgentStateForDevice(
@@ -138,9 +187,27 @@ function getAgentStateForDevice(
   deploymentRecord = null,
 ) {
   const deployEligible = canDeployAgent(device.device_type);
-
   const HEARTBEAT_FRESHNESS_MS = 60000; // 60 seconds threshold
   const now = Date.now();
+
+  // Check database processing status first
+  if (deploymentRecord && Number(deploymentRecord.is_processing) === 1) {
+    const isUpdate = deploymentRecord.operation === "update";
+    const TIMEOUT_MS = isUpdate ? 60000 : 90000;
+    if (now - deploymentRecord.updated_at < TIMEOUT_MS) {
+      return {
+        agent_status: isUpdate ? "updating" : "deploying",
+        deployment_action: isUpdate ? "updating" : "deploying",
+        registered_client_id: registeredClient?.id || null,
+        last_agent_seen_at: registeredClient?.lastSeenAt || registeredClient?.last_agent_seen_at || null,
+        deploy_eligible: deployEligible,
+      };
+    } else {
+      // Timeout exceeded: clear processing in DB
+      DiscoveryRepository.clearProcessingByIp(deploymentRecord.ip, "timeout", now).catch(() => {});
+    }
+  }
+
   const lastSeen =
     registeredClient?.lastSeenAt || registeredClient?.last_agent_seen_at || 0;
   const isHeartbeatFresh =
@@ -194,7 +261,7 @@ export async function loadDiscoveryResultsFromDb() {
         deploy_eligible:
           row.deployment_action === "not_eligible"
             ? false
-            : canDeployAgent(row.device_type) || row.agent_status === "offline",
+            : canDeployAgent(row.device_type),
       }));
 
       devices.forEach((d) => lastScanResults.set(d.ip, d));
@@ -521,16 +588,38 @@ export async function deployAgentToHost(
   action = "deploy",
 ) {
   const scanRecord = lastScanResults.get(ip);
-  // Capture whether a real, registered client existed BEFORE this deployment attempt.
-  // This lets us safely archive ghost records without touching a real client on update failures.
+  let existingRecord = null;
+  try {
+    existingRecord = await DiscoveryRepository.findDeploymentRecordByIp(ip);
+  } catch {
+    // Ignore DB errors during unit tests
+  }
+  const now = Date.now();
+  const TIMEOUT_MS = action === "update" ? 60000 : 90000;
+
+  if (
+    existingRecord &&
+    ["deploying", "updating", "requested"].includes(existingRecord.status)
+  ) {
+    if (now - existingRecord.updated_at < TIMEOUT_MS) {
+      throw new Error("Deployment or update already in progress for this device.");
+    } else {
+      console.warn(`[Discovery] Stale deployment record found for ${ip} (status: ${existingRecord.status}). Overwriting.`);
+    }
+  }
+
   const hadPreExistingClient = Boolean(scanRecord?.registered_client_id);
+  const isUpdate = action === "update";
+  const initialStatus = isUpdate ? "updating" : "deploying";
 
   await recordAgentDeployment({
     ip,
     mac: scanRecord?.mac,
     hostname: scanRecord?.hostname,
-    status: "requested",
+    status: initialStatus,
     userId,
+    is_processing: 1,
+    operation: action,
   });
 
   const result = await deployAgentToHostInternal(
@@ -540,10 +629,9 @@ export async function deployAgentToHost(
     { action },
   );
   const deploymentStatus = result.success
-    ? result.installer
-      ? "prepared"
-      : "success"
+    ? (isUpdate ? "updating" : "deploying")
     : "failed";
+  const isProcessing = result.success ? 1 : 0;
 
   // If the SMB push failed and a ghost provisioning record was created by generateProvisioningToken,
   // archive it immediately so it does not appear as a phantom device in the dashboard.
@@ -572,6 +660,61 @@ export async function deployAgentToHost(
     status: deploymentStatus,
     message: result.message,
     userId,
+    is_processing: isProcessing,
+    operation: action,
   });
   return result;
+}
+
+export async function handleAgentDisconnectDiscovery(agentId) {
+  if (!agentId) return;
+  try {
+    const { getClientById } = await import("../clients/clients.service.js");
+    const client = await getClientById(agentId);
+    if (!client || !client.ip) return;
+
+    let existingRecord = null;
+    try {
+      existingRecord = await DiscoveryRepository.findDeploymentRecordByIp(client.ip);
+    } catch {}
+
+    if (existingRecord && Number(existingRecord.is_processing) === 1) {
+      console.log(`[Discovery] Skipping discovery reset on disconnect for ${agentId} (${client.ip}): deployment/update in progress.`);
+      return;
+    }
+
+    const normMac = normalizeMac(client.mac);
+    let updated = false;
+
+    for (const [deviceIp, device] of lastScanResults.entries()) {
+      const matchIp = deviceIp === client.ip;
+      const matchMac = normMac && normMac !== "UNKNOWN" && normalizeMac(device.mac) === normMac;
+      if (matchIp || matchMac) {
+        device.agent_status = "none";
+        device.deployment_action = canDeployAgent(device.device_type) ? "deploy" : "not_eligible";
+        device.registered_client_id = null;
+        updated = true;
+      }
+    }
+
+    if (latestSnapshot.devices) {
+      latestSnapshot.devices.forEach((device) => {
+        const matchIp = device.ip === client.ip;
+        const matchMac = normMac && normMac !== "UNKNOWN" && normalizeMac(device.mac) === normMac;
+        if (matchIp || matchMac) {
+          device.agent_status = "none";
+          device.deployment_action = canDeployAgent(device.device_type) ? "deploy" : "not_eligible";
+          device.registered_client_id = null;
+          updated = true;
+        }
+      });
+    }
+
+    if (updated) {
+      await saveScanResultsToDb(Array.from(lastScanResults.values()));
+      console.log(`[Discovery] Reset agent status to 'none' for disconnected agent ${agentId} (${client.ip}).`);
+    }
+  } catch (err) {
+    console.warn(`[Discovery] Failed to handle agent disconnect discovery for ${agentId}:`, err.message);
+  }
 }
