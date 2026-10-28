@@ -111,6 +111,8 @@ async function startAgent() {
       const shouldRefreshProfile = Date.now() - lastProfileAt >= profileIntervalMs;
       const shouldRefreshDetails = Date.now() - lastDetailsAt >= detailsIntervalMs;
 
+      let detailsToSend = undefined;
+
       if (shouldRefreshProfile || shouldRefreshDetails) {
         const tasks = [getLiveProfileSnapshot()];
 
@@ -128,12 +130,17 @@ async function startAgent() {
         lastProfileAt = Date.now();
 
         if (nextDetails) {
-          lastDetails = nextDetails;
           lastDetailsAt = Date.now();
+          const hasChanged = JSON.stringify(nextDetails) !== JSON.stringify(lastDetails);
+          if (hasChanged) {
+            lastDetails = nextDetails;
+            detailsToSend = nextDetails;
+            console.log("[Agent] Hardware change detected. Sending updated device details.");
+          }
         }
       }
 
-      socketClient.sendMetrics(metrics, shouldRefreshDetails ? lastDetails : undefined);
+      socketClient.sendMetrics(metrics, detailsToSend);
       socketClient.sendDomains(buildDomainSummaries(metrics));
       socketClient.sendEvents(detectDeviceEvents(metrics, lastDetails));
       lastMetrics = metrics;

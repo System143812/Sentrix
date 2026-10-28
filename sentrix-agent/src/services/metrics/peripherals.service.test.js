@@ -157,4 +157,20 @@ describe('Peripherals Service (Sanity Check)', async () => {
       process.env.NODE_ENV = originalEnv;
     }
   });
+
+  it('should humanize cryptic Windows driver names and fix generic Microsoft manufacturers', async () => {
+    const { humanizePeripheralName } = await import('../../utils/peripherals.js');
+
+    const res1 = humanizePeripheralName('Microsoft HID-compliant consumer control device', 'Microsoft', 'HIDClass');
+    expect(res1.name).toBe('Keyboard Media & Shortcut Keys');
+    expect(res1.manufacturer).toBe('Generic / OEM');
+
+    const res2 = humanizePeripheralName('Microsoft HID-compliant mouse', 'Microsoft', 'Mouse');
+    expect(res2.name).toBe('Standard Optical Mouse');
+    expect(res2.manufacturer).toBe('Generic / OEM');
+
+    const res3 = humanizePeripheralName('HID Keyboard Device', 'Microsoft', 'Keyboard');
+    expect(res3.name).toBe('Standard Keyboard');
+    expect(res3.manufacturer).toBe('Generic / OEM');
+  });
 });
