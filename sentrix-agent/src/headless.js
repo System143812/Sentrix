@@ -14,7 +14,6 @@ import { collectSolidUsbDevices, collectSolidDisplays, invalidatePnpCache } from
 import { connectToCore } from "./services/socket.service.js";
 import { detectDeviceEvents, buildDomainSummaries } from "./services/event-detector.service.js";
 import { collectSoftwareInventory } from "./services/software-inventory.service.js";
-import { startHelperWatchdog } from "./services/watchdog.service.js";
 
 // Robust way to get the directory where the EXE (or script) is located
 const __filename_robust = typeof __filename !== "undefined" 
@@ -30,6 +29,44 @@ const __dirname_robust = typeof __dirname !== "undefined"
 const exeDir = process.pkg ? path.dirname(process.execPath) : __dirname_robust;
 const externalEnvPath = path.join(exeDir, ".env");
 const logFilePath = path.join(exeDir, "agent.log");
+
+// --- Single-Instance Advisory Lock ---
+const lockFilePath = path.join(exeDir, "sentrix-agent.lock");
+try {
+  if (fs.existsSync(lockFilePath)) {
+    const lockData = JSON.parse(fs.readFileSync(lockFilePath, "utf8"));
+    const oldPid = lockData.pid;
+    if (oldPid && oldPid !== process.pid) {
+      try {
+        process.kill(oldPid, 0);
+        console.warn(`[Instance] Another Sentrix Agent instance is already running (PID: ${oldPid}). Exiting.`);
+        process.exit(0);
+      } catch {
+        // Process is not running (stale lock)
+      }
+    }
+  }
+  fs.writeFileSync(lockFilePath, JSON.stringify({ pid: process.pid, time: Date.now() }, null, 2), "utf8");
+  const cleanupLock = () => {
+    try {
+      if (fs.existsSync(lockFilePath)) {
+        const lockData = JSON.parse(fs.readFileSync(lockFilePath, "utf8"));
+        if (lockData.pid === process.pid) {
+          fs.unlinkSync(lockFilePath);
+        }
+      }
+    } catch {}
+  };
+  process.on("exit", cleanupLock);
+  process.on("SIGINT", () => { cleanupLock(); process.exit(0); });
+  process.on("SIGTERM", () => { cleanupLock(); process.exit(0); });
+  process.on("uncaughtException", (err) => {
+    cleanupLock();
+    process.exit(1);
+  });
+} catch (lockErr) {
+  // Non-fatal lock error
+}
 
 function log(message, extra = "") {
   const suffix = extra ? ` ${extra}` : "";
@@ -217,7 +254,6 @@ async function start() {
 
   await collectAndSendMetrics();
   await collectAndSendSoftwareInventory();
-  startHelperWatchdog();
 
   // ---- Zero-Lag Native Peripheral Listener (SYSTEM) ----
   // Uses a background PowerShell process to listen for native WMI hardware events.

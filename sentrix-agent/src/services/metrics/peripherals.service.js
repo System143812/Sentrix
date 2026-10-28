@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import si from "systeminformation";
+import { humanizePeripheralName } from "../../utils/peripherals.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -213,9 +214,10 @@ async function getWindowsUsbDevices() {
     }
 
     const results = finalDevices.map(({ isHighPriority, isGenericName, className, vidPid, ...rest }) => {
-      let finalName = rest.name;
-      const manufacturer = rest.manufacturer;
-      if (manufacturer && finalName.toLowerCase().startsWith(manufacturer.toLowerCase())) {
+      const humanized = humanizePeripheralName(rest.name, rest.manufacturer, className);
+      let finalName = humanized.name;
+      const manufacturer = humanized.manufacturer;
+      if (manufacturer && manufacturer !== "Generic / OEM" && finalName.toLowerCase().startsWith(manufacturer.toLowerCase())) {
         if (finalName.length > manufacturer.length) {
           const potentialName = finalName.slice(manufacturer.length).trim();
           if (potentialName) finalName = potentialName;
@@ -224,7 +226,7 @@ async function getWindowsUsbDevices() {
       return {
         name: finalName,
         type: rest.type,
-        manufacturer: rest.manufacturer,
+        manufacturer,
         deviceId: rest.deviceId,
         isBuiltIn: rest.isBuiltIn || false
       };

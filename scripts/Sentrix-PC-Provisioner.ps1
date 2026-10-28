@@ -154,10 +154,13 @@ if ((Test-Path $updateExe) -or (Test-Path $updateHelperExe)) {
     Start-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
 }
 
-# 2. Ensure agent is running
-$agentProcess = Get-Process -Name "sentrix-agent" -ErrorAction SilentlyContinue
+# 2. Ensure agent is running and deduplicated
+$agentProcesses = Get-Process -Name "sentrix-agent" -ErrorAction SilentlyContinue
 
-if ($null -eq $agentProcess) {
+if ($agentProcesses.Count -gt 1) {
+    Log-Message "Detected $($agentProcesses.Count) duplicate sentrix-agent instances. Pruning extras..."
+    $agentProcesses | Select-Object -Skip 1 | Stop-Process -Force -ErrorAction SilentlyContinue
+} elseif ($null -eq $agentProcesses -or $agentProcesses.Count -eq 0) {
     if (Test-Path $exe) {
         Log-Message "Agent not running. Triggering setup/activation..."
         $setup = Start-Process -FilePath $exe -ArgumentList "--setup" -WorkingDirectory $targetPath -WindowStyle Hidden -Wait -PassThru
