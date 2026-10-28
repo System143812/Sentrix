@@ -55,12 +55,14 @@ import { SpecificationView } from "./device-details/SpecificationView.jsx";
 import { NetworkActivityView } from "./device-details/NetworkActivityView.jsx";
 import { BehaviorAnalyticsView } from "./device-details/BehaviorAnalyticsView.jsx";
 import { RemoteControlView } from "./device-details/RemoteControlView.jsx";
+import { PeripheralHistoryPanel } from "./device-details/PeripheralHistoryPanel.jsx";
 
 function DetailViewSwitch({ activeView, onChange, canControl }) {
   const buttons = [
     { id: "specification", label: "Specs", icon: Monitor },
     { id: "networkActivity", label: "Network", icon: RadioTower },
     { id: "behavior", label: "History", icon: History },
+    { id: "peripherals", label: "Peripherals", icon: Usb },
     ...(canControl ? [{ id: "remoteControl", label: "Remote", icon: Terminal }] : []),
   ];
 
@@ -124,10 +126,10 @@ function DeviceDetails({ allDevices, device, hardware, metricHistory, peripheral
       <DetailViewSwitch activeView={activeView} onChange={setActiveView} canControl={canControl} />
 
       {activeView === "specification" ? (
-        <SpecificationView 
-          device={device} 
-          hardware={hardware} 
-          metricHistory={metricHistory} 
+        <SpecificationView
+          device={device}
+          hardware={hardware}
+          metricHistory={metricHistory}
           peripheralHistory={peripheralHistory}
           canManagePeripherals={canManagePeripherals}
         />
@@ -135,6 +137,12 @@ function DeviceDetails({ allDevices, device, hardware, metricHistory, peripheral
         <NetworkActivityView device={device} />
       ) : activeView === "behavior" ? (
         <BehaviorAnalyticsView device={device} />
+      ) : activeView === "peripherals" ? (
+        <PeripheralHistoryPanel
+          deviceId={device.id}
+          history={peripheralHistory}
+          canControl={canControl}
+        />
       ) : (
         <RemoteControlView device={device} allDevices={allDevices} utilityConfig={utilityConfig} />
       )}
