@@ -11,6 +11,7 @@ import {
   getDiscoverySnapshot,
   runDiscoveryScan,
   setPreferredSubnet,
+  handleAgentDisconnectDiscovery,
 } from "../modules/discovery/discovery.service.js";
 import { getTelemetrySettings } from "../modules/settings/settings.service.js";
 import {
@@ -276,12 +277,12 @@ export function registerDeviceSocket(io) {
 
     socket.on("disconnect", async () => {
       if (agentId) {
-        console.log(`[SOCKET] Agent disconnected: ${agentId}. Marking offline immediately.`);
+        console.log(`[SOCKET] Agent disconnected: ${agentId}. Updating discovery agent status.`);
         try {
-          await markClientOffline(agentId);
-          await broadcastUpdate(io);
+          await handleAgentDisconnectDiscovery(agentId);
+          io.to("dashboards").emit("discovery:update", getDiscoverySnapshot());
         } catch (err) {
-          console.error(`[SOCKET] Failed to mark agent ${agentId} offline on disconnect:`, err.message);
+          console.error(`[SOCKET] Failed to process disconnect discovery update for agent ${agentId}:`, err.message);
         }
       }
     });
