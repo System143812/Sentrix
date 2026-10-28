@@ -97,6 +97,10 @@ export function connectToCore({
    * Helper to emit signed packets with optional tracing.
    */
   function emitSigned(event, payload, callback) {
+    if (!secureKey) {
+      // Cannot emit signed packets before registration and secureKey exchange complete.
+      return;
+    }
     if (socket.connected) {
       const traceId = generateTraceId();
       const tracedPayload = { ...payload, traceId };
