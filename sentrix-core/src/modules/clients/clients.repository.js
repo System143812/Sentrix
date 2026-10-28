@@ -19,16 +19,31 @@ function normalizeClient(client) {
 export const ClientRepository = {
   async findAll() {
     const sql = `
-      SELECT 
-        id, agent_id, hostname, ip, mac, os, device_type, 
-        client_group AS \`group\`, status, metrics, details, 
-        archived, hardware_fingerprint, provisioning_token, 
-        token_expires_at, agent_version, last_seen_at, created_at, updated_at 
-      FROM clients 
-      WHERE archived = 0 
+      SELECT
+        id, agent_id, hostname, ip, mac, os, device_type,
+        client_group AS \`group\`, status, metrics, details,
+        archived, hardware_fingerprint, provisioning_token,
+        token_expires_at, agent_version, last_seen_at, created_at, updated_at
+      FROM clients
+      WHERE archived = 0
       ORDER BY status ASC, hostname ASC
     `.trim();
-    
+
+    const [rows] = await pool.query(sql);
+    return rows.map(normalizeClient);
+  },
+
+  async findAllIncludingArchived() {
+    const sql = `
+      SELECT
+        id, agent_id, hostname, ip, mac, os, device_type,
+        client_group AS \`group\`, status, metrics, details,
+        archived, hardware_fingerprint, provisioning_token,
+        token_expires_at, agent_version, last_seen_at, created_at, updated_at
+      FROM clients
+      ORDER BY status ASC, hostname ASC
+    `.trim();
+
     const [rows] = await pool.query(sql);
     return rows.map(normalizeClient);
   },
@@ -49,6 +64,7 @@ export const ClientRepository = {
       VALUES
         (?, ?, ?, ?, ?, ?, ?, ?, 'online', ?, ?, ?, ?, ?, ?, 0)
       ON DUPLICATE KEY UPDATE
+        agent_id = VALUES(agent_id),
         hostname = VALUES(hostname),
         ip = VALUES(ip),
         mac = VALUES(mac),
@@ -64,7 +80,7 @@ export const ClientRepository = {
       `,
       [
         id,
-        id,
+        clientData.agentId || id,
         clientData.hostname,
         clientData.ip,
         clientData.mac,
@@ -158,15 +174,10 @@ export const ClientRepository = {
     return rows.affectedRows > 0;
   },
 
-  async archive(id, now) {
+  async archive(id, _now) {
     const [rows] = await pool.query(
-      `
-      UPDATE clients
-      SET archived = 1,
-          updated_at = ?
-      WHERE id = ?
-      `,
-      [now, id],
+      `DELETE FROM clients WHERE id = ?`,
+      [id],
     );
     return rows.affectedRows > 0;
   },

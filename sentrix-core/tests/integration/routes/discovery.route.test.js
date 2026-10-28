@@ -9,13 +9,15 @@ vi.mock("../../../src/modules/discovery/discovery.service.js", () => ({
   getDiscoverySnapshot: vi.fn(),
   runDiscoveryScan: vi.fn(),
   deployAgentToHost: vi.fn(),
-  getInterfaces: vi.fn()
+  getInterfaces: vi.fn(),
+  recordAgentDeployment: vi.fn()
 }));
 import {
   getDiscoverySnapshot,
   runDiscoveryScan,
   deployAgentToHost,
   getInterfaces,
+  recordAgentDeployment,
 } from "../../../src/modules/discovery/discovery.service.js";
 
 // Removed fs mock to use actual built binaries on disk

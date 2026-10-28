@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import { spawn } from "child_process";
 import { getPrimaryInterfaceAddress } from "./scanner.js";
 import { generateProvisioningToken } from "../security/security.service.js";
+import { ClientRepository } from "../clients/clients.repository.js";
 import crypto from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -174,6 +175,13 @@ async function deployAgentViaSMB(ip, credentials, serverUrl, agentId, token) {
   });
 }
 
+function normalizeMac(mac = "") {
+  return String(mac || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-F0-9]/g, "");
+}
+
 export async function deployAgentToHost(ip, lastScanResults, credentials = null, options = {}) {
   const scannedDevice = lastScanResults.get(ip);
   const action = ["activate", "update"].includes(options.action) ? options.action : "deploy";
@@ -182,7 +190,23 @@ export async function deployAgentToHost(ip, lastScanResults, credentials = null,
     || process.env.BACKEND_URL
     || `https://${getPrimaryInterfaceAddress() || "localhost"}:${process.env.PORT || 4000}`;
 
-  const agentId = scannedDevice?.registered_client_id || options.clientId || crypto.randomUUID();
+  let existingAgentId = scannedDevice?.registered_client_id;
+
+  if (!existingAgentId && scannedDevice?.mac && scannedDevice.mac !== "Unknown") {
+    try {
+      const allClients = await ClientRepository.findAllIncludingArchived();
+      const normScanMac = normalizeMac(scannedDevice.mac);
+      const matchedClient = allClients.find(c => normalizeMac(c.mac) === normScanMac);
+      if (matchedClient) {
+        existingAgentId = matchedClient.id || matchedClient.agent_id;
+        console.log(`[DEPLOY] Found existing client record ${existingAgentId} by MAC ${scannedDevice.mac} during deployment preparation.`);
+      }
+    } catch (err) {
+      console.warn(`[DEPLOY] Failed to lookup client by MAC for deployment:`, err.message);
+    }
+  }
+
+  const agentId = existingAgentId || options.clientId || crypto.randomUUID();
   let provisioningToken = null;
 
   if (credentials) {
