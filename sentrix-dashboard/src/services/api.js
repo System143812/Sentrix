@@ -1,10 +1,10 @@
 function resolveApiUrl() {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-
   if (typeof window !== "undefined" && window.location.hostname) {
     return `${window.location.protocol}//${window.location.hostname}:4000`;
+  }
+
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
   }
 
   return "https://localhost:4000";
