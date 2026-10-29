@@ -13,7 +13,6 @@ import {
   LoaderCircle,
   Lock,
   Pencil,
-  Server,
   Shield,
   ShieldCheck,
   Trash2,
@@ -108,7 +107,6 @@ function ActionButton({ label, icon: Icon, description, tone = "slate", showChev
 }
 
 function SystemConfigurationCard({ isNetworkAdmin, interval, onIntervalChanged }) {
-  const [mode, setMode] = useState("local");
   const { notify } = useToast();
 
   async function saveInterval(value) {
@@ -128,59 +126,16 @@ function SystemConfigurationCard({ isNetworkAdmin, interval, onIntervalChanged }
     <SettingsSection
       icon={Globe}
       title="System Preferences"
-      subtitle="Set dashboard mode and how often devices report data."
+      subtitle="Set how often devices report data."
       tone="blue"
     >
       <div className="grid gap-8">
-        <div>
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Operation Mode
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { id: "local", label: "Local", icon: Server },
-              { id: "online", label: "Online", icon: Globe },
-            ].map((item) => {
-              const Icon = item.icon;
-              const active = mode === item.id;
-
-              return (
-                <button
-                  className={`flex h-20 flex-col items-center justify-center gap-2 rounded-lg border text-xs font-semibold uppercase tracking-wider transition ${
-                    active
-                      ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/15"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                  } ${!isNetworkAdmin ? "cursor-not-allowed opacity-50" : ""}`}
-                  disabled={!isNetworkAdmin}
-                  key={item.id}
-                  onClick={() => setMode(item.id)}
-                  type="button"
-                >
-                  <Icon size={22} strokeWidth={2.25} />
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="flex gap-3 rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-xs font-medium leading-5 text-slate-600">
-              <Info size={16} className="shrink-0 text-blue-500" />
-              Local mode keeps dashboard actions inside this lab network.
-            </div>
-            <div className="flex gap-3 rounded-lg border border-slate-200/60 bg-slate-50/80 p-4 text-xs font-medium leading-5 text-slate-600">
-              <Info size={16} className="shrink-0 text-slate-500" />
-              Online mode is reserved for future remote sync controls.
-            </div>
-          </div>
-        </div>
-
         <div>
           <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Data Collection Interval
           </p>
           <div className="flex flex-wrap gap-2">
             {[
-              { label: "1s", value: 1000 },
               { label: "5s", value: 5000 },
               { label: "10s", value: 10000 },
               { label: "30s", value: 30000 },
