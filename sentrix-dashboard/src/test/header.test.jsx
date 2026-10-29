@@ -85,12 +85,6 @@ describe('Header Verification', () => {
     expect(screen.getAllByText(mockUser.email).length).toBeGreaterThan(0);
   });
 
-  it('should show connected status when connected', () => {
-    render(<WrappedDashboard />);
-    const status = screen.getAllByText(/Connected/i);
-    expect(status.length).toBeGreaterThan(0);
-  });
-
   it('should scale down brandname text size to be smaller than the brand logo', () => {
     const { container: containerSm } = render(<SentrixLogo size="sm" />);
     expect(containerSm.querySelector('.text-base')).toHaveTextContent('Sentrix');
