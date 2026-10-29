@@ -2,6 +2,7 @@
 
 ## Git Commit & PR Attribution
 
+- **CRITICAL**: Never stage (`git add`) or commit (`git commit`) changes unless explicitly instructed by the user.
 - **CRITICAL**: Never add `Co-Authored-By: Claude Code <noreply@anthropic.com>` or any AI attribution to git commit messages.
 - Never add `🤖 Generated with Claude Code` or automated banners to pull request descriptions.
 - Commit messages must reflect only the user or clean standard commit messages without AI co-author tags.
