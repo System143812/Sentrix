@@ -12,8 +12,6 @@ import {
   Settings,
   ClipboardList,
   UserCircle,
-  Wifi,
-  WifiOff,
 } from "lucide-react";
 import { TabNav } from "../components/TabNav.jsx";
 import { SentrixLogo, SentrixLogoLoader } from "../components/SentrixLogo.jsx";
@@ -141,22 +139,6 @@ export default function App() {
   );
 }
 
-function StatusBadge({ connected }) {
-  return (
-    <span
-      title={connected ? "Connected" : "Offline"}
-      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest shadow-sm transition-all ${
-        connected
-          ? "border-emerald-100 bg-emerald-50 text-emerald-700"
-          : "border-rose-100 bg-rose-50 text-rose-700"
-      }`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-      {connected ? "Connected" : "Offline"}
-    </span>
-  );
-}
-
 function UserDropdown({ user, dropdownOpen, setDropdownOpen, dropdownRef, loading, refresh, onLogout }) {
   return (
     <div className="relative" ref={dropdownRef}>
@@ -252,7 +234,6 @@ export function DashboardShell({
 }) {
   const {
     dashboardData,
-    connected,
     loading,
     updateGroup,
     refresh,
@@ -324,11 +305,10 @@ export function DashboardShell({
 
             {/* Right: Actions */}
             <div className="flex shrink-0 items-center gap-2">
-              <StatusBadge connected={connected} />
-              <UserDropdown 
-                user={user} 
-                dropdownOpen={dropdownOpen} 
-                setDropdownOpen={setDropdownOpen} 
+              <UserDropdown
+                user={user}
+                dropdownOpen={dropdownOpen}
+                setDropdownOpen={setDropdownOpen}
                 dropdownRef={dropdownRef}
                 loading={loading}
                 refresh={refresh}
@@ -342,11 +322,10 @@ export function DashboardShell({
             <div className="flex items-center justify-between">
               <SentrixLogo size="sm" />
               <div className="flex items-center gap-2">
-                <StatusBadge connected={connected} />
-                <UserDropdown 
-                  user={user} 
-                  dropdownOpen={dropdownOpen} 
-                  setDropdownOpen={setDropdownOpen} 
+                <UserDropdown
+                  user={user}
+                  dropdownOpen={dropdownOpen}
+                  setDropdownOpen={setDropdownOpen}
                   dropdownRef={dropdownRef}
                   loading={loading}
                   refresh={refresh}

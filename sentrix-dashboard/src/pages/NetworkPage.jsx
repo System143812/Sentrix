@@ -326,7 +326,7 @@ export function NetworkPage({
       <PageHeader
         icon={Radar}
         title="Network Scan"
-        subtitle="Sentrix scans the local network and shows which Windows PCs have an active, offline, or missing agent."
+        subtitle="Sentrix scans the local network and shows which Windows PCs have an active agent or require deployment."
         backgroundImage="/network_header.jpg"
         action={
           canDeploy ? (
@@ -483,11 +483,11 @@ export function NetworkPage({
                   <span className={`inline-flex w-fit rounded-md border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
                     host.agent_status === "running"
                       ? "border-emerald-100 bg-emerald-50 text-emerald-600"
-                      : host.agent_status === "offline"
-                        ? "border-amber-100 bg-amber-50 text-amber-600"
+                      : host.agent_status === "deploying" || host.agent_status === "updating"
+                        ? "border-blue-100 bg-blue-50 text-blue-600"
                         : "border-slate-100 bg-slate-50 text-slate-400"
                   }`}>
-                    {host.agent_status === "running" ? "Running" : host.agent_status === "offline" ? "Offline" : "No agent"}
+                    {host.agent_status === "running" ? "Running" : host.agent_status === "deploying" ? "Deploying" : host.agent_status === "updating" ? "Updating" : "No agent"}
                   </span>
                 </div>
                 <div className="flex justify-start xl:justify-end">
@@ -501,7 +501,7 @@ export function NetworkPage({
                           setSelectedIp(host.ip);
                         }
                       }}
-                      disabled={!host.deploy_eligible || deployingIp === host.ip}
+                      disabled={!host.deploy_eligible || deployingIp === host.ip || host.agent_status === "deploying" || host.agent_status === "updating" || host.deployment_action === "deploying" || host.deployment_action === "updating"}
                       className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-900 px-3 text-[10px] font-semibold uppercase tracking-wider text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                       title={
                         host.deploy_eligible
@@ -511,19 +511,19 @@ export function NetworkPage({
                             : `Deployment is not available for ${host.device_kind || host.device_type || "this device"}`
                       }
                     >
-                      {deployingIp === host.ip ? (
+                      {deployingIp === host.ip || host.agent_status === "deploying" || host.agent_status === "updating" || host.deployment_action === "deploying" || host.deployment_action === "updating" ? (
                         <LoaderCircle className="animate-spin" size={14} />
                       ) : (
                         <PackageCheck size={14} />
                       )}
-                      {host.deployment_action === "update"
-                        ? deployingIp === host.ip
-                          ? "Updating"
-                          : "Update"
+                      {host.agent_status === "updating" || host.deployment_action === "updating"
+                        ? "Updating"
+                        : host.agent_status === "deploying" || host.deployment_action === "deploying"
+                        ? "Deploying"
+                        : host.deployment_action === "update"
+                        ? "Update"
                         : host.deploy_eligible
-                        ? deployingIp === host.ip
-                          ? "Preparing"
-                          : "Deploy"
+                        ? "Deploy"
                         : "Not eligible"}
                     </button>
                   ) : (
