@@ -9,7 +9,7 @@ import { getPrimaryNetwork } from "../utils/network.js";
 import { simplifyUsbDevice, classifyPeripherals } from "../utils/peripherals.js";
 
 // Load version safely
-let VERSION = process.env.AGENT_VERSION || "1.0.1";
+let VERSION = process.env.AGENT_VERSION || "1.0.0";
 try {
   const currentFile = typeof import.meta.url === "string" ? fileURLToPath(import.meta.url) : "";
   const currentDir = currentFile ? path.dirname(currentFile) : process.cwd();
@@ -40,7 +40,7 @@ let globalMetricIntervalMs = DEFAULT_METRIC_INTERVAL_MS;
  * Updates the frequency of metric collection.
  */
 export function setGlobalMetricInterval(intervalMs) {
-  globalMetricIntervalMs = Math.min(Math.max(Number(intervalMs) || DEFAULT_METRIC_INTERVAL_MS, 1000), 60000);
+  globalMetricIntervalMs = Math.min(Math.max(Number(intervalMs) || DEFAULT_METRIC_INTERVAL_MS, 5000), 60000);
 }
 
 const cachedMetricSections = {
