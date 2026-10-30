@@ -74,6 +74,19 @@ try {
     const { type, text, senderRole, dataDir } = payload;
     log(`Received IPC Message: ${type}`);
 
+    if (type === "lock") {
+      log(`[Helper] Received lock command. Executing LockWorkStation in Session 1...`);
+      exec("rundll32.exe user32.dll,LockWorkStation", (error, stdout, stderr) => {
+        if (error) {
+          log(`[Helper] ERROR executing lock: ${error.message}`);
+          if (stderr) log(`[Helper] Stderr: ${stderr.trim()}`);
+        } else {
+          log(`[Helper] Workstation locked successfully.`);
+        }
+      });
+      return;
+    }
+
     if (type === "broadcast") {
       log(`[Helper] Received broadcast: "${text.substring(0, 30)}..." from role: ${senderRole}`);
 
