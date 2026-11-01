@@ -83,7 +83,7 @@ export function AdminUtilityConfigOverlay({ isOpen, onClose, isNetworkAdmin }) {
       id: "system-purge",
       label: "System Purge",
       icon: Trash2,
-      description: "Clear temporary folders and caches.",
+      description: "Clear temporary folders, caches & recycle bin.",
       tone: "rose",
     },
     {
