@@ -184,6 +184,39 @@ if ($agentProcesses.Count -gt 1) {
         }
     }
 }
+
+# 3. Ensure Sentrix Helper task and process are running (checked via IPC port 4101)
+$helperTask = Get-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
+
+$helperRunning = $false
+try {
+    $socket = New-Object System.Net.Sockets.TcpClient
+    $ar = $socket.BeginConnect("127.0.0.1", 4101, $null, $null)
+    $success = $ar.AsyncWaitHandle.WaitOne(1000, $false)
+    if ($success -and $socket.Connected) {
+        $helperRunning = $true
+        $socket.EndConnect($ar)
+        $socket.Close()
+    }
+} catch {
+}
+
+if ($null -eq $helperTask) {
+    Log-Message "Sentrix Helper task is missing. Re-registering..."
+    if (Test-Path $helperExe) {
+        $hAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"Start-Process -FilePath '$helperExe' -WorkingDirectory '$targetPath' -WindowStyle Hidden`"" -WorkingDirectory $targetPath
+        $hTrigger = New-ScheduledTaskTrigger -AtLogOn
+        $hPrincipal = New-ScheduledTaskPrincipal -GroupId "Users" -RunLevel Highest
+        $hSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Days 0)
+        $hSettings.Hidden = $true
+        Register-ScheduledTask -TaskName "Sentrix Helper" -Action $hAction -Trigger $hTrigger -Principal $hPrincipal -Settings $hSettings -Force | Out-Null
+        Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
+        Log-Message "Sentrix Helper task re-registered successfully."
+    }
+} elseif (-not $helperRunning -and (Test-Path $helperExe)) {
+    Log-Message "Sentrix Helper not listening on IPC port 4101. Triggering start..."
+    Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
+}
 '@
     $watchdogScript | Out-File -FilePath $watchdogFile -Encoding utf8 -Force
 
