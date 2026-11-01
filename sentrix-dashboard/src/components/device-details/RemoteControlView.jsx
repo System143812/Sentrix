@@ -34,7 +34,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
 
   const utilityShortcuts = [
     { id: "network-reset", label: "Network Reset", icon: Zap, hoverTone: "group-hover:text-blue-500", description: "Flush DNS and reset IP stack" },
-    { id: "system-purge", label: "System Purge", icon: Trash2, hoverTone: "group-hover:text-rose-500", description: "Clear temp files and update cache" },
+    { id: "system-purge", label: "System Purge", icon: Trash2, hoverTone: "group-hover:text-rose-500", description: "Clear temp files, update cache & recycle bin" },
     { id: "time-sync", label: "Clock Sync", icon: ClockIcon, hoverTone: "group-hover:text-emerald-500", description: "Force time synchronization" },
     { id: "workspace-reset", label: "Clear Workspace", icon: Eraser, hoverTone: "group-hover:text-amber-500", description: "Kill all non-system applications" },
     { id: "broadcast-message", label: "Broadcast", icon: MessageSquare, hoverTone: "group-hover:text-indigo-500", description: "Send a native screen popup" },
