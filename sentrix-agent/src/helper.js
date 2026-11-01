@@ -47,26 +47,6 @@ process.on("unhandledRejection", (reason) => {
 
 log("--- Sentrix Helper Starting ---");
 
-// Self-hide console window on startup
-if (process.platform === "win32") {
-  const hideScript = `
-    \$definition = @'
-      [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
-      [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-      [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
-'@
-    \$type = Add-Type -MemberDefinition \$definition -Name "Win32Utils" -Namespace "Win32" -PassThru
-    \$hwnd = \$type::GetConsoleWindow()
-    if (\$hwnd -ne [IntPtr]::Zero) {
-        # SW_HIDE = 0
-        \$type::ShowWindow(\$hwnd, 0)
-        # Move window off-screen just in case it flashes
-        \$type::SetWindowPos(\$hwnd, [IntPtr](-1), -10000, -10000, 0, 0, 0x0080)
-    }
-  `;
-  exec(`powershell -NoProfile -Command "${hideScript.replace(/\n/g, "")}"`);
-}
-
 log(`Working Dir: ${process.cwd()}`);
 log(`IPC Port: ${IPC_PORT}`);
 

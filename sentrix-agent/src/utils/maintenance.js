@@ -70,12 +70,52 @@ export const MAINTENANCE_COMMANDS = {
   `.trim()),
   "system-purge": toEncodedCommand(`
     $ErrorActionPreference = 'SilentlyContinue'
-    $paths = @($env:TEMP, 'C:\\Windows\\Temp')
-    foreach ($p in $paths) {
-        if (Test-Path $p) {
-            Get-ChildItem -Path $p -Recurse | Remove-Item -Recurse -Force
+
+    # 1. Gather unique target Temp paths (System + All User Profiles)
+    $targetPaths = New-Object System.Collections.Generic.HashSet[string]
+    if ($env:TEMP) { $targetPaths.Add($env:TEMP) | Out-Null }
+    if ($env:TMP) { $targetPaths.Add($env:TMP) | Out-Null }
+    if (Test-Path 'C:\\Windows\\Temp') { $targetPaths.Add('C:\\Windows\\Temp') | Out-Null }
+
+    $userProfiles = Get-ChildItem -Path 'C:\\Users' -Directory -ErrorAction SilentlyContinue
+    foreach ($profile in $userProfiles) {
+        $userTemp = Join-Path $profile.FullName 'AppData\\Local\\Temp'
+        if (Test-Path $userTemp) { $targetPaths.Add($userTemp) | Out-Null }
+    }
+
+    # 2. Purge temp files and folders
+    foreach ($p in $targetPaths) {
+        if ($p -and (Test-Path $p)) {
+            Get-ChildItem -Path $p -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+                try {
+                    Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                } catch {}
+            }
         }
     }
+
+    # 3. Clear Recycle Bin (PowerShell cmdlet + Shell.Application COM + direct traversal)
+    try {
+        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+    } catch {}
+
+    try {
+        $shell = New-Object -ComObject Shell.Application
+        $recycleBin = $shell.Namespace(10)
+        foreach ($item in $recycleBin.Items()) {
+            $item.InvokeVerb("delete")
+        }
+    } catch {}
+
+    $recycleBins = Get-ChildItem -Path 'C:\\' -Filter '$Recycle.Bin' -Force -ErrorAction SilentlyContinue
+    foreach ($rb in $recycleBins) {
+        Get-ChildItem -Path $rb.FullName -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            try {
+                Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+            } catch {}
+        }
+    }
+
     exit 0
   `.trim()),
   "time-sync": toEncodedCommand(`
@@ -85,11 +125,19 @@ export const MAINTENANCE_COMMANDS = {
     exit 0
   `.trim()),
   "workspace-reset": toEncodedCommand(`
+    $ErrorActionPreference = 'SilentlyContinue'
+    $exclude = @('sentrix-helper', 'sentrix-agent', 'explorer', 'dwm', 'sihost', 'taskhostw', 'ctfmon', 'fontdrvhost', 'shlexperiencehost', 'startmenuexperiencehost', 'searchhost', 'applicationframehost', 'lockapp')
+    $procs = Get-Process | Where-Object { $_.SI -ne 0 -and $exclude -notcontains $_.ProcessName.ToLower() }
+    foreach ($p in $procs) {
+        try {
+            $p.CloseMainWindow() | Out-Null
+        } catch {}
+    }
+    Start-Sleep -Seconds 2
     Get-Process | Where-Object {
-        $_.SI -ne 0 -and 
-        $_.ProcessName -notlike "*sentrix-helper*" -and 
-        $_.ProcessName -notlike "*sentrix-agent*"
-    } | Stop-Process -Force
+        $_.SI -ne 0 -and
+        $exclude -notcontains $_.ProcessName.ToLower()
+    } | Stop-Process -Force -ErrorAction SilentlyContinue
     exit 0
   `.trim()),
   "master-unlock": toEncodedCommand(`
