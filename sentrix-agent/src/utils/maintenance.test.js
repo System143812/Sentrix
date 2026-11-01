@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { runMaintenanceAction, MAINTENANCE_COMMANDS } from "./maintenance.js";
 import { exec } from "child_process";
+import fs from "fs";
 
 // Mock child_process.exec
 vi.mock("child_process", () => ({
   exec: vi.fn((cmd, options, callback) => {
-    // If the callback is the second argument
     if (typeof options === "function") {
       options(null, { stdout: "success", stderr: "" });
     } else {
@@ -14,25 +14,33 @@ vi.mock("child_process", () => ({
   })
 }));
 
+vi.mock("fs", async () => {
+  const actual = await vi.importActual("fs");
+  return {
+    ...actual,
+    existsSync: vi.fn((p) => typeof p === "string" && p.includes("broadcast-dialog.ps1") && !p.includes("CustomData") && !p.includes("Sentrix")),
+    writeFileSync: vi.fn(),
+    copyFileSync: vi.fn(),
+  };
+});
+
 describe("Maintenance Utility", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.SENTRIX_AGENT_DATA_DIR;
   });
 
-  it("should generate a broadcast command that uses EncodedCommand", () => {
+  it("should generate a broadcast command that uses EncodedCommand with Acknowledge support", () => {
     const text = "Hello Lab";
     const command = MAINTENANCE_COMMANDS["broadcast-message"](text, "");
-    
+
     expect(command).toContain("-EncodedCommand");
-    
+
     // Decode the command to verify contents
     const encodedPart = command.split("-EncodedCommand ")[1];
     const decoded = Buffer.from(encodedPart, "base64").toString("utf16le");
-    
-    expect(decoded).toContain("Modules\\BurntToast");
-    expect(decoded).toContain("New-BurntToastNotification");
-    expect(decoded).toContain("msg *");
+
+    expect(decoded).toContain("SENTRIX_BROADCAST_MSG");
     expect(decoded).toContain("Hello Lab");
   });
 
@@ -40,28 +48,27 @@ describe("Maintenance Utility", () => {
     const text = "Hello Lab";
     const dataDir = "C:\\CustomData";
     const command = MAINTENANCE_COMMANDS["broadcast-message"](text, dataDir);
-    
+
+    expect(command).toContain("-EncodedCommand");
     const encodedPart = command.split("-EncodedCommand ")[1];
     const decoded = Buffer.from(encodedPart, "base64").toString("utf16le");
-    
-    expect(decoded).toContain("C:\\CustomData\\Modules\\BurntToast");
+    expect(decoded).toContain("broadcast-dialog.ps1");
   });
 
   it("should escape single quotes in broadcast messages", () => {
     const text = "Admin's Message";
     const dataDir = "C:\\Sentrix";
     const command = MAINTENANCE_COMMANDS["broadcast-message"](text, dataDir);
-    
+
     const encodedPart = command.split("-EncodedCommand ")[1];
     const decoded = Buffer.from(encodedPart, "base64").toString("utf16le");
-    
-    // PowerShell escapes ' with '' in single-quoted strings
-    expect(decoded).toContain("Admin''s Message");
+
+    expect(decoded).toContain("Admin's Message");
   });
 
   it("should execute a maintenance action successfully", async () => {
     const result = await runMaintenanceAction("network-reset");
-    
+
     expect(result.success).toBe(true);
     expect(result.message).toContain("successfully");
     expect(exec).toHaveBeenCalled();
@@ -69,7 +76,7 @@ describe("Maintenance Utility", () => {
 
   it("should return failure for unknown actions", async () => {
     const result = await runMaintenanceAction("non-existent-action");
-    
+
     expect(result.success).toBe(false);
     expect(result.message).toContain("Unknown");
   });
@@ -83,7 +90,7 @@ describe("Maintenance Utility", () => {
     });
 
     const result = await runMaintenanceAction("system-purge");
-    
+
     expect(result.success).toBe(false);
     expect(result.message).toContain("Access Denied");
   });

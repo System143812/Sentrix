@@ -4,6 +4,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { exec } from "child_process";
 import { listenForMessages } from "./utils/ipc.js";
+import { DEFAULT_BROADCAST_SCRIPT } from "./utils/broadcast-template.js";
 
 // Robust way to get __dirname in both ESM and CJS/bundled environments
 const __filename_robust = typeof __filename !== "undefined" 
@@ -91,33 +92,56 @@ try {
       log(`[Helper] Received broadcast: "${text.substring(0, 30)}..." from role: ${senderRole}`);
 
       const role = senderRole || "Administrator";
-      const modulePath = dataDir
-        ? path.join(dataDir, "Modules", "BurntToast")
-        : path.join(process.cwd(), "Modules", "BurntToast");
+      const formattedRole = role.charAt(0).toUpperCase() + role.slice(1);
+
+      const scriptPath = path.join(exeDir, "broadcast-dialog.ps1");
+      const possibleAssetPaths = [
+        path.join(exeDir, "assets", "broadcast-dialog.ps1"),
+        path.join(exeDir, "src", "assets", "broadcast-dialog.ps1"),
+        path.join(process.cwd(), "assets", "broadcast-dialog.ps1"),
+        path.join(process.cwd(), "src", "assets", "broadcast-dialog.ps1"),
+        path.join(exeDir, "broadcast-dialog.ps1"),
+      ];
+
+      let srcAssetPath = null;
+      for (const p of possibleAssetPaths) {
+        if (fs.existsSync(p) && path.resolve(p) !== path.resolve(scriptPath)) {
+          srcAssetPath = p;
+          break;
+        }
+      }
+      if (!srcAssetPath && fs.existsSync(scriptPath)) {
+        srcAssetPath = scriptPath;
+      }
+
+      log(`[Helper] Target scriptPath: ${scriptPath}`);
+      log(`[Helper] Resolved source assetPath: ${srcAssetPath} (Exists: ${Boolean(srcAssetPath && fs.existsSync(srcAssetPath))})`);
+
+      try {
+        fs.mkdirSync(path.dirname(scriptPath), { recursive: true });
+        fs.writeFileSync(scriptPath, DEFAULT_BROADCAST_SCRIPT, "utf8");
+        log(`[Helper] SUCCESS: Synchronized broadcast-dialog.ps1 from embedded DEFAULT_BROADCAST_SCRIPT.`);
+      } catch (err) {
+        log(`[Helper] ERROR: Failed to write broadcast script: ${err.message}`);
+      }
 
       const psScript = `
-$modulePath = '${modulePath.replace(/'/g, "''")}'
-if (Test-Path $modulePath) {
-    Import-Module $modulePath
-    New-BurntToastNotification -Text '${role.replace(/'/g, "''")} Message', '${text.replace(/'/g, "''")}'
-    Write-Host "SUCCESS: BurntToast notification sent."
-} else {
-    # Fallback to msg command if BurntToast is missing
-    Write-Host "WARN: BurntToast missing at $modulePath. Falling back to msg command."
-    msg * /TIME:30 "${role}: ${text.replace(/"/g, '`"')}"
-}
-`.trim();
+        $env:SENTRIX_BROADCAST_ROLE = '${formattedRole.replace(/'/g, "''")}'
+        $env:SENTRIX_BROADCAST_MSG = @'
+${text}
+'@
+        & '${scriptPath}'
+      `.trim();
+      const encodedCmd = Buffer.from(psScript, "utf16le").toString("base64");
+      const command = `powershell -NoProfile -Sta -ExecutionPolicy Bypass -EncodedCommand ${encodedCmd}`;
 
-      const encodedCommand = Buffer.from(psScript, "utf16le").toString("base64");
-      const command = `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${encodedCommand}`;
-
-      log(`[Helper] Executing broadcast command...`);
+      log(`[Helper] Executing broadcast WPF Acknowledge modal command...`);
       exec(command, (error, stdout, stderr) => {
         if (error) {
-          log(`[Helper] ERROR executing broadcast: ${error.message}`);
+          log(`[Helper] ERROR executing broadcast modal: ${error.message}`);
           if (stderr) log(`[Helper] Stderr: ${stderr.trim()}`);
         } else {
-          log(`[Helper] Broadcast command completed. Output: ${stdout.trim() || "none"}`);
+          log(`[Helper] Broadcast modal command completed. Output: ${stdout.trim() || "none"}`);
         }
       });
     }
