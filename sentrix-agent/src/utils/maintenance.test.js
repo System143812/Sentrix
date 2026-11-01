@@ -74,6 +74,32 @@ describe("Maintenance Utility", () => {
     expect(exec).toHaveBeenCalled();
   });
 
+  it("should generate workspace-reset command with extended exclusions and graceful close", () => {
+    const cmd = MAINTENANCE_COMMANDS["workspace-reset"];
+    const encodedPart = cmd.split("-EncodedCommand ")[1];
+    const decoded = Buffer.from(encodedPart, "base64").toString("utf16le");
+
+    expect(decoded).toContain("explorer");
+    expect(decoded).toContain("lockapp");
+    expect(decoded).toContain("shlexperiencehost");
+    expect(decoded).toContain("CloseMainWindow");
+    expect(decoded).toContain("Start-Sleep");
+    expect(decoded).toContain("-notcontains");
+  });
+
+  it("should generate system-purge command including Clear-RecycleBin, user profiles AppData Local Temp, and system temp paths", () => {
+    const cmd = MAINTENANCE_COMMANDS["system-purge"];
+    const encodedPart = cmd.split("-EncodedCommand ")[1];
+    const decoded = Buffer.from(encodedPart, "base64").toString("utf16le");
+
+    expect(decoded).toContain("Clear-RecycleBin");
+    expect(decoded).toContain("$env:TMP");
+    expect(decoded).toContain("$env:TEMP");
+    expect(decoded).toContain("C:\\Users");
+    expect(decoded).toContain("AppData\\Local\\Temp");
+    expect(decoded).toContain("$Recycle.Bin");
+  });
+
   it("should return failure for unknown actions", async () => {
     const result = await runMaintenanceAction("non-existent-action");
 

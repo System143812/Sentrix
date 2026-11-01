@@ -61,11 +61,11 @@ export async function registerAgentTasks(serverUrl) {
 
     # 2. Helper Registration (User Session)
     if (Test-Path $helperPath) {
-        $hAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -WindowStyle Hidden -Command \`"Start-Process -FilePath '$helperPath' -WorkingDirectory '$dir' -WindowStyle Hidden\`""
+        $hAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command '& ''$helperPath'''" -WorkingDirectory $dir
         $hTrigger = New-ScheduledTaskTrigger -AtLogOn
         $hPrincipal = New-ScheduledTaskPrincipal -GroupId "Users" -RunLevel Highest
         $hSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Days 0)
-        
+
         Unregister-ScheduledTask -TaskName "Sentrix Helper" -Confirm:$false -ErrorAction SilentlyContinue
         Register-ScheduledTask -TaskName "Sentrix Helper" -Action $hAction -Trigger $hTrigger -Principal $hPrincipal -Settings $hSettings -Force
         if (-not (Get-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue)) {
