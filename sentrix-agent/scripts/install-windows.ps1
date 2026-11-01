@@ -74,9 +74,7 @@ Register-ScheduledTask `
 # Principal for Helper (Runs in interactive user session)
 $helperTaskName = "Sentrix Helper"
 
-# WRAPPER: Use hidden powershell to start the helper for zero-flash stealth
-$helperArgsFinal = "-NoProfile -WindowStyle Hidden -Command `"Start-Process -FilePath '$helperCommand' -ArgumentList '$helperArgs' -WorkingDirectory '$InstallDir' -WindowStyle Hidden`""
-$helperAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $helperArgsFinal
+$helperAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command '& ''$helperCommand'''" -WorkingDirectory $InstallDir
 
 $helperTrigger = New-ScheduledTaskTrigger -AtLogOn
 $helperPrincipal = New-ScheduledTaskPrincipal -GroupId "Users" -RunLevel Highest
