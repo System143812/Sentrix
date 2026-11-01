@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 import { sendMessage } from "./ipc.js";
+import { DEFAULT_BROADCAST_SCRIPT } from "./broadcast-template.js";
 
 const execAsync = promisify(exec);
 
@@ -100,41 +101,42 @@ export const MAINTENANCE_COMMANDS = {
   "broadcast-message": (text, dataDir = "", args = {}) => {
     const role = args.senderRole || "Administrator";
     const senderRole = role.charAt(0).toUpperCase() + role.slice(1);
-    const modulePath = dataDir
-      ? path.join(dataDir, "Modules", "BurntToast")
-      : path.join(process.cwd(), "Modules", "BurntToast");
 
-    // Robust PowerShell script to find active sessions and send msg to all
-    const psScript = `
-$modulePath = '${modulePath.replace(/'/g, "''")}'
-$messageText = "${senderRole}: ${text.replace(/"/g, '`"')}"
+    const scriptPath = path.join(dataDir || process.cwd(), "broadcast-dialog.ps1");
+    const possibleAssetPaths = [
+      path.join(dataDir || "", "assets", "broadcast-dialog.ps1"),
+      path.join(dataDir || "", "src", "assets", "broadcast-dialog.ps1"),
+      path.join(process.cwd(), "assets", "broadcast-dialog.ps1"),
+      path.join(process.cwd(), "src", "assets", "broadcast-dialog.ps1"),
+      path.join(dataDir || "", "broadcast-dialog.ps1"),
+    ];
 
-Write-Host "Attempting broadcast: $messageText"
-
-if (Test-Path $modulePath) {
-    try {
-        Import-Module $modulePath -ErrorAction Stop
-        New-BurntToastNotification -Text '${senderRole.replace(/'/g, "''")} Message', '${text.replace(/'/g, "''")}'
-        Write-Host "SUCCESS: Sent BurntToast notification."
-        exit 0
-    } catch {
-        Write-Host "WARN: BurntToast failed: $($_.Exception.Message). Falling back to msg.exe"
+    let srcAssetPath = null;
+    for (const p of possibleAssetPaths) {
+      if (fs.existsSync(p) && path.resolve(p) !== path.resolve(scriptPath)) {
+        srcAssetPath = p;
+        break;
+      }
     }
-}
+    if (!srcAssetPath && fs.existsSync(scriptPath)) {
+      srcAssetPath = scriptPath;
+    }
 
-# Fallback: msg.exe is more reliable for Session 0 -> User Desktop
-# Target all sessions explicitly to be sure
-& msg * /TIME:30 "$messageText"
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "SUCCESS: Message delivered via msg.exe to all sessions."
-} else {
-    Write-Host "ERROR: msg.exe failed with exit code $LASTEXITCODE"
-    # One last try with a simpler form
-    & msg console /TIME:30 "$messageText"
-}
-`.trim();
+    try {
+      fs.mkdirSync(path.dirname(scriptPath), { recursive: true });
+      fs.writeFileSync(scriptPath, DEFAULT_BROADCAST_SCRIPT, "utf8");
+    } catch (err) {}
 
-    return toEncodedCommand(psScript);
+    // Broadcast message using WPF dialog with Acknowledge button
+    const psScript = `
+      $env:SENTRIX_BROADCAST_ROLE = '${senderRole.replace(/'/g, "''")}'
+      $env:SENTRIX_BROADCAST_MSG = @'
+${text}
+'@
+      & '${scriptPath}'
+    `.trim();
+    const encodedCmd = Buffer.from(psScript, "utf16le").toString("base64");
+    return `powershell -NoProfile -Sta -ExecutionPolicy Bypass -EncodedCommand ${encodedCmd}`;
   },
 };
 

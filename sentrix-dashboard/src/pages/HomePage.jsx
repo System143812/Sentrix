@@ -1,4 +1,11 @@
-import { Monitor, Activity, WifiOff, Plug, Unplug, UserCircle } from "lucide-react";
+import {
+  Monitor,
+  Activity,
+  WifiOff,
+  Plug,
+  Unplug,
+  UserCircle,
+} from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { DeviceTable } from "../components/DeviceTable.jsx";
 import { GroupPanel } from "../components/GroupPanel.jsx";
@@ -10,7 +17,10 @@ import { ICON_TONES } from "../styles/tones.js";
 
 function SummaryCard({ label, value, icon: Icon, tone = "blue", subValue }) {
   return (
-    <Card padding="0" className="relative overflow-hidden border-slate-200/60 bg-white">
+    <Card
+      padding="0"
+      className="relative overflow-hidden border-slate-200/60 bg-white"
+    >
       <div className="flex items-center min-h-[100px]">
         <div className="flex flex-1 items-center justify-between p-5">
           <div className="min-w-0">
@@ -22,12 +32,16 @@ function SummaryCard({ label, value, icon: Icon, tone = "blue", subValue }) {
                 {value}
               </p>
               {subValue && (
-                <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider">{subValue}</span>
+                <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider">
+                  {subValue}
+                </span>
               )}
             </div>
           </div>
-          
-          <div className={`rounded-lg border p-3 shadow-sm ${ICON_TONES[tone] || ICON_TONES.blue}`}>
+
+          <div
+            className={`rounded-lg border p-3 shadow-sm ${ICON_TONES[tone] || ICON_TONES.blue}`}
+          >
             <Icon size={24} strokeWidth={2.5} />
           </div>
         </div>
@@ -68,23 +82,38 @@ export function HomePage({
   useEffect(() => {
     // Initial random start
     setTipIndex(Math.floor(Math.random() * HOME_TIPS.length));
-    
+
     const interval = setInterval(() => {
       setTipIndex((prev) => (prev + 1) % HOME_TIPS.length);
     }, 10000); // Sync with CSS animation duration (10s)
-    
+
     return () => clearInterval(interval);
   }, []);
 
   const groupOptions = useMemo(
-    () => ["all", ...new Set(devices.map((device) => device.group || "Unassigned"))],
+    () => [
+      "all",
+      ...new Set(devices.map((device) => device.group || "Unassigned")),
+    ],
     [devices],
   );
   const filteredDevices = useMemo(
     () =>
       devices.filter((device) => {
-        const groupMatch = selectedGroup === "all" || (device.group || "Unassigned") === selectedGroup;
-        return groupMatch && matchesSearch(device, query, ["hostname", "os", "ip", "mac", "group", "status"]);
+        const groupMatch =
+          selectedGroup === "all" ||
+          (device.group || "Unassigned") === selectedGroup;
+        return (
+          groupMatch &&
+          matchesSearch(device, query, [
+            "hostname",
+            "os",
+            "ip",
+            "mac",
+            "group",
+            "status",
+          ])
+        );
       }),
     [devices, query, selectedGroup],
   );
@@ -92,32 +121,49 @@ export function HomePage({
   return (
     <div className="page-reveal space-y-6">
       <PageHeader
-        title={`Welcome back, ${user?.email?.split('@')[0] || 'Admin'}!`}
+        title={`Welcome back, ${user?.email?.split("@")[0] || "Admin"}!`}
         subtitle={
           <div className="min-h-[1.5rem]">
             <p className="animate-tip-cycle" key={tipIndex}>
-              <span className="font-bold text-blue-400 mr-2">Tip:</span>
+              <span className="font-bold mr-2">Tip:</span>
               {HOME_TIPS[tipIndex]}
             </p>
           </div>
         }
         backgroundImage="/home_header.jpg"
-        action={
-          <span className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-300 backdrop-blur-md border border-white/10 shadow-lg">
-            <UserCircle size={14} strokeWidth={2.5} className="text-blue-400" />
-            {user?.email}
-          </span>
-        }
+        // action={
+        //   <span className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-300 backdrop-blur-md border border-white/10 shadow-lg">
+        //     <UserCircle size={14} strokeWidth={2.5} className="text-blue-400" />
+        //     {user?.email}
+        //   </span>
+        // }
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard label="Total registered" value={dashboardData.total} icon={Monitor} subValue="units" />
-        <SummaryCard label="Online" value={dashboardData.online} icon={Activity} tone="emerald" subValue="active" />
-        <SummaryCard label="Offline" value={dashboardData.offline} icon={WifiOff} tone="rose" subValue="disconnected" />
-        <SummaryCard 
-          label="Peripherals" 
-          value={missingCount > 0 ? missingCount : "Secure"} 
-          icon={missingCount > 0 ? Unplug : Plug} 
+        <SummaryCard
+          label="Total registered"
+          value={dashboardData.total}
+          icon={Monitor}
+          subValue="units"
+        />
+        <SummaryCard
+          label="Online"
+          value={dashboardData.online}
+          icon={Activity}
+          tone="emerald"
+          subValue="active"
+        />
+        <SummaryCard
+          label="Offline"
+          value={dashboardData.offline}
+          icon={WifiOff}
+          tone="rose"
+          subValue="disconnected"
+        />
+        <SummaryCard
+          label="Peripherals"
+          value={missingCount > 0 ? missingCount : "Secure"}
+          icon={missingCount > 0 ? Unplug : Plug}
           tone={missingCount > 0 ? "rose" : "emerald"}
           subValue={missingCount > 0 ? "missing" : "verified"}
         />

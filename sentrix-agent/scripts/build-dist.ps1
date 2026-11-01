@@ -21,8 +21,9 @@ if (-not (Test-Path $assetsDir)) { New-Item -ItemType Directory -Path $assetsDir
 if (-not (Test-Path $binHardwareDir)) { New-Item -ItemType Directory -Path $binHardwareDir | Out-Null }
 if (-not (Test-Path $modulesDestDir)) { New-Item -ItemType Directory -Path $modulesDestDir | Out-Null }
 
-Write-Host "--- Copying Temperature Bridge ---"
+Write-Host "--- Copying Temperature Bridge & Acknowledge Broadcast Dialog ---"
 Copy-Item "src\services\metrics\temp-bridge.ps1" -Destination $assetsDir -Force
+Copy-Item "src\assets\broadcast-dialog.ps1" -Destination $assetsDir -Force
 
 Write-Host "--- Copying Hardware DLLs ---"
 Copy-Item "bin\hardware\*.dll" -Destination $binHardwareDir -Force

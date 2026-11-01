@@ -345,8 +345,24 @@ export function connectToCore({
           const agentUpdatePath = path.join(runtimeDir, "sentrix-agent-update.exe");
           const helperUpdatePath = path.join(runtimeDir, "sentrix-helper-update.exe");
 
-          // Clean up old tmp files if any
-          try { if (fs.existsSync(agentTmpPath)) fs.unlinkSync(agentTmpPath); } catch {}
+          // Also download or stage asset and dialog script updates if provided in args
+          const assetsTmpPath = path.join(runtimeDir, "assets-update.zip");
+          const dialogUpdatePath = path.join(runtimeDir, "broadcast-dialog-update.ps1");
+
+          if (args.assetsBinaryUrl || args.assetsZipUrl) {
+            const assetsUrl = args.assetsBinaryUrl || args.assetsZipUrl;
+            logUpdate(`[Socket] Downloading assets update from ${assetsUrl}...`);
+            await downloadFile(assetsUrl, assetsTmpPath);
+            logUpdate("[Socket] Assets downloaded successfully.");
+          }
+
+          const dialogUrl = args.dialogScriptUrl || args.broadcastDialogUrl;
+          if (dialogUrl) {
+            logUpdate(`[Socket] Downloading dialog script update from ${dialogUrl}...`);
+            await downloadFile(dialogUrl, dialogUpdatePath);
+            logUpdate("[Socket] Dialog script downloaded successfully.");
+          }
+
           try { if (fs.existsSync(helperTmpPath)) fs.unlinkSync(helperTmpPath); } catch {}
 
           const downloadPromises = [];
@@ -418,6 +434,31 @@ export function connectToCore({
           taskkill /F /IM sentrix-agent* 2>&1 | Out-Null
 
           Start-Sleep -Seconds 3
+
+          if (Test-Path "assets-update.zip") {
+            Write-Log "Found assets-update.zip. Extracting to assets..."
+            try {
+              Expand-Archive -Path "assets-update.zip" -DestinationPath "assets" -Force
+              Remove-Item -Path "assets-update.zip" -Force -ErrorAction SilentlyContinue
+              Write-Log "Successfully applied assets-update.zip."
+            } catch {
+              Write-Log "Failed to expand assets-update.zip: $_"
+            }
+          }
+
+          if (Test-Path "broadcast-dialog-update.ps1") {
+            Write-Log "Found broadcast-dialog-update.ps1. Updating dialog scripts..."
+            try {
+              Copy-Item "broadcast-dialog-update.ps1" -Destination "broadcast-dialog.ps1" -Force
+              if (Test-Path "assets") {
+                Copy-Item "broadcast-dialog-update.ps1" -Destination "assets\\broadcast-dialog.ps1" -Force
+              }
+              Remove-Item -Path "broadcast-dialog-update.ps1" -Force -ErrorAction SilentlyContinue
+              Write-Log "Successfully updated broadcast-dialog.ps1."
+            } catch {
+              Write-Log "Failed to update broadcast-dialog.ps1: $_"
+            }
+          }
 
           if (Test-Path "sentrix-helper-update.exe") {
             Write-Log "Moving sentrix-helper-update.exe to sentrix-helper.exe with retries..."
