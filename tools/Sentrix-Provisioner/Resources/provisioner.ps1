@@ -80,21 +80,68 @@ function Log-Message($msg) {
     Add-Content -Path $log -Value "[$timestamp] $msg"
 }
 
-# 1. Check for pending updates (helper or agent)
-if ((Test-Path $updateExe) -or (Test-Path $updateHelperExe)) {
-    Log-Message "Detected pending update binaries. Preparing for surgical swap..."
+# 1. Check for pending updates (helper, agent, assets, or scripts)
+    $assetsZip = "$targetPath\assets-update.zip"
+    $assetsUpdateDir = "$targetPath\assets-update"
+    $dialogUpdate = "$targetPath\broadcast-dialog-update.ps1"
 
-    # Stop scheduled tasks to release file locks
-    Stop-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
-    Stop-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
+    if ((Test-Path $updateExe) -or (Test-Path $updateHelperExe) -or (Test-Path $assetsZip) -or (Test-Path $assetsUpdateDir) -or (Test-Path $dialogUpdate)) {
+        Log-Message "Detected pending updates (binaries, assets, or scripts). Preparing update..."
 
-    # Kill running processes
-    Get-Process sentrix-helper -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-    Get-Process sentrix-agent -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-    taskkill /F /IM sentrix-helper* 2>&1 | Out-Null
-    taskkill /F /IM sentrix-agent* 2>&1 | Out-Null
+        # Stop scheduled tasks to release file locks
+        Stop-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
+        Stop-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
 
-    Start-Sleep -Seconds 2
+        # Kill running processes
+        Get-Process sentrix-helper -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Get-Process sentrix-agent -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        taskkill /F /IM sentrix-helper* 2>&1 | Out-Null
+        taskkill /F /IM sentrix-agent* 2>&1 | Out-Null
+
+        Start-Sleep -Seconds 2
+
+        # Apply asset and script updates
+        if (Test-Path $assetsZip) {
+            Log-Message "Found assets-update.zip. Extracting to assets..."
+            try {
+                Expand-Archive -Path $assetsZip -DestinationPath "$targetPath\assets" -Force
+                Remove-Item -Path $assetsZip -Force -ErrorAction SilentlyContinue
+                if (Test-Path "$targetPath\assets\broadcast-dialog.ps1") {
+                    Copy-Item "$targetPath\assets\broadcast-dialog.ps1" -Destination "$targetPath\broadcast-dialog.ps1" -Force
+                }
+                Log-Message "Successfully applied assets-update.zip."
+            } catch {
+                Log-Message "Failed to expand assets-update.zip: $_"
+            }
+        }
+
+        if (Test-Path $assetsUpdateDir) {
+            Log-Message "Found assets-update directory. Copying to assets..."
+            try {
+                Copy-Item "$assetsUpdateDir\*" -Destination "$targetPath\assets\" -Recurse -Force
+                Remove-Item -Path $assetsUpdateDir -Recurse -Force -ErrorAction SilentlyContinue
+                if (Test-Path "$targetPath\assets\broadcast-dialog.ps1") {
+                    Copy-Item "$targetPath\assets\broadcast-dialog.ps1" -Destination "$targetPath\broadcast-dialog.ps1" -Force
+                }
+                Log-Message "Successfully applied assets-update directory."
+            } catch {
+                Log-Message "Failed to copy assets-update directory: $_"
+            }
+        }
+
+        if (Test-Path $dialogUpdate) {
+            Log-Message "Found broadcast-dialog-update.ps1. Updating dialog scripts..."
+            try {
+                Copy-Item $dialogUpdate -Destination "$targetPath\broadcast-dialog.ps1" -Force
+                if (Test-Path "$targetPath\assets") {
+                    Copy-Item $dialogUpdate -Destination "$targetPath\assets\broadcast-dialog.ps1" -Force
+                }
+                Remove-Item -Path $dialogUpdate -Force -ErrorAction SilentlyContinue
+                Log-Message "Successfully updated broadcast-dialog.ps1."
+            } catch {
+                Log-Message "Failed to update broadcast-dialog.ps1: $_"
+            }
+        }
 
     # Swap helper first if pending update exists
     if (Test-Path $updateHelperExe) {
