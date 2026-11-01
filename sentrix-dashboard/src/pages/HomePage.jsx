@@ -39,10 +39,14 @@ function SummaryCard({ label, value, icon: Icon, tone = "blue", subValue }) {
             </div>
           </div>
 
-          <div
-            className={`rounded-lg border p-3 shadow-sm ${ICON_TONES[tone] || ICON_TONES.blue}`}
-          >
-            <Icon size={24} strokeWidth={2.5} />
+          <div className="rounded-lg border border-slate-200/60 bg-slate-50/30 p-3 shadow-sm">
+            <Icon size={24} strokeWidth={2.5} className={
+              tone === 'emerald' ? 'text-emerald-600' :
+              tone === 'rose' ? 'text-rose-600' :
+              tone === 'amber' ? 'text-amber-600' :
+              tone === 'teal' ? 'text-teal-600' :
+              tone === 'indigo' ? 'text-indigo-600' : 'text-blue-600'
+            } />
           </div>
         </div>
       </div>
