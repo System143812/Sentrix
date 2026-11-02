@@ -15,6 +15,16 @@ if (-not $node) {
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
+# Secure Installation Directory ACLs
+try {
+  $acl = Get-Acl $InstallDir
+  $acl.SetAccessRuleProtection($true, $false)
+  Set-Acl $InstallDir $acl
+  & icacls.exe $InstallDir /grant "SYSTEM:(OI)(CI)F" /inheritance:e | Out-Null
+  & icacls.exe $InstallDir /grant "Administrators:(OI)(CI)F" /inheritance:e | Out-Null
+  & icacls.exe $InstallDir /grant "BUILTIN\Users:(OI)(CI)(RX)" | Out-Null
+} catch {}
+
 # Define binary paths
 $agentExe = Join-Path $sourceDir "dist\sentrix-agent.exe"
 $helperExe = Join-Path $sourceDir "dist\sentrix-helper.exe"
@@ -71,28 +81,17 @@ Register-ScheduledTask `
   -Settings $settings `
   -Force | Out-Null
 
-# Principal for Helper (Runs in interactive user session)
+# Principal for Helper (Runs in interactive user session via Launcher & schtasks)
 $helperTaskName = "Sentrix Helper"
+$launcherPath = Join-Path $InstallDir "launch-helper.ps1"
+$launcherContent = @"
+Start-Process -FilePath "$helperPath" -WorkingDirectory "$InstallDir" -WindowStyle Hidden
+"@
+$launcherContent | Out-File -FilePath $launcherPath -Encoding utf8 -Force
 
-$helperAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command '& ''$helperCommand'''" -WorkingDirectory $InstallDir
-
-$helperTrigger = New-ScheduledTaskTrigger -AtLogOn
-$helperPrincipal = New-ScheduledTaskPrincipal -GroupId "Users" -RunLevel Highest
-$helperSettings = New-ScheduledTaskSettingsSet `
-  -AllowStartIfOnBatteries `
-  -DontStopIfGoingOnBatteries `
-  -ExecutionTimeLimit (New-TimeSpan -Days 0)
-# Use the hidden setting
-$helperSettings.Hidden = $true
-
-Register-ScheduledTask `
-  -TaskName $helperTaskName `
-  -Action $helperAction `
-  -Trigger $helperTrigger `
-  -Principal $helperPrincipal `
-  -Settings $helperSettings `
-  -Force | Out-Null
+Unregister-ScheduledTask -TaskName $helperTaskName -Confirm:$false -ErrorAction SilentlyContinue
+schtasks /Create /TN "$helperTaskName" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcherPath`"" /SC ONLOGON /RU "NT AUTHORITY\INTERACTIVE" /RL HIGHEST /F | Out-Null
+schtasks /Run /TN "$helperTaskName" -ErrorAction SilentlyContinue | Out-Null
 
 Start-ScheduledTask -TaskName $taskName
-Start-ScheduledTask -TaskName $helperTaskName
 Write-Host "Sentrix lightweight agent and helper installed and started. Server: $ServerUrl"

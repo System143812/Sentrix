@@ -17,15 +17,31 @@ const __dirname_robust = typeof __dirname !== "undefined"
 const exeDir = process.pkg ? path.dirname(process.execPath) : __dirname_robust;
 const externalEnvPath = path.join(exeDir, ".env");
 
-if (fs.existsSync(externalEnvPath)) {
-  dotenv.config({ path: externalEnvPath });
-} else {
-  dotenv.config();
+try {
+  if (fs.existsSync(externalEnvPath)) {
+    dotenv.config({ path: externalEnvPath });
+  } else {
+    dotenv.config();
+  }
+} catch (err) {
+  // Ignore dotenv config errors due to permissions
 }
 
 const IPC_PORT = Number(process.env.SENTRIX_IPC_PORT || 4101);
 
-const logFilePath = path.join(exeDir, "helper.log");
+let logFilePath = path.join(exeDir, "helper.log");
+try {
+  fs.mkdirSync(exeDir, { recursive: true });
+  fs.appendFileSync(logFilePath, "");
+} catch (err) {
+  // If exeDir is read-only for standard users, fallback to LocalAppData
+  const localAppData = process.env.LOCALAPPDATA || process.env.USERPROFILE || "C:\\Temp";
+  const fallbackDir = path.join(localAppData, "SentrixAgent");
+  try {
+    fs.mkdirSync(fallbackDir, { recursive: true });
+    logFilePath = path.join(fallbackDir, "helper.log");
+  } catch (e) {}
+}
 
 function log(message) {
   const timestamp = new Date().toISOString();

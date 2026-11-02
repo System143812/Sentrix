@@ -148,7 +148,12 @@ export const MAINTENANCE_COMMANDS = {
   `.trim()),
   "broadcast-message": (text, dataDir = "", args = {}) => {
     const role = args.senderRole || "Administrator";
-    const senderRole = role.charAt(0).toUpperCase() + role.slice(1);
+    const senderRole = role
+      .toString()
+      .replace(/[_-]/g, " ")
+      .split(" ")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
 
     const scriptPath = path.join(dataDir || process.cwd(), "broadcast-dialog.ps1");
     const possibleAssetPaths = [

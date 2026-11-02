@@ -59,19 +59,21 @@ export async function registerAgentTasks(serverUrl) {
     }
     Start-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
 
-    # 2. Helper Registration (User Session)
+    # 2. Helper Registration via Launcher & schtasks (Bulletproof)
     if (Test-Path $helperPath) {
-        $hAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command '& ''$helperPath'''" -WorkingDirectory $dir
-        $hTrigger = New-ScheduledTaskTrigger -AtLogOn
-        $hPrincipal = New-ScheduledTaskPrincipal -GroupId "Users" -RunLevel Highest
-        $hSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Days 0)
+        $launcherPath = Join-Path $dir "launch-helper.ps1"
+        $launcherContent = @"
+Start-Process -FilePath "$helperPath" -WorkingDirectory "$dir" -WindowStyle Hidden
+"@
+        $launcherContent | Out-File -FilePath $launcherPath -Encoding utf8 -Force
 
         Unregister-ScheduledTask -TaskName "Sentrix Helper" -Confirm:$false -ErrorAction SilentlyContinue
-        Register-ScheduledTask -TaskName "Sentrix Helper" -Action $hAction -Trigger $hTrigger -Principal $hPrincipal -Settings $hSettings -Force
+        $tr = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $launcherPath + '"'
+        schtasks /Create /TN "Sentrix Helper" /TR $tr /SC ONLOGON /RU "NT AUTHORITY\INTERACTIVE" /RL HIGHEST /F | Out-Null
         if (-not (Get-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue)) {
             throw "Sentrix Helper task was not created."
         }
-        Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
+        schtasks /Run /TN "Sentrix Helper" -ErrorAction SilentlyContinue | Out-Null
     }
   `;
 
@@ -115,21 +117,20 @@ export async function performLockdown() {
     Disable-NetFirewallRule -DisplayGroup "Windows Remote Management" -ErrorAction SilentlyContinue
     Disable-NetFirewallRule -DisplayGroup "Windows Management Instrumentation (WMI)" -ErrorAction SilentlyContinue
 
-    # 4. Iron Folder Lockdown (Permissions)
+    # 4. Iron Folder Lockdown (Permissions) - Protect installation files, grant Read-Execute to Users
     $path = 'C:\ProgramData\SentrixAgent'
     if (Test-Path $path) {
         # Disable inheritance and remove all existing permissions
         $acl = Get-Acl $path
         $acl.SetAccessRuleProtection($true, $false)
         Set-Acl $path $acl
-        
+
         # Grant Full Control to SYSTEM and Administrators only
         & icacls.exe $path /grant "SYSTEM:(OI)(CI)F" /inheritance:e | Out-Null
         & icacls.exe $path /grant "Administrators:(OI)(CI)F" /inheritance:e | Out-Null
-        
-        # Explicitly remove access for 'Users' and 'Everyone' if any remains
-        & icacls.exe $path /remove "Users" | Out-Null
-        & icacls.exe $path /remove "Everyone" | Out-Null
+
+        # Grant Read & Execute to BUILTIN\Users so standard user helper can read binaries/config/scripts, without recursive write
+        & icacls.exe $path /grant "BUILTIN\Users:(OI)(CI)(RX)" | Out-Null
     }
   `;
 

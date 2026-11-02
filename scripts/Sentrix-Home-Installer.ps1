@@ -70,24 +70,25 @@ try {
     exit
 }
 
-# 5. Register Helper Task (Runs on Login)
+# 5. Register Helper Task (Runs on Login via Launcher & schtasks)
 if (Test-Path "$TargetDir\sentrix-helper.exe") {
     Write-Host "[3/4] Registering Sentrix Helper (Login task)..." -NoNewline
     try {
         $helperPath = Join-Path $TargetDir "sentrix-helper.exe"
-        $hAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -WindowStyle Hidden -Command `"Start-Process -FilePath '$helperPath' -WorkingDirectory '$TargetDir' -WindowStyle Hidden`"" -WorkingDirectory $TargetDir
-        $hTrigger = New-ScheduledTaskTrigger -AtLogOn
-        $hPrincipal = New-ScheduledTaskPrincipal -GroupId "Users" -RunLevel Highest
-        $hSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Days 0)
-        
+        $launcherPath = Join-Path $TargetDir "launch-helper.ps1"
+        $launcherContent = @"
+Start-Process -FilePath "$helperPath" -WorkingDirectory "$TargetDir" -WindowStyle Hidden
+"@
+        $launcherContent | Out-File -FilePath $launcherPath -Encoding utf8 -Force
+
         Unregister-ScheduledTask -TaskName "Sentrix Helper" -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-        Register-ScheduledTask -TaskName "Sentrix Helper" -Action $hAction -Trigger $hTrigger -Principal $hPrincipal -Settings $hSettings -Force | Out-Null
-        
+        schtasks /Create /TN "Sentrix Helper" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcherPath`"" /SC ONLOGON /RU "NT AUTHORITY\INTERACTIVE" /RL HIGHEST /F | Out-Null
+
         if (-not (Get-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue)) {
             throw "Failed to verify task creation."
         }
-        
-        Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue | Out-Null
+
+        schtasks /Run /TN "Sentrix Helper" -ErrorAction SilentlyContinue | Out-Null
         Write-Host " [OK]" -ForegroundColor Green
     } catch {
         Write-Host " [FAILED: $($_.Exception.Message)]" -ForegroundColor Yellow
@@ -106,9 +107,8 @@ try {
     & icacls.exe $TargetDir /grant "SYSTEM:(OI)(CI)F" /inheritance:e | Out-Null
     & icacls.exe $TargetDir /grant "Administrators:(OI)(CI)F" /inheritance:e | Out-Null
     
-    # Explicitly remove access for 'Users' and 'Everyone'
-    & icacls.exe $TargetDir /remove "Users" | Out-Null
-    & icacls.exe $TargetDir /remove "Everyone" | Out-Null
+    # Grant Read & Execute to BUILTIN\Users so standard user helper can read binaries/config/scripts, without recursive write
+    & icacls.exe $TargetDir /grant "BUILTIN\Users:(OI)(CI)(RX)" | Out-Null
     
     Write-Host " [OK]" -ForegroundColor Green
 } catch {

@@ -74,7 +74,14 @@ export async function isDeviceAliveInDiscovery(ip, mac = null) {
       }
     }
   }
-  // Fallback: If not found in cached scan results, do a direct lightweight ping check on the IP
+
+  // If network scan results have been populated, but the device is not found in them,
+  // do not fallback to direct pings which can falsely keep dead/stale IPs online.
+  if (lastScanResults.size > 0) {
+    return false;
+  }
+
+  // Fallback: If no discovery scan has run yet, do a direct lightweight ping check on the IP
   if (ip) {
     const alive = await pingHost(ip);
     if (alive) {
@@ -524,6 +531,40 @@ export async function scanLocalNetwork(targetSubnet = null) {
   discoveredDevices.forEach((device) => lastScanResults.set(device.ip, device));
 
   await saveScanResultsToDb(discoveredDevices);
+
+  // Sync client statuses based on network scan results (Network-Scan-Driven Device Status)
+  try {
+    const { getAllClients, markClientOnline, markClientOffline } = await import("../clients/clients.service.js");
+    const registeredClients = await getAllClients();
+    const missedScansMap = global.missedScansMap || (global.missedScansMap = new Map());
+
+    const scannedIps = new Set(discoveredDevices.map(d => d.ip));
+    const scannedMacs = new Set(discoveredDevices.map(d => normalizeMac(d.mac)).filter(m => m && m !== "UNKNOWN"));
+
+    for (const client of registeredClients) {
+      const clientMacNorm = normalizeMac(client.mac);
+      const isFound =
+        (client.ip && scannedIps.has(client.ip)) ||
+        (clientMacNorm && clientMacNorm !== "UNKNOWN" && scannedMacs.has(clientMacNorm));
+
+      if (isFound) {
+        missedScansMap.delete(client.id);
+        if (client.status === "offline") {
+          await markClientOnline(client.id);
+        }
+      } else {
+        const misses = (missedScansMap.get(client.id) || 0) + 1;
+        missedScansMap.set(client.id, misses);
+
+        if (misses >= 2 && client.status === "online") {
+          await markClientOffline(client.id);
+          missedScansMap.delete(client.id);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[Discovery] Failed to sync client statuses from scan results:", err.message);
+  }
 
   updateSnapshot({
     status: "idle",
