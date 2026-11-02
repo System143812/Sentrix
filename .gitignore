@@ -153,3 +153,10 @@ CLAUDE.md
 
 #Provisioner build files
 tools/Sentrix-Provisioner/obj/
+
+# SSL Certificates and Private Keys
+*.pem
+*.key
+*.crt
+.certs/
+sentrix-core/.certs/
