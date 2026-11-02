@@ -40,12 +40,20 @@ try {
     Write-Host " [FAILED]" -ForegroundColor Yellow
 }
 
-# 5. Add Antivirus Exclusions
-Write-Host "[5/6] Adding Windows Defender Exclusions..." -NoNewline
+# 5. Add Antivirus Exclusions & Secure Folder ACLs
+Write-Host "[5/6] Adding Windows Defender Exclusions & ACLs..." -NoNewline
 try {
     $targetPath = "C:\ProgramData\SentrixAgent"
     if (-not (Test-Path $targetPath)) { New-Item -ItemType Directory -Path $targetPath -Force | Out-Null }
     Add-MpPreference -ExclusionPath $targetPath -ErrorAction SilentlyContinue
+
+    $acl = Get-Acl $targetPath
+    $acl.SetAccessRuleProtection($true, $false)
+    Set-Acl $targetPath $acl
+    & icacls.exe $targetPath /grant "SYSTEM:(OI)(CI)F" /inheritance:e | Out-Null
+    & icacls.exe $targetPath /grant "Administrators:(OI)(CI)F" /inheritance:e | Out-Null
+    & icacls.exe $targetPath /grant "BUILTIN\Users:(OI)(CI)(RX)" | Out-Null
+
     Write-Host " [OK]" -ForegroundColor Green
 } catch {
     Write-Host " [SKIPPED/FAILED]" -ForegroundColor Yellow
@@ -202,20 +210,23 @@ try {
 }
 
 if ($null -eq $helperTask) {
-    Log-Message "Sentrix Helper task is missing. Re-registering..."
+    Log-Message "Sentrix Helper task is missing. Re-registering via launcher..."
     if (Test-Path $helperExe) {
-        $hAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"Start-Process -FilePath '$helperExe' -WorkingDirectory '$targetPath' -WindowStyle Hidden`"" -WorkingDirectory $targetPath
-        $hTrigger = New-ScheduledTaskTrigger -AtLogOn
-        $hPrincipal = New-ScheduledTaskPrincipal -GroupId "Users" -RunLevel Highest
-        $hSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Days 0)
-        $hSettings.Hidden = $true
-        Register-ScheduledTask -TaskName "Sentrix Helper" -Action $hAction -Trigger $hTrigger -Principal $hPrincipal -Settings $hSettings -Force | Out-Null
-        Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
-        Log-Message "Sentrix Helper task re-registered successfully."
+        $launcherPath = Join-Path $targetPath "launch-helper.ps1"
+        $launcherContent = @"
+Start-Process -FilePath "$helperExe" -WorkingDirectory "$targetPath" -WindowStyle Hidden
+"@
+        $launcherContent | Out-File -FilePath $launcherPath -Encoding utf8 -Force
+
+        Unregister-ScheduledTask -TaskName "Sentrix Helper" -Confirm:$false -ErrorAction SilentlyContinue
+        schtasks /Create /TN "Sentrix Helper" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcherPath`"" /SC ONLOGON /RU "NT AUTHORITY\INTERACTIVE" /RL HIGHEST /F | Out-Null
+        $runOut = schtasks /Run /TN "Sentrix Helper" 2>&1
+        Log-Message "Sentrix Helper task re-registered and started. Result: $($runOut -join ' ')"
     }
 } elseif (-not $helperRunning -and (Test-Path $helperExe)) {
-    Log-Message "Sentrix Helper not listening on IPC port 4101. Triggering start..."
-    Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
+    Log-Message "Sentrix Helper not listening on IPC port 4101. Triggering start via schtasks..."
+    $runOut = schtasks /Run /TN "Sentrix Helper" 2>&1
+    Log-Message "schtasks /Run result: $($runOut -join ' ')"
 }
 '@
     $watchdogScript | Out-File -FilePath $watchdogFile -Encoding utf8 -Force
