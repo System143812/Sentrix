@@ -6,7 +6,7 @@ import {
   Home,
   LoaderCircle,
   LogOut,
-  MonitorCog,
+  Monitor,
   Network,
   RefreshCcw,
   Settings,
@@ -22,6 +22,7 @@ import { useDiscovery } from "../hooks/useDiscovery.js";
 import { LoginPage } from "../pages/LoginPage.jsx";
 import { HomePage } from "../pages/HomePage.jsx";
 import { DevicesPage } from "../pages/DevicesPage.jsx";
+import { ScreensPage } from "../pages/ScreensPage.jsx";
 import { NetworkPage } from "../pages/NetworkPage.jsx";
 import { AnalyticsPage } from "../pages/AnalyticsPage.jsx";
 import { SettingsPage } from "../pages/SettingsPage.jsx";
@@ -33,7 +34,7 @@ import * as settingsApi from "../services/settingsApi.js";
 const tabs = [
   { id: "home", label: "Home", icon: Home },
   { id: "network", label: "Network", icon: Network },
-  { id: "devices", label: "Devices", icon: MonitorCog },
+  { id: "screens", label: "Screens", icon: Monitor },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "audit", label: "Logs", icon: ClipboardList },
   { id: "settings", label: "Settings", icon: Settings },
@@ -368,15 +369,11 @@ export function DashboardShell({
             deployMessage={discovery.message}
             deployingIp={discovery.deployingIp}
           />
-        ) : activeTab === "devices" ? (
-          <DevicesPage
+        ) : activeTab === "screens" ? (
+          <ScreensPage
             dashboardData={dashboardData}
             loading={loading}
-            onUpdateGroup={handleUpdateGroup}
             groups={groups}
-            onArchive={handleArchiveDevice}
-            canControl={["network_admin", "admin"].includes(user.role)}
-            canManagePeripherals={user.role === "network_admin"}
           />
         ) : activeTab === "analytics" ? (
           <AnalyticsPage dashboardData={dashboardData} loading={loading} />
