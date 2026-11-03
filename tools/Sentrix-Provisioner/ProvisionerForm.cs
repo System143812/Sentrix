@@ -173,7 +173,7 @@ namespace SentrixProvisioner
             catch (Exception ex)
             {
                 UpdateStatus("An error occurred.");
-                AppendOutput($"[ERROR] {ex.Message}", Color.Red);
+                AppendOutput(string.Format("[ERROR] {0}", ex.Message), Color.Red);
                 SetFailure();
             }
         }
@@ -185,7 +185,7 @@ namespace SentrixProvisioner
                 var assembly = Assembly.GetExecutingAssembly();
                 string resourceName = "SentrixProvisioner.Resources.provisioner.ps1";
 
-                string tempPath = Path.Combine(Path.GetTempPath(), $"sentrix-provisioner-{Guid.NewGuid()}.ps1");
+                string tempPath = Path.Combine(Path.GetTempPath(), string.Format("sentrix-provisioner-{0}.ps1", Guid.NewGuid()));
 
                 using (Stream stream = assembly.GetManifestResourceStream(resourceName))
                 {
@@ -212,7 +212,7 @@ namespace SentrixProvisioner
             ProcessStartInfo psi = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
+                Arguments = string.Format("-NoProfile -ExecutionPolicy Bypass -File \"{0}\"", scriptPath),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -247,7 +247,7 @@ namespace SentrixProvisioner
                 }
                 else
                 {
-                    AppendOutput($"\n[ERROR] Process exited with code {process.ExitCode}", Color.Red);
+                    AppendOutput(string.Format("\n[ERROR] Process exited with code {0}", process.ExitCode), Color.Red);
                     SetFailure();
                 }
             }
@@ -395,7 +395,7 @@ namespace SentrixProvisioner
 
             if (autoCloseSeconds > 0)
             {
-                closeButton.Text = $"Close ({autoCloseSeconds})";
+                closeButton.Text = string.Format("Close ({0})", autoCloseSeconds);
             }
             else
             {

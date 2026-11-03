@@ -27,9 +27,9 @@ const mockUser = { role: 'network_admin' };
 const mockSnapshot = {
   status: 'idle',
   devices: [
-    { ip: '192.168.1.10', hostname: 'PC-1', deploy_eligible: true, agent_status: 'none' }
+    { ip: '192.168.8.10', hostname: 'PC-1', deploy_eligible: true, agent_status: 'none' }
   ],
-  subnet: '192.168.1'
+  subnet: '192.168.8'
 };
 
 describe('NetworkPage', () => {
@@ -45,7 +45,7 @@ describe('NetworkPage', () => {
     );
     
     expect(screen.getByText('PC-1')).toBeInTheDocument();
-    expect(screen.getByText('192.168.1.10')).toBeInTheDocument();
+    expect(screen.getByText('192.168.8.10')).toBeInTheDocument();
   });
 
   it('calls onScan when Rescan button is clicked', () => {
@@ -68,7 +68,7 @@ describe('NetworkPage', () => {
           user={mockUser}
           snapshot={mockSnapshot}
           interfaces={[
-            { name: 'Ethernet', address: '192.168.1.200', subnet: '192.168.1' },
+            { name: 'Ethernet', address: '192.168.8.200', subnet: '192.168.8' },
             { name: 'Lab', address: '192.168.2.200', subnet: '192.168.2' },
           ]}
           onSetSubnet={onSetSubnet}
@@ -106,7 +106,7 @@ describe('NetworkPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Deploy/i }));
     fireEvent.click(screen.getByText('Confirm'));
     
-    expect(onDeploy).toHaveBeenCalledWith('192.168.1.10', 'PC', expect.any(Object), 'deploy');
+    expect(onDeploy).toHaveBeenCalledWith('192.168.8.10', 'PC', expect.any(Object), 'deploy');
   });
 
   it('shows view only for non-network admins', () => {
