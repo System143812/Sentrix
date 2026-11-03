@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { isAdmin, isSystem, elevate } from "./utils/elevation.js";
@@ -37,12 +37,30 @@ try {
     const lockData = JSON.parse(fs.readFileSync(lockFilePath, "utf8"));
     const oldPid = lockData.pid;
     if (oldPid && oldPid !== process.pid) {
+      let isActualAgentRunning = false;
       try {
         process.kill(oldPid, 0);
+        if (process.platform === "win32") {
+          try {
+            const output = execSync(`tasklist /FI "PID eq ${oldPid}" /FO CSV /NH`, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+            if (output && (output.toLowerCase().includes("sentrix-agent") || output.toLowerCase().includes("node"))) {
+              isActualAgentRunning = true;
+            }
+          } catch {
+            isActualAgentRunning = true; // fallback if tasklist check fails
+          }
+        } else {
+          isActualAgentRunning = true;
+        }
+      } catch {
+        isActualAgentRunning = false;
+      }
+
+      if (isActualAgentRunning) {
         console.warn(`[Instance] Another Sentrix Agent instance is already running (PID: ${oldPid}). Exiting.`);
         process.exit(0);
-      } catch {
-        // Process is not running (stale lock)
+      } else {
+        // Stale lock with dead or recycled PID - safe to proceed and overwrite
       }
     }
   }

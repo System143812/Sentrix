@@ -20,12 +20,12 @@ export function ScreensPage({ dashboardData }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   const devices = dashboardData?.clients || [
-    { id: "1", hostname: "LAB-PC-01", ip: "192.168.8.101", group: "Lab A", status: "online", activeApp: "Visual Studio Code", fps: 12 },
-    { id: "2", hostname: "LAB-PC-02", ip: "192.168.8.102", group: "Lab A", status: "online", activeApp: "Google Chrome", fps: 15 },
-    { id: "3", hostname: "LAB-PC-03", ip: "192.168.8.103", group: "Lab A", status: "idle", activeApp: "Desktop", fps: 0 },
-    { id: "4", hostname: "LAB-PC-04", ip: "192.168.8.104", group: "Lab B", status: "online", activeApp: "Microsoft Word", fps: 10 },
-    { id: "5", hostname: "LAB-PC-05", ip: "192.168.8.105", group: "Lab B", status: "offline", activeApp: "Offline", fps: 0 },
-    { id: "6", hostname: "LAB-PC-06", ip: "192.168.8.106", group: "Lab B", status: "online", activeApp: "VLC Media Player", fps: 24 },
+    { id: "1", hostname: "LAB-PC-01", ip: "10.98.25.101", group: "Lab A", status: "online", activeApp: "Visual Studio Code", fps: 12 },
+    { id: "2", hostname: "LAB-PC-02", ip: "10.98.25.102", group: "Lab A", status: "online", activeApp: "Google Chrome", fps: 15 },
+    { id: "3", hostname: "LAB-PC-03", ip: "10.98.25.103", group: "Lab A", status: "idle", activeApp: "Desktop", fps: 0 },
+    { id: "4", hostname: "LAB-PC-04", ip: "10.98.25.104", group: "Lab B", status: "online", activeApp: "Microsoft Word", fps: 10 },
+    { id: "5", hostname: "LAB-PC-05", ip: "10.98.25.105", group: "Lab B", status: "offline", activeApp: "Offline", fps: 0 },
+    { id: "6", hostname: "LAB-PC-06", ip: "10.98.25.106", group: "Lab B", status: "online", activeApp: "VLC Media Player", fps: 24 },
   ];
 
   const filteredDevices = devices.filter((device) => {
