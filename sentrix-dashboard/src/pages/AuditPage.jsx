@@ -371,7 +371,7 @@ export function AuditPage({ user }) {
                 <input
                   className="w-full h-11 px-4 rounded-lg border border-slate-200 text-sm font-medium outline-none focus:border-slate-900"
                   placeholder={
-                    newWhitelist.type === "ip" ? "192.168.1.1" : "00:11:22..."
+                    newWhitelist.type === "ip" ? "192.168.8.1" : "00:11:22..."
                   }
                   value={newWhitelist.identifier}
                   onChange={(e) =>

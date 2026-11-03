@@ -68,7 +68,7 @@ vi.mock('../hooks/usePaginationState.js', () => ({
 
 const mockDashboardData = {
   clients: [
-    { id: 1, hostname: 'SENTRIX-PC-01', ip: '192.168.1.10', mac: 'AA:BB:CC', status: 'online', metrics: {} }
+    { id: 1, hostname: 'SENTRIX-PC-01', ip: '192.168.8.10', mac: 'AA:BB:CC', status: 'online', metrics: {} }
   ]
 };
 

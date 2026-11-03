@@ -5,7 +5,7 @@ async function debugDiscovery() {
   console.log("--- Sentrix Discovery Scanner Debug (No DB) ---");
   
   // Manually override subnet for this environment as getLocalSubnet picked the wrong one
-  const subnet = "192.168.1"; 
+  const subnet = "192.168.8"; 
   console.log("Forced Subnet for Debug:", subnet);
 
   const ipAddresses = Array.from({ length: 5 }, (_, index) => `${subnet}.${index + 1}`);
