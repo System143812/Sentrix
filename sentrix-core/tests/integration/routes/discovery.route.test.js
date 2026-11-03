@@ -68,7 +68,7 @@ describe('Discovery Controller (Full Coverage)', () => {
   it('POST /api/discovery/scan', async () => {
     runDiscoveryScan.mockResolvedValue();
     getDiscoverySnapshot.mockReturnValue({ scanning: false, results: [] });
-    const res = await request(app).post('/api/discovery/scan').send({ subnet: '192.168.8' });
+    const res = await request(app).post('/api/discovery/scan').send({ subnet: '10.98.25' });
     expect(res.status).toBe(200);
   });
 
@@ -94,13 +94,13 @@ describe('Discovery Controller (Full Coverage)', () => {
   });
 
   it('POST /api/discovery/deploy (Zero-Touch Update)', async () => {
-    getDiscoverySnapshot.mockReturnValue({ devices: [{ ip: '192.168.8.10', registered_client_id: 'agent-123' }] });
-    getAllClients.mockResolvedValue([{ ip: '192.168.8.10', id: 'agent-123' }]);
+    getDiscoverySnapshot.mockReturnValue({ devices: [{ ip: '10.98.25.10', registered_client_id: 'agent-123' }] });
+    getAllClients.mockResolvedValue([{ ip: '10.98.25.10', id: 'agent-123' }]);
 
     const res = await request(app)
       .post('/api/discovery/deploy')
       .send({
-        ip: '192.168.8.10',
+        ip: '10.98.25.10',
         action: 'update'
       });
 

@@ -3,7 +3,7 @@ import https from 'https';
 const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Ijk5Y2RmZmM2LTQ5YTUtMTFmMS05MzQ0LWI0YjUyZjgyZDgyNSIsImVtYWlsIjoiYWRtaW5AZXhhbXBsZS5jb20iLCJyb2xlIjoibmV0d29ya19hZG1pbiIsImlhdCI6MTc4MTE3MTk0MywiZXhwIjoxNzgxMjAwNzQzfQ.pLj2-93ssqWQnUgsnmtMsdvjD568T-e9ARW276wMP2M";
 
 const data = JSON.stringify({
-  ip: "192.168.8.200",
+  ip: "10.98.25.223",
   credentials: {
     username: "Administrator",
     password: "SentrixLab2024!"

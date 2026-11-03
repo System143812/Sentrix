@@ -220,13 +220,14 @@ Start-Process -FilePath "$helperExe" -WorkingDirectory "$targetPath" -WindowStyl
 
         Unregister-ScheduledTask -TaskName "Sentrix Helper" -Confirm:$false -ErrorAction SilentlyContinue
         schtasks /Create /TN "Sentrix Helper" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcherPath`"" /SC ONLOGON /RU "NT AUTHORITY\INTERACTIVE" /RL HIGHEST /F | Out-Null
-        $runOut = schtasks /Run /TN "Sentrix Helper" 2>&1
-        Log-Message "Sentrix Helper task re-registered and started. Result: $($runOut -join ' ')"
+        Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
+        Log-Message "Sentrix Helper task re-registered and triggered via Scheduled Task."
     }
 } elseif (-not $helperRunning -and (Test-Path $helperExe)) {
-    Log-Message "Sentrix Helper not listening on IPC port 4101. Triggering start via schtasks..."
+    Log-Message "Sentrix Helper not listening on IPC port 4101. Triggering Sentrix Helper task..."
+    Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
     $runOut = schtasks /Run /TN "Sentrix Helper" 2>&1
-    Log-Message "schtasks /Run result: $($runOut -join ' ')"
+    Log-Message "Sentrix Helper start triggered. Result: $($runOut -join ' ')"
 }
 '@
     $watchdogScript | Out-File -FilePath $watchdogFile -Encoding utf8 -Force
