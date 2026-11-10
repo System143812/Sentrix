@@ -40,6 +40,8 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\provisioner.ps1" />
+    <EmbeddedResource Include="Resources\provisioner-config.json" />
+    <EmbeddedResource Include="Resources\remove-sentrix.ps1" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.manifest" />

@@ -3,7 +3,7 @@ import { runMaintenanceAction, MAINTENANCE_COMMANDS } from "./maintenance.js";
 import { exec } from "child_process";
 import fs from "fs";
 
-// Mock child_process.exec
+// Mock child_process.exec and execFile
 vi.mock("child_process", () => ({
   exec: vi.fn((cmd, options, callback) => {
     if (typeof options === "function") {
@@ -11,6 +11,11 @@ vi.mock("child_process", () => ({
     } else {
       callback(null, { stdout: "success", stderr: "" });
     }
+  }),
+  execFile: vi.fn((cmd, args, options, callback) => {
+    const cb = typeof options === "function" ? options : callback;
+    if (cb) cb(null, { stdout: "success", stderr: "" });
+    return {};
   })
 }));
 
@@ -30,7 +35,7 @@ describe("Maintenance Utility", () => {
     delete process.env.SENTRIX_AGENT_DATA_DIR;
   });
 
-  it("should generate a broadcast command that uses EncodedCommand with Acknowledge support", () => {
+  it("should generate a broadcast command that uses EncodedCommand with BurntToast support", () => {
     const text = "Hello Lab";
     const command = MAINTENANCE_COMMANDS["broadcast-message"](text, "");
 
@@ -40,30 +45,19 @@ describe("Maintenance Utility", () => {
     const encodedPart = command.split("-EncodedCommand ")[1];
     const decoded = Buffer.from(encodedPart, "base64").toString("utf16le");
 
-    expect(decoded).toContain("SENTRIX_BROADCAST_MSG");
+    expect(decoded).toContain("New-BurntToastNotification");
     expect(decoded).toContain("Hello Lab");
   });
 
-  it("should generate a broadcast command with specific dataDir", () => {
-    const text = "Hello Lab";
-    const dataDir = "C:\\CustomData";
-    const command = MAINTENANCE_COMMANDS["broadcast-message"](text, dataDir);
-
-    expect(command).toContain("-EncodedCommand");
-    const encodedPart = command.split("-EncodedCommand ")[1];
-    const decoded = Buffer.from(encodedPart, "base64").toString("utf16le");
-    expect(decoded).toContain("broadcast-dialog.ps1");
-  });
-
-  it("should escape single quotes in broadcast messages", () => {
-    const text = "Admin's Message";
-    const dataDir = "C:\\Sentrix";
-    const command = MAINTENANCE_COMMANDS["broadcast-message"](text, dataDir);
+  it("should handle BurntToast module loading and logo paths", () => {
+    const text = "Alert & Warning <test>";
+    const command = MAINTENANCE_COMMANDS["broadcast-message"](text, "");
 
     const encodedPart = command.split("-EncodedCommand ")[1];
     const decoded = Buffer.from(encodedPart, "base64").toString("utf16le");
 
-    expect(decoded).toContain("Admin's Message");
+    expect(decoded).toContain("BurntToast.psd1");
+    expect(decoded).toContain("sentrix-dark.png");
   });
 
   it("should execute a maintenance action successfully", async () => {
@@ -74,14 +68,15 @@ describe("Maintenance Utility", () => {
     expect(exec).toHaveBeenCalled();
   });
 
-  it("should generate workspace-reset command with extended exclusions and graceful close", () => {
+  it("should generate workspace-reset command with extended exclusions, COM Shell explorer folders, and graceful close", () => {
     const cmd = MAINTENANCE_COMMANDS["workspace-reset"];
     const encodedPart = cmd.split("-EncodedCommand ")[1];
     const decoded = Buffer.from(encodedPart, "base64").toString("utf16le");
 
     expect(decoded).toContain("explorer");
-    expect(decoded).toContain("lockapp");
-    expect(decoded).toContain("shlexperiencehost");
+    expect(decoded).toContain("Shell.Application");
+    expect(decoded).toContain("SystemSettings");
+    expect(decoded).toContain("ApplicationFrameHost");
     expect(decoded).toContain("CloseMainWindow");
     expect(decoded).toContain("Start-Sleep");
     expect(decoded).toContain("-notcontains");

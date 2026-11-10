@@ -6,10 +6,9 @@ import {
 } from "../../modules/clients/clients.service.js";
 import { isDeviceAliveInDiscovery } from "../../modules/discovery/discovery.service.js";
 
-const HEARTBEAT_TIMEOUT_MS = Number(process.env.HEARTBEAT_TIMEOUT_MS || 60000);
+const WATCHER_INTERVAL_MS = 30000;
 const REGISTRATION_GRACE_MS = 60000;
 
-const missedChecks = new Map();
 const registrationGracePeriods = new Map();
 
 /**
@@ -18,11 +17,12 @@ const registrationGracePeriods = new Map();
 export function grantRegistrationGrace(clientId) {
   if (!clientId) return;
   registrationGracePeriods.set(clientId, Date.now() + REGISTRATION_GRACE_MS);
-  missedChecks.delete(clientId);
 }
 
 /**
- * Periodically checks for clients that haven't reported in a while and marks them as offline.
+ * Unified watcher for device online/offline status (runs every 30 seconds):
+ * 1. Checks registration grace period (keeps/marks online).
+ * 2. Checks if device is in the last scanned devices (last network scan). If there, mark online, else mark offline.
  */
 export function startOfflineWatcher(io) {
   setInterval(async () => {
@@ -37,49 +37,27 @@ export function startOfflineWatcher(io) {
         const graceUntil = registrationGracePeriods.get(client.id);
         if (graceUntil) {
           if (now < graceUntil) {
-            missedChecks.delete(client.id);
+            if (client.status !== "online") {
+              await markClientOnline(client.id);
+              changed = true;
+            }
             continue;
           } else {
             registrationGracePeriods.delete(client.id);
           }
         }
 
-        const timedOut = now - client.last_seen_at > HEARTBEAT_TIMEOUT_MS;
+        // Check if device is alive in last network scan results
+        const aliveViaDiscovery = await isDeviceAliveInDiscovery(client.ip, client.mac);
 
-        if (timedOut) {
-          // Hybrid Check: If agent heartbeats stopped, check if the physical device
-          // is still confirmed alive in network discovery scan results or direct ping.
-          const aliveViaDiscovery = await isDeviceAliveInDiscovery(client.ip, client.mac);
-
-          if (aliveViaDiscovery) {
-            missedChecks.delete(client.id);
-            if (client.status === "offline") {
-              await markClientOnline(client.id);
-              changed = true;
-            }
-            continue;
-          }
-
-          if (client.status === "offline") {
-            missedChecks.delete(client.id);
-            continue;
-          }
-
-          // Status Dampening: Require 4 consecutive missed checks (~20-25s of confirmed silence)
-          // before marking offline. This prevents false flips during brief reconnect storms.
-          const currentMisses = (missedChecks.get(client.id) || 0) + 1;
-          missedChecks.set(client.id, currentMisses);
-
-          if (currentMisses >= 4) {
-            await markClientOffline(client.id);
-            missedChecks.delete(client.id);
+        if (aliveViaDiscovery) {
+          if (client.status !== "online") {
+            await markClientOnline(client.id);
             changed = true;
           }
         } else {
-          // Reset counter if client is seen
-          missedChecks.delete(client.id);
-          if (client.status === "offline") {
-            await markClientOnline(client.id);
+          if (client.status !== "offline") {
+            await markClientOffline(client.id);
             changed = true;
           }
         }
@@ -89,7 +67,7 @@ export function startOfflineWatcher(io) {
         io.to("dashboards").emit("devices:update", await getClientSummary());
       }
     } catch (error) {
-      console.error("[HEARTBEAT] Error in offline watcher:", error);
+      console.error("[WATCHER] Error in device status watcher:", error);
     }
-  }, 5000);
+  }, WATCHER_INTERVAL_MS);
 }

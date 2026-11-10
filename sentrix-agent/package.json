@@ -1,6 +1,6 @@
 {
   "name": "sentrix-agent",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sentrix device agent for lab computer monitoring.",
   "main": "src/main/main.js",
   "bin": "src/headless.js",

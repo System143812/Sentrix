@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { sendMessage } from "./ipc.js";
+import { getActiveSessionManager } from "../services/session-manager.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -13,17 +14,23 @@ export async function runRemotePowerCommand(command) {
     return { success: false, message: `${command} is only supported on Windows agents.` };
   }
 
-  // Handle lock via IPC helper in Session 1 for interactive session access
+  // Handle lock via IPC helper in interactive session if available
   if (command === "lock") {
-    const ipcPort = Number(process.env.SENTRIX_IPC_PORT || 4101);
-    console.log(`[Power] Attempting delivery of lock command via IPC helper on port ${ipcPort}...`);
-    const success = await sendMessage(ipcPort, { type: "lock" });
+    const sm = getActiveSessionManager();
+    const endpoints = sm ? sm.getActiveHelperEndpoints() : [];
 
-    if (success) {
-      console.log(`[Power] SUCCESS: Lock command delivered via helper process.`);
-      return { success: true, message: "Workstation lock command delivered via helper process." };
+    if (endpoints.length > 0) {
+      console.log(`[Power] Attempting delivery of lock command to ${endpoints.length} active helper session(s)...`);
+      const results = await Promise.allSettled(
+        endpoints.map(ep => sendMessage(ep.port, { type: "lock" }))
+      );
+      const successCount = results.filter(r => r.status === "fulfilled" && r.value && r.value.success).length;
+      if (successCount > 0) {
+        console.log(`[Power] SUCCESS: Lock command delivered to ${successCount} helper process(es).`);
+        return { success: true, message: "Workstation lock command delivered via helper process(es)." };
+      }
     }
-    console.warn(`[Power] Helper not responding on port ${ipcPort}. Falling back to direct execution.`);
+    console.warn(`[Power] No active session helpers responding. Falling back to direct execution (Session 0).`);
   }
 
   const commands = {
@@ -31,7 +38,6 @@ export async function runRemotePowerCommand(command) {
     restart: ["shutdown.exe", ["/r", "/t", "0"]],
     sleep: ["rundll32.exe", ["powrprof.dll,SetSuspendState", "0,1,0"]],
     lock: ["rundll32.exe", ["user32.dll,LockWorkStation"]],
-    update: ["UsoClient.exe", ["StartScan"]],
   };
 
   const [binary, args] = commands[command] || [];
@@ -45,6 +51,10 @@ export async function runRemotePowerCommand(command) {
       timeout: 10000,
       windowsHide: true,
     });
+
+    if (command === "lock") {
+      return { success: true, message: "Workstation lock executed via direct fallback (Session 0)." };
+    }
 
     return { success: true, message: `${command} command accepted.` };
   } catch (error) {

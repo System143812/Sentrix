@@ -4,7 +4,6 @@ import {
   RotateCw,
   Moon,
   Lock,
-  ArrowUpCircle,
   Zap,
   Trash2,
   Clock as ClockIcon,
@@ -29,7 +28,6 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
     { id: "restart", label: "Restart", icon: RotateCw, hoverTone: "group-hover:text-amber-500", description: "Restart this device" },
     { id: "sleep", label: "Sleep", icon: Moon, hoverTone: "group-hover:text-blue-500", description: "Put this device to sleep" },
     { id: "lock", label: "Lock", icon: Lock, hoverTone: "group-hover:text-slate-900", description: "Lock the active session" },
-    { id: "update", label: "Update", icon: ArrowUpCircle, hoverTone: "group-hover:text-emerald-500", description: "Start Windows Update scan" },
   ];
 
   const utilityShortcuts = [
@@ -47,7 +45,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
   async function handleCommand(targetDevices, command, payload = {}) {
     setLoadingCommand(command);
     const count = targetDevices.length;
-    
+
     if (count > 1) {
       setCommandStatus(`Executing ${command} on ${count} devices...`);
     } else {
@@ -56,6 +54,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
 
     let successCount = 0;
     let failCount = 0;
+    let lastErrorMessage = "";
 
     for (const d of targetDevices) {
       try {
@@ -66,12 +65,18 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
         }
       } catch (error) {
         failCount++;
+        const rawMsg = error?.message || "Failed to send command.";
+        lastErrorMessage = rawMsg.toLowerCase().includes("offline")
+          ? "Agent is offline. Please try again later."
+          : rawMsg;
       }
     }
 
-    const finalMsg = count > 1 
+    const finalMsg = count > 1
       ? `Batch finished: ${successCount} successful, ${failCount} failed.`
-      : successCount > 0 ? `${command.charAt(0).toUpperCase() + command.slice(1)} command sent.` : `Unable to send ${command}.`;
+      : successCount > 0
+        ? `${command.charAt(0).toUpperCase() + command.slice(1)} command sent.`
+        : lastErrorMessage;
 
     setCommandStatus(finalMsg);
     notify(finalMsg, failCount === 0 ? "success" : "failed");

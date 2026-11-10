@@ -203,11 +203,13 @@ describe("Security service hardware identity", () => {
       .update(JSON.stringify(signed.data) + now)
       .digest("hex");
 
-    expect(signed).toEqual({
-      data: { command: "restart", args: { senderRole: "admin" } },
-      hmac: expectedHmac,
-      timestamp: now,
+    expect(signed.data).toEqual({
+      command: "restart",
+      args: { senderRole: "admin" },
+      commandId: expect.any(String),
     });
+    expect(signed.hmac).toBe(expectedHmac);
+    expect(signed.timestamp).toBe(now);
     expect(SecurityRepository.findClientHardwareFingerprint).toHaveBeenCalledWith(
       "agent-123",
       { includeArchived: false },

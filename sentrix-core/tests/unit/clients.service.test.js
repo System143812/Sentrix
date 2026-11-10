@@ -41,11 +41,9 @@ describe("Client Services - touchClientHeartbeat", () => {
     expect(processIncomingMetrics).not.toHaveBeenCalled();
     expect(ClientRepository.updateStatus).toHaveBeenCalledWith(
       mockId,
-      "online",
       expect.any(Number),
       null
     );
-    expect(recordUptimeStatus).toHaveBeenCalledWith(mockId, "online", expect.any(Number));
   });
 
   it("should normalize and update metrics if heartbeat DOES have telemetry", async () => {
@@ -69,7 +67,6 @@ describe("Client Services - touchClientHeartbeat", () => {
     expect(processIncomingMetrics).toHaveBeenCalledWith(mockId, telemetryHeartbeat, expect.any(Number));
     expect(ClientRepository.updateStatus).toHaveBeenCalledWith(
       mockId,
-      "online",
       expect.any(Number),
       mockNormalized
     );

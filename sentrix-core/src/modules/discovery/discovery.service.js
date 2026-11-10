@@ -61,21 +61,25 @@ export function setPreferredSubnet(subnet) {
 }
 
 export async function isDeviceAliveInDiscovery(ip, mac = null) {
-  if (ip && lastScanResults.has(ip)) {
+  const device = ip ? lastScanResults.get(ip) : null;
+  const STALE_THRESHOLD_MS = 300000; // 5 minutes
+  const now = Date.now();
+
+  if (device && (now - (device.last_seen || 0) < STALE_THRESHOLD_MS)) {
     return true;
   }
   if (mac) {
     const normMac = normalizeMac(mac);
     if (normMac && normMac !== "UNKNOWN") {
-      for (const device of lastScanResults.values()) {
-        if (normalizeMac(device.mac) === normMac) {
+      for (const d of lastScanResults.values()) {
+        if (normalizeMac(d.mac) === normMac && (now - (d.last_seen || 0) < STALE_THRESHOLD_MS)) {
           return true;
         }
       }
     }
   }
 
-  // If network scan results have been populated, but the device is not found in them,
+  // If network scan results have been populated, but the device is not found or stale,
   // do not fallback to direct pings which can falsely keep dead/stale IPs online.
   if (lastScanResults.size > 0) {
     return false;
@@ -194,36 +198,57 @@ function getAgentStateForDevice(
   deploymentRecord = null,
 ) {
   const deployEligible = canDeployAgent(device.device_type);
-  const HEARTBEAT_FRESHNESS_MS = 60000; // 60 seconds threshold
+  const HEARTBEAT_FRESHNESS_MS = 30000; // 30 seconds threshold (matches heartbeat timeout)
   const now = Date.now();
 
-  // Check database processing status first
+  // 1. Check database processing status first (Source of Truth for deployment/updates)
   if (deploymentRecord && Number(deploymentRecord.is_processing) === 1) {
     const isUpdate = deploymentRecord.operation === "update";
-    const TIMEOUT_MS = isUpdate ? 60000 : 90000;
+    const TIMEOUT_MS = 300000; // 5 minutes grace period for both deploy and update
     if (now - deploymentRecord.updated_at < TIMEOUT_MS) {
       return {
         agent_status: isUpdate ? "updating" : "deploying",
         deployment_action: isUpdate ? "updating" : "deploying",
-        registered_client_id: registeredClient?.id || null,
+        registered_client_id: registeredClient?.id || deploymentRecord.registered_client_id || null,
         last_agent_seen_at: registeredClient?.lastSeenAt || registeredClient?.last_agent_seen_at || null,
         deploy_eligible: deployEligible,
       };
     } else {
-      // Timeout exceeded: clear processing in DB
+      // Timeout exceeded (5 minutes passed with no restart/registration): clear processing in DB
       DiscoveryRepository.clearProcessingByIp(deploymentRecord.ip, "timeout", now).catch(() => {});
+
+      // Fallback after 5 min grace time:
+      // If agent is still running (registeredClient online / fresh heartbeat -> agent didn't restart at all and nothing happened), return "running".
+      // Else (agent crashed, turned off, or never deployed), return "none" (no agent).
+      if (registeredClient) {
+        const lastSeen = registeredClient.lastSeenAt || registeredClient.last_agent_seen_at || 0;
+        const isHeartbeatFresh = registeredClient.status === "online" && (now - lastSeen <= HEARTBEAT_FRESHNESS_MS);
+        return {
+          agent_status: isHeartbeatFresh ? "running" : "none",
+          deployment_action: isUpdate ? "update" : (deployEligible ? "deploy" : "not_eligible"),
+          registered_client_id: registeredClient.id,
+          last_agent_seen_at: lastSeen || null,
+          deploy_eligible: true,
+        };
+      } else {
+        return {
+          agent_status: "none",
+          deployment_action: deployEligible ? "deploy" : "not_eligible",
+          registered_client_id: null,
+          last_agent_seen_at: null,
+          deploy_eligible: deployEligible,
+        };
+      }
     }
   }
 
-  const lastSeen =
-    registeredClient?.lastSeenAt || registeredClient?.last_agent_seen_at || 0;
-  const isHeartbeatFresh =
-    registeredClient?.status === "online" &&
-    now - lastSeen <= HEARTBEAT_FRESHNESS_MS;
+  // 2. If a registered client exists, an agent is installed on this device
+  if (registeredClient) {
+    const lastSeen = registeredClient.lastSeenAt || registeredClient.last_agent_seen_at || 0;
+    const isHeartbeatFresh = registeredClient.status === "online" && (now - lastSeen <= HEARTBEAT_FRESHNESS_MS);
 
-  if (isHeartbeatFresh) {
     return {
-      agent_status: "running",
+      agent_status: isHeartbeatFresh ? "running" : "none",
       deployment_action: "update",
       registered_client_id: registeredClient.id,
       last_agent_seen_at: lastSeen || null,
@@ -231,6 +256,7 @@ function getAgentStateForDevice(
     };
   }
 
+  // 3. No agent registered and no deployment in progress
   return {
     agent_status: "none",
     deployment_action: deployEligible ? "deploy" : "not_eligible",
@@ -405,12 +431,10 @@ export async function scanLocalNetwork(targetSubnet = null) {
         }
       }
 
-      const registeredClientBeforeAlive = registeredClient;
       const isAlive =
         nmapDevice ||
         mac !== "Unknown" ||
-        openPorts.length > 0 ||
-        Boolean(registeredClientBeforeAlive);
+        openPorts.length > 0;
       if (!isAlive) return null;
 
       const effectiveMac =
@@ -474,6 +498,7 @@ export async function scanLocalNetwork(targetSubnet = null) {
         device_kind,
         gateway,
         open_ports: openPorts,
+        last_seen: Date.now(),
         ...getAgentStateForDevice(
           { device_type },
           registeredClient,
@@ -518,6 +543,7 @@ export async function scanLocalNetwork(targetSubnet = null) {
         device_kind: "Management Server",
         gateway: false,
         open_ports: [Number(process.env.PORT || 4000)],
+        last_seen: Date.now(),
         ...getAgentStateForDevice(
           { device_type: "Server" },
           registeredClient,
@@ -532,11 +558,10 @@ export async function scanLocalNetwork(targetSubnet = null) {
 
   await saveScanResultsToDb(discoveredDevices);
 
-  // Sync client statuses based on network scan results (Network-Scan-Driven Device Status)
+  // Sync client statuses and fast-TTL purge stale network devices
   try {
     const { getAllClients, markClientOnline, markClientOffline } = await import("../clients/clients.service.js");
     const registeredClients = await getAllClients();
-    const missedScansMap = global.missedScansMap || (global.missedScansMap = new Map());
 
     const scannedIps = new Set(discoveredDevices.map(d => d.ip));
     const scannedMacs = new Set(discoveredDevices.map(d => normalizeMac(d.mac)).filter(m => m && m !== "UNKNOWN"));
@@ -548,22 +573,34 @@ export async function scanLocalNetwork(targetSubnet = null) {
         (clientMacNorm && clientMacNorm !== "UNKNOWN" && scannedMacs.has(clientMacNorm));
 
       if (isFound) {
-        missedScansMap.delete(client.id);
         if (client.status === "offline") {
           await markClientOnline(client.id);
         }
       } else {
-        const misses = (missedScansMap.get(client.id) || 0) + 1;
-        missedScansMap.set(client.id, misses);
-
-        if (misses >= 2 && client.status === "online") {
+        // Not found in scan — mark offline immediately and remove from discovery
+        if (client.status === "online") {
           await markClientOffline(client.id);
-          missedScansMap.delete(client.id);
+        }
+        if (client.ip) {
+          lastScanResults.delete(client.ip);
+          await DiscoveryRepository.deleteScanResultByIp(client.ip).catch(() => {});
         }
       }
     }
+
+    // Purge stale unmanaged discovery scan results older than 60 seconds (Fast TTL)
+    const STALE_THRESHOLD_MS = 60000; // 1 minute
+    const now = Date.now();
+    for (const [ip, device] of lastScanResults.entries()) {
+      if (now - (device.last_seen || 0) > STALE_THRESHOLD_MS) {
+        lastScanResults.delete(ip);
+        await DiscoveryRepository.deleteScanResultByIp(ip).catch(() => {});
+      }
+    }
+    await DiscoveryRepository.deleteStaleScanResults(now - STALE_THRESHOLD_MS).catch(() => {});
+
   } catch (err) {
-    console.warn("[Discovery] Failed to sync client statuses from scan results:", err.message);
+    console.warn("[Discovery] Failed to sync client statuses / prune stale devices:", err.message);
   }
 
   updateSnapshot({

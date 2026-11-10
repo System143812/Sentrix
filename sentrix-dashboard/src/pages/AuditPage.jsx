@@ -57,7 +57,7 @@ const getActionColor = (action = "") => {
 export function AuditPage({ user }) {
   const [activeTab, setActiveTab] = useState("logs");
   const [logs, setLogs] = useState([]);
-  
+
   const availableTabs = useMemo(() => {
     const tabs = [{ id: "logs", label: "Logs", icon: ClipboardList }];
     if (user?.role === "network_admin") {
@@ -264,7 +264,10 @@ export function AuditPage({ user }) {
 
     socket.on("audit:new", (newLog) => {
       // Role-based filtering for real-time updates
-      if (user?.role === "admin" && !["login_success", "login_failed", "logout"].includes(newLog.action)) {
+      if (
+        user?.role === "admin" &&
+        !["login_success", "login_failed", "logout"].includes(newLog.action)
+      ) {
         return;
       }
 
@@ -371,7 +374,7 @@ export function AuditPage({ user }) {
                 <input
                   className="w-full h-11 px-4 rounded-lg border border-slate-200 text-sm font-medium outline-none focus:border-slate-900"
                   placeholder={
-                    newWhitelist.type === "ip" ? "10.98.25.1" : "00:11:22..."
+                    newWhitelist.type === "ip" ? "192.168.1.1" : "00:11:22..."
                   }
                   value={newWhitelist.identifier}
                   onChange={(e) =>
@@ -423,8 +426,8 @@ export function AuditPage({ user }) {
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 This will add the device to the{" "}
-                <span className="font-semibold">Security Perimeter</span> and permanently block all
-                API access until manually unblocked.
+                <span className="font-semibold">Security Perimeter</span> and
+                permanently block all API access until manually unblocked.
               </p>
             </div>
             <button
@@ -503,19 +506,26 @@ export function AuditPage({ user }) {
                 {activeTab === "whitelist" ? (
                   <>
                     Are you sure you want to remove{" "}
-                    <span className="font-semibold">{pendingRevoke?.label}</span> from the trusted
-                    fleet?
+                    <span className="font-semibold">
+                      {pendingRevoke?.label}
+                    </span>{" "}
+                    from the trusted fleet?
                   </>
                 ) : activeTab === "perimeter" ? (
                   <>
                     Are you sure you want to unblock{" "}
-                    <span className="font-semibold">{pendingRevoke?.label}</span> from the security
-                    perimeter?
+                    <span className="font-semibold">
+                      {pendingRevoke?.label}
+                    </span>{" "}
+                    from the security perimeter?
                   </>
                 ) : (
                   <>
                     Are you sure you want to restore access for{" "}
-                    <span className="font-semibold">{pendingRevoke?.label}</span>?
+                    <span className="font-semibold">
+                      {pendingRevoke?.label}
+                    </span>
+                    ?
                   </>
                 )}
               </p>
@@ -714,7 +724,7 @@ export function AuditPage({ user }) {
           <div
             className="absolute h-[calc(100%-8px)] rounded-md bg-slate-900 transition-all duration-300 ease-in-out shadow-sm"
             style={{
-              left: `calc(8px + ${availableTabs.findIndex(t => t.id === activeTab)} * (100% - 8px) / ${availableTabs.length})`,
+              left: `calc(8px + ${availableTabs.findIndex((t) => t.id === activeTab)} * (100% - 8px) / ${availableTabs.length})`,
               width: `calc((100% - 8px) / ${availableTabs.length} - 8px)`,
             }}
           />
@@ -724,10 +734,10 @@ export function AuditPage({ user }) {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`relative z-10 flex flex-1 items-center justify-center gap-2 h-9 px-3 rounded-md text-xs font-semibold tracking-tight transition-all duration-200 whitespace-nowrap ${
-                              activeTab === tab.id
-                                ? "text-white"
-                                : "text-slate-500 hover:text-slate-800"
-                            }`}
+                activeTab === tab.id
+                  ? "text-white"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
             >
               <tab.icon size={14} strokeWidth={1.5} className="shrink-0" />
               <span className="hidden md:inline">{tab.label}</span>
@@ -770,16 +780,20 @@ export function AuditPage({ user }) {
         <div className="overflow-x-auto">
           {activeTab === "logs" ? (
             <>
-              <div className={`hidden lg:grid gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100 min-w-[1000px] ${
-                user?.role === "network_admin"
-                  ? "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px]"
-                  : "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr]"
-              }`}>
+              <div
+                className={`hidden lg:grid gap-6 bg-slate-50/50 px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100 min-w-[1000px] ${
+                  user?.role === "network_admin"
+                    ? "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr_130px]"
+                    : "grid-cols-[1.2fr_1.2fr_1.2fr_1.1fr]"
+                }`}
+              >
                 <div>Log Activity</div>
                 <div>Actor & Entity</div>
                 <div>Asset Context</div>
                 <div>Network Origin</div>
-                {user?.role === 'network_admin' && <div className="text-right">Authority</div>}
+                {user?.role === "network_admin" && (
+                  <div className="text-right">Authority</div>
+                )}
               </div>
               <div className="divide-y divide-slate-100">
                 {paginatedLogs.length ? (
@@ -804,7 +818,10 @@ export function AuditPage({ user }) {
                           </span>
                         </div>
                         <div className="mt-2 flex items-center gap-2 text-slate-500 lg:mt-0">
-                          <Clock size={12} className="shrink-0 text-slate-300" />
+                          <Clock
+                            size={12}
+                            className="shrink-0 text-slate-300"
+                          />
                           <p className="text-xs font-medium tabular-nums">
                             {log.createdAt
                               ? new Date(Number(log.createdAt)).toLocaleString()
@@ -874,7 +891,7 @@ export function AuditPage({ user }) {
                       </div>
 
                       {/* 5. Actions */}
-                      {user?.role === 'network_admin' && (
+                      {user?.role === "network_admin" && (
                         <div className="flex items-center justify-between border-t border-slate-50 pt-5 lg:justify-end lg:border-0 lg:pt-0">
                           <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
                             Authority
@@ -1058,7 +1075,10 @@ export function AuditPage({ user }) {
                           Event Timestamp
                         </span>
                         <div className="flex items-center gap-2 text-slate-500">
-                          <Clock size={12} className="shrink-0 text-slate-300" />
+                          <Clock
+                            size={12}
+                            className="shrink-0 text-slate-300"
+                          />
                           <p className="text-xs font-medium tabular-nums">
                             {new Date(
                               Number(subject.recorded_at),
@@ -1078,7 +1098,8 @@ export function AuditPage({ user }) {
                         </span>
                         <button
                           className={`inline-flex h-9 items-center gap-2 rounded-lg border px-4 text-[10px] font-semibold uppercase tracking-wider transition-all active:scale-[0.97] ${
-                            activeTab === "whitelist" || activeTab === "perimeter"
+                            activeTab === "whitelist" ||
+                            activeTab === "perimeter"
                               ? "border-rose-100 bg-rose-50 text-rose-600 shadow-sm shadow-rose-600/5 hover:bg-rose-100 hover:border-rose-200"
                               : "border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm shadow-emerald-600/5 hover:bg-emerald-100 hover:border-emerald-200"
                           }`}
@@ -1117,7 +1138,8 @@ export function AuditPage({ user }) {
                             : "bg-amber-50 text-amber-200"
                       }`}
                     >
-                      {activeTab === "whitelist" || activeTab === "perimeter" ? (
+                      {activeTab === "whitelist" ||
+                      activeTab === "perimeter" ? (
                         <ShieldBan size={28} />
                       ) : (
                         <CheckCircle2 size={28} />

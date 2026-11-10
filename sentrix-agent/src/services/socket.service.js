@@ -3,7 +3,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { exec, spawn } from "child_process";
+import { exec } from "child_process";
 import https from "https";
 import http from "http";
 import { killProcess } from "./metrics/processes.service.js";
@@ -11,6 +11,7 @@ import { runRemotePowerCommand } from "../utils/power.js";
 import { runMaintenanceAction } from "../utils/maintenance.js";
 import { getHardwareFingerprint } from "./metrics.service.js";
 import { generateTraceId, traceLog } from "../utils/tracing.js";
+import { discoverServerByMac, updateEnvServerUrl, saveServerMac } from "./server-discovery.js";
 
 const COMMAND_SIGNATURE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -58,7 +59,40 @@ export function connectToCore({
   let lastMetricsPacket = null;
   let lastHeartbeatPacket = null;
   let secureKey = null; // The hardware-bound HMAC key received after registration
+  let isRegistered = false; // State flag: true only after successful registration handshake with secureKey
   let isOffline = false; // Debounce: track whether we already reported offline
+  let isClosed = false; // State flag: true after close() is called
+  let connectionGeneration = 0; // Incremented on connect and disconnect to prevent stale registration callback races
+  let discoveryInProgress = false;
+  let currentDiscoveryTimer = null;
+  let registrationAttempts = 0;
+  const MAX_REGISTRATION_RETRIES = 3;
+  let currentRetryTimer = null;
+  let currentRegTimeout = null;
+
+  // NOTE: Replay cache is in-memory and does not survive agent restarts.
+  // Core must ensure unique commandIds and avoid resending commands across agent lifecycle boundaries.
+  const processedCommandIds = new Map();
+
+  let caCerts = undefined;
+  const certPath = path.join(runtimeDir, "server.crt");
+  if (fs.existsSync(certPath)) {
+    try {
+      caCerts = [fs.readFileSync(certPath)];
+      console.log("[Socket] Loaded trusted Core certificate (server.crt) for TLS verification.");
+    } catch (err) {
+      console.warn("[Socket] Failed to load local server.crt:", err.message);
+    }
+  }
+
+  const rejectUnauthorized = process.env.NODE_ENV === "production" ? true : (process.env.SENTRIX_VERIFY_SSL !== "false");
+
+  const agent = new https.Agent({
+    ca: caCerts,
+    rejectUnauthorized,
+  });
+
+  console.log(`[Socket] Initializing Socket.IO client connection to serverUrl="${serverUrl}", agentId="${profile.agentId}", rejectUnauthorized=${rejectUnauthorized}, hasTrustedCert=${Boolean(caCerts)}`);
 
   const socket = io(serverUrl, {
     query: {
@@ -74,14 +108,15 @@ export function connectToCore({
     reconnectionDelay: 1000,
     reconnectionDelayMax: 10000,
     timeout: 10000,
-    rejectUnauthorized: false, // Required for self-signed development certificates
+    rejectUnauthorized,
+    agent,
   });
 
   /**
    * Signs a data packet with an HMAC signature using the secure hardware key.
    */
   function signPacket(data) {
-    if (!secureKey) return data; // Cannot sign if not yet registered/bound
+    if (!isRegistered || !secureKey) return data;
 
     const timestamp = Date.now();
     const payload = JSON.stringify(data) + timestamp;
@@ -97,8 +132,7 @@ export function connectToCore({
    * Helper to emit signed packets with optional tracing.
    */
   function emitSigned(event, payload, callback) {
-    if (!secureKey) {
-      // Cannot emit signed packets before registration and secureKey exchange complete.
+    if (isClosed || !isRegistered || !secureKey) {
       return;
     }
     if (socket.connected) {
@@ -107,6 +141,7 @@ export function connectToCore({
       traceLog(traceId, "Agent", `Emit ${event}`, { agentId: profile.agentId });
 
       socket.emit(event, signPacket(tracedPayload), (res) => {
+        if (isClosed) return;
         traceLog(traceId, "Agent", `Ack ${event}`, res || {});
         callback?.(res);
       });
@@ -116,35 +151,55 @@ export function connectToCore({
   function verifyCommandPayload(payload = {}) {
     const { data, hmac, timestamp } = payload;
 
-    if (!data || !hmac || !timestamp) {
-      console.warn(
-        "[Socket] Verify command failed: missing data, hmac, or timestamp.",
-        { hasData: !!data, hasHmac: !!hmac, hasTimestamp: !!timestamp },
-      );
+    const numTimestamp = Number(timestamp);
+    if (!data || !hmac || typeof timestamp !== "number" || !Number.isFinite(numTimestamp)) {
       return {
         success: false,
-        message: "Signed command required.",
+        message: "Signed command required with valid numeric timestamp.",
       };
     }
 
-    if (!secureKey) {
-      console.warn(
-        "[Socket] Verify command failed: secureKey is not available on agent.",
-      );
+    if (!isRegistered || !secureKey) {
       return {
         success: false,
         message: "Secure command key is not available.",
       };
     }
 
-    const timeDiff = Math.abs(Date.now() - Number(timestamp));
+    const timeDiff = Math.abs(Date.now() - numTimestamp);
     if (timeDiff > COMMAND_SIGNATURE_WINDOW_MS) {
-      console.warn(
-        `[Socket] Verify command failed: signature expired (timeDiff: ${timeDiff}ms, window: ${COMMAND_SIGNATURE_WINDOW_MS}ms).`,
-      );
       return {
         success: false,
         message: "Command signature expired.",
+      };
+    }
+
+    const { commandId } = data;
+    if (!commandId || typeof commandId !== "string") {
+      return {
+        success: false,
+        message: "Command ID (nonce) required.",
+      };
+    }
+
+    // Replay protection cache maintenance & check
+    const now = Date.now();
+    for (const [id, ts] of processedCommandIds.entries()) {
+      if (now - ts > COMMAND_SIGNATURE_WINDOW_MS * 2) {
+        processedCommandIds.delete(id);
+      }
+    }
+    if (processedCommandIds.has(commandId)) {
+      return {
+        success: false,
+        message: "Duplicate command ID (replay detected).",
+      };
+    }
+
+    if (processedCommandIds.size >= 1000) {
+      return {
+        success: false,
+        message: "Command replay cache capacity exceeded.",
       };
     }
 
@@ -159,26 +214,57 @@ export function connectToCore({
       actualBuffer.length !== expectedBuffer.length ||
       !crypto.timingSafeEqual(actualBuffer, expectedBuffer)
     ) {
-      console.warn("[Socket] Verify command failed: HMAC signature mismatch.");
       return {
         success: false,
         message: "Command signature verification failed.",
       };
     }
 
+    // Record commandId ONLY after successful HMAC verification and before execution
+    processedCommandIds.set(commandId, now);
+
     return { success: true, data };
   }
 
-  // --- Socket Events ---
+  function safeCallback(callback, result) {
+    try {
+      callback?.(result);
+    } catch (cbErr) {
+      console.error("[Socket] Error in command callback invocation:", cbErr.message);
+    }
+  }
 
-  socket.on("connect", async () => {
-    console.log("[Socket] Connected to core. Performing security handshake...");
+  async function performRegistrationSequence(capturedGeneration) {
+    if (isClosed || connectionGeneration !== capturedGeneration || !socket.connected) return;
 
-    // 1. Calculate Hardware Fingerprint
-    const fingerprint = await getHardwareFingerprint();
+    let fingerprint;
+    try {
+      fingerprint = await getHardwareFingerprint();
+    } catch (err) {
+      console.error(`[Socket] Failed to acquire hardware fingerprint (attempt ${registrationAttempts + 1}):`, err.message);
+      handleRegistrationFailureOrRetry(capturedGeneration, err.message);
+      return;
+    }
+
+    if (isClosed || connectionGeneration !== capturedGeneration || !socket.connected) return;
+
     const provisioningToken = process.env.SENTRIX_PROVISIONING_TOKEN || null;
+    let registrationTimedOut = false;
 
-    // 2. Perform Registration Handshake
+    if (currentRegTimeout) {
+      clearTimeout(currentRegTimeout);
+      currentRegTimeout = null;
+    }
+
+    currentRegTimeout = setTimeout(() => {
+      registrationTimedOut = true;
+      currentRegTimeout = null;
+      console.error(`[Socket] Registration handshake timed out (attempt ${registrationAttempts + 1}).`);
+      handleRegistrationFailureOrRetry(capturedGeneration, "Registration timeout");
+    }, 10000);
+
+    console.log(`[Socket] Emitting agent:register for agentId="${profile.agentId}" (fingerprint acquired successfully, tokenPresent=${Boolean(provisioningToken)})`);
+
     socket.emit(
       "agent:register",
       {
@@ -187,46 +273,198 @@ export function connectToCore({
         provisioningToken,
       },
       (response) => {
-        if (response?.success) {
+        if (registrationTimedOut || isClosed || connectionGeneration !== capturedGeneration || !socket.connected) return;
+        if (currentRegTimeout) {
+          clearTimeout(currentRegTimeout);
+          currentRegTimeout = null;
+        }
+
+        console.log(`[Socket] agent:register response received: success=${response?.success}, message="${response?.message || 'none'}", secureKeyPresent=${Boolean(response?.secureKey)}, serverMac="${response?.serverMac || 'none'}"`);
+
+        const validKey = response?.secureKey && typeof response.secureKey === "string" && response.secureKey.length > 0;
+        if (response?.success && validKey) {
           console.log("[Socket] Registration successful.");
-          if (response.secureKey) {
-            secureKey = response.secureKey;
-            console.log("[Socket] Hardware bound and HMAC signing enabled.");
-            clearProvisioningToken();
+          secureKey = response.secureKey;
+          isRegistered = true;
+          registrationAttempts = 0;
+          console.log("[Socket] Hardware bound and HMAC signing enabled.");
+          clearProvisioningToken();
+
+          if (response.serverMac) {
+            try {
+              saveServerMac(runtimeEnvPath, response.serverMac);
+            } catch (macErr) {
+              console.warn(`[Socket] Failed to save server MAC: ${macErr.message}`);
+            }
           }
 
-          // Resend last known packets (now signed)
+          // Emit cached packets now that registration is confirmed
           if (lastMetricsPacket) emitSigned("agent:metrics", lastMetricsPacket);
-          if (lastHeartbeatPacket)
-            emitSigned("agent:heartbeat", lastHeartbeatPacket);
+          if (lastHeartbeatPacket) emitSigned("agent:heartbeat", lastHeartbeatPacket);
+
+          onStatus?.({ connection: "online", profile, serverUrl });
+          isOffline = false;
         } else {
           console.error(
             "[Socket] Registration failed:",
             response?.message || "Unknown error",
           );
+          handleRegistrationFailureOrRetry(capturedGeneration, response?.message || "Registration rejected");
         }
       },
     );
+  }
 
-    onStatus?.({ connection: "online", profile, serverUrl });
-    isOffline = false; // We're back online — reset the debounce flag
+  function handleRegistrationFailureOrRetry(capturedGeneration, reason) {
+    isRegistered = false;
+    secureKey = null;
+
+    if (isClosed || connectionGeneration !== capturedGeneration || !socket.connected) return;
+
+    if (registrationAttempts < MAX_REGISTRATION_RETRIES) {
+      registrationAttempts++;
+      const backoffMs = Math.min(2000 * Math.pow(2, registrationAttempts - 1), 15000);
+      console.log(`[Socket] Retrying registration in ${backoffMs}ms (attempt ${registrationAttempts}/${MAX_REGISTRATION_RETRIES})...`);
+
+      currentRetryTimer = setTimeout(() => {
+        currentRetryTimer = null;
+        performRegistrationSequence(capturedGeneration);
+      }, backoffMs);
+    } else {
+      console.error("[Socket] Max registration retries reached. Waiting for reconnect or next connection cycle.");
+    }
+  }
+
+  // --- Socket Events ---
+
+  socket.on("connect", async () => {
+    if (isClosed) return;
+    connectionGeneration++;
+    const capturedGeneration = connectionGeneration;
+    registrationAttempts = 0;
+    if (currentRetryTimer) {
+      clearTimeout(currentRetryTimer);
+      currentRetryTimer = null;
+    }
+    if (currentRegTimeout) {
+      clearTimeout(currentRegTimeout);
+      currentRegTimeout = null;
+    }
+
+    console.log("[Socket] Connected to core. Performing security handshake...");
+    await performRegistrationSequence(capturedGeneration);
   });
 
   socket.on("disconnect", () => {
+    connectionGeneration++;
+    isRegistered = false;
+    secureKey = null;
+    if (currentRetryTimer) {
+      clearTimeout(currentRetryTimer);
+      currentRetryTimer = null;
+    }
+    if (currentRegTimeout) {
+      clearTimeout(currentRegTimeout);
+      currentRegTimeout = null;
+    }
     if (!isOffline) {
       isOffline = true;
       onStatus?.({ connection: "offline", profile, serverUrl });
     }
   });
 
-  socket.on("connect_error", () => {
+  socket.on("server:ip-changed", async ({ serverUrl: newServerUrl }) => {
+    if (isClosed) return;
+    if (newServerUrl && newServerUrl !== serverUrl) {
+      console.log(`[Socket] Received server IP change push: -> ${newServerUrl}`);
+      updateEnvServerUrl(runtimeEnvPath, newServerUrl);
+      serverUrl = newServerUrl;
+      socket.io.uri = newServerUrl;
+      socket.connect();
+    }
+  });
+
+  let consecutiveErrors = 0;
+  let discoveryAttempts = 0;
+  const DISCOVERY_TRIGGER_THRESHOLD = 3;
+  const MAX_DISCOVERY_ATTEMPTS = 10;
+  const DISCOVERY_BACKOFF_BASE_MS = 30000;
+
+  socket.on("connect_error", async (err) => {
+    if (isClosed) return;
+    console.error(`[Socket] Connection error encountered on serverUrl="${serverUrl}": message="${err.message}", type="${err.type || 'unknown'}", description="${err.description || 'none'}", consecutiveErrors=${consecutiveErrors + 1}`);
+
     if (!isOffline) {
       isOffline = true;
       onStatus?.({ connection: "offline", profile, serverUrl });
+    }
+
+    consecutiveErrors++;
+
+    if (consecutiveErrors < DISCOVERY_TRIGGER_THRESHOLD || discoveryInProgress || isClosed) return;
+    if (discoveryAttempts >= MAX_DISCOVERY_ATTEMPTS) {
+      if ((consecutiveErrors - DISCOVERY_TRIGGER_THRESHOLD) % (MAX_DISCOVERY_ATTEMPTS * 5) !== 0) return;
+    }
+
+    const serverMac = process.env.SENTRIX_SERVER_MAC;
+    if (!serverMac) {
+      return;
+    }
+
+    const backoffMs = Math.min(
+      DISCOVERY_BACKOFF_BASE_MS * Math.pow(2, Math.min(discoveryAttempts, 6)),
+      5 * 60 * 1000
+    );
+
+    discoveryInProgress = true;
+
+    if (discoveryAttempts > 0) {
+      const backoffPromise = new Promise((resolve) => {
+        currentDiscoveryTimer = setTimeout(resolve, backoffMs);
+      });
+      try {
+        await backoffPromise;
+      } catch {
+        discoveryInProgress = false;
+        return;
+      }
+      currentDiscoveryTimer = null;
+    }
+
+    if (isClosed) {
+      discoveryInProgress = false;
+      return;
+    }
+
+    discoveryAttempts++;
+
+    let port = 4000;
+    try {
+      const parsed = new URL(serverUrl);
+      port = Number(parsed.port) || 4000;
+    } catch {}
+
+    try {
+      const discoveredUrl = await discoverServerByMac({ serverMac, port });
+      if (isClosed) return;
+      if (discoveredUrl && discoveredUrl !== serverUrl) {
+        console.log(`[Socket] Found server at new IP: ${discoveredUrl}`);
+        updateEnvServerUrl(runtimeEnvPath, discoveredUrl);
+        serverUrl = discoveredUrl;
+        consecutiveErrors = 0;
+        discoveryAttempts = 0;
+        socket.io.uri = discoveredUrl;
+        socket.connect();
+      }
+    } catch (err) {
+      console.warn(`[Socket] MAC-based discovery failed: ${err.message}`);
+    } finally {
+      discoveryInProgress = false;
     }
   });
 
   socket.on("settings:telemetry", (settings = {}) => {
+    if (isClosed) return;
     onTelemetrySettings?.(settings);
   });
 
@@ -234,382 +472,152 @@ export function connectToCore({
    * Listens for remote commands sent from the dashboard/core.
    */
   socket.on("agent:command", async (payload = {}, callback) => {
-    console.log("[Socket] Received agent:command raw event.", {
-      hasData: !!payload?.data,
-      hasHmac: !!payload?.hmac,
-      timestamp: payload?.timestamp,
-      hasSecureKey: !!secureKey,
-    });
+    if (isClosed) return;
 
-    const verification = verifyCommandPayload(payload);
-    if (!verification.success) {
-      console.warn(`[Socket] Rejected command: ${verification.message}`);
-      callback?.({ success: false, message: verification.message });
-      return;
-    }
-
-    const { command, args } = verification.data;
-    if (typeof command !== "string" || command.length === 0) {
-      callback?.({ success: false, message: "Invalid command payload." });
-      return;
-    }
-
-    console.log(`[Socket] Received command: ${command}`, args);
-
-    // Handle process termination
-    if (command === "kill-process") {
-      const result = await killProcess(args.pid);
-      console.log(`[Socket] Kill process result:`, result);
-      callback?.(result);
-      return;
-    }
-
-    // Handle system power/maintenance commands
-    const powerCommands = ["shutdown", "restart", "sleep", "lock", "update"];
-    if (powerCommands.includes(command)) {
-      console.log(`[Socket] Executing power command: ${command}`);
-
-      // SPECIAL CASE: Surgical Update Swap
-      if (command === "update") {
-        const updateLogPath = path.join(runtimeDir, "update.log");
-        const logUpdate = (msg) => {
-          const timestamp = new Date().toISOString();
-          const line = `[${timestamp}] ${msg}\n`;
-          console.log(msg);
-          try {
-            fs.appendFileSync(updateLogPath, line, "utf8");
-          } catch {}
-        };
-
-        logUpdate(
-          "[Socket] Starting HTTP-based binary download for update...",
-        );
-
-        const downloadFile = (fileUrl, destinationPath) => {
-          return new Promise((resolve, reject) => {
-            if (!fileUrl) {
-              resolve(false);
-              return;
-            }
-            let targetUrl = fileUrl;
-            if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
-              targetUrl = `https://${targetUrl}`;
-            }
-            const client = targetUrl.startsWith("https") ? https : http;
-            const fileStream = fs.createWriteStream(destinationPath);
-
-            const req = client.get(targetUrl, { rejectUnauthorized: false }, (response) => {
-              if (response.statusCode !== 200) {
-                fileStream.close();
-                fs.unlink(destinationPath, () => {});
-                reject(new Error(`Failed to download ${fileUrl}: Status code ${response.statusCode}`));
-                return;
-              }
-
-              response.pipe(fileStream);
-
-              fileStream.on("finish", () => {
-                fileStream.close(() => {
-                  try {
-                    const stats = fs.statSync(destinationPath);
-                    if (stats.size === 0) {
-                      reject(new Error(`Downloaded file ${destinationPath} is empty.`));
-                    } else {
-                      resolve(true);
-                    }
-                  } catch (e) {
-                    reject(e);
-                  }
-                });
-              });
-            });
-
-            req.on("error", (err) => {
-              fileStream.close();
-              fs.unlink(destinationPath, () => {});
-              reject(err);
-            });
-
-            req.setTimeout(60000, () => {
-              req.destroy();
-              fileStream.close();
-              fs.unlink(destinationPath, () => {});
-              reject(new Error(`Download timeout for ${fileUrl}`));
-            });
-          });
-        };
-
-        try {
-          const agentTmpPath = path.join(runtimeDir, "sentrix-agent-update.tmp");
-          const helperTmpPath = path.join(runtimeDir, "sentrix-helper-update.tmp");
-          const agentUpdatePath = path.join(runtimeDir, "sentrix-agent-update.exe");
-          const helperUpdatePath = path.join(runtimeDir, "sentrix-helper-update.exe");
-
-          // Also download or stage asset and dialog script updates if provided in args
-          const assetsTmpPath = path.join(runtimeDir, "assets-update.zip");
-          const dialogUpdatePath = path.join(runtimeDir, "broadcast-dialog-update.ps1");
-
-          if (args.assetsBinaryUrl || args.assetsZipUrl) {
-            const assetsUrl = args.assetsBinaryUrl || args.assetsZipUrl;
-            logUpdate(`[Socket] Downloading assets update from ${assetsUrl}...`);
-            await downloadFile(assetsUrl, assetsTmpPath);
-            logUpdate("[Socket] Assets downloaded successfully.");
-          }
-
-          const dialogUrl = args.dialogScriptUrl || args.broadcastDialogUrl;
-          if (dialogUrl) {
-            logUpdate(`[Socket] Downloading dialog script update from ${dialogUrl}...`);
-            await downloadFile(dialogUrl, dialogUpdatePath);
-            logUpdate("[Socket] Dialog script downloaded successfully.");
-          }
-
-          try { if (fs.existsSync(helperTmpPath)) fs.unlinkSync(helperTmpPath); } catch {}
-
-          const downloadPromises = [];
-          if (args.agentBinaryUrl) {
-            logUpdate(`[Socket] Downloading agent update to temp from ${args.agentBinaryUrl}...`);
-            downloadPromises.push(
-              downloadFile(args.agentBinaryUrl, agentTmpPath).then(() => {
-                logUpdate("[Socket] Successfully downloaded sentrix-agent-update.tmp via HTTP.");
-              })
-            );
-          } else {
-            logUpdate("[Socket] Warning: agentBinaryUrl missing in update args.");
-          }
-
-          if (args.helperBinaryUrl) {
-            logUpdate(`[Socket] Downloading helper update to temp from ${args.helperBinaryUrl}...`);
-            downloadPromises.push(
-              downloadFile(args.helperBinaryUrl, helperTmpPath).then(() => {
-                logUpdate("[Socket] Successfully downloaded sentrix-helper-update.tmp via HTTP.");
-              })
-            );
-          } else {
-            logUpdate("[Socket] Warning: helperBinaryUrl missing in update args.");
-          }
-
-          await Promise.all(downloadPromises);
-          logUpdate("[Socket] All update binaries downloaded and verified successfully in temp. Staging final update files...");
-
-          if (args.agentBinaryUrl && fs.existsSync(agentTmpPath)) {
-            if (fs.existsSync(agentUpdatePath)) fs.unlinkSync(agentUpdatePath);
-            fs.renameSync(agentTmpPath, agentUpdatePath);
-            logUpdate("[Socket] Staged sentrix-agent-update.exe.");
-          }
-
-          if (args.helperBinaryUrl && fs.existsSync(helperTmpPath)) {
-            if (fs.existsSync(helperUpdatePath)) fs.unlinkSync(helperUpdatePath);
-            fs.renameSync(helperTmpPath, helperUpdatePath);
-            logUpdate("[Socket] Staged sentrix-helper-update.exe.");
-          }
-
-          logUpdate("[Socket] Update binaries staged successfully for watchdog/swap.");
-        } catch (err) {
-          logUpdate(`[Socket] Failed to download update binaries: ${err.message}`);
-          callback?.({
-            success: false,
-            message: `Failed to download update binaries: ${err.message}`,
-          });
-          return;
-        }
-
-        // Robust PowerShell script to log, stop tasks/processes, swap both EXEs with retries, and restart both tasks
-        const script = `
-          $logPath = "${updateLogPath.replace(/\\/g, "\\\\")}"
-          function Write-Log ($msg) {
-            "[$((Get-Date).ToString('yyyy-MM-dd HH:mm:ss))] $msg" | Out-File -FilePath $logPath -Append -Encoding utf8
-          }
-
-          Write-Log "PowerShell update swap script started."
-          Start-Sleep -Seconds 3
-
-          Write-Log "Stopping Sentrix Helper and Sentrix Agent scheduled tasks..."
-          Stop-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
-          Stop-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
-
-          Write-Log "Killing remaining sentrix-helper and sentrix-agent processes..."
-          Get-Process sentrix-helper -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          Get-Process sentrix-agent -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          taskkill /F /IM sentrix-helper* 2>&1 | Out-Null
-          taskkill /F /IM sentrix-agent* 2>&1 | Out-Null
-
-          Start-Sleep -Seconds 3
-
-          if (Test-Path "assets-update.zip") {
-            Write-Log "Found assets-update.zip. Extracting to assets..."
-            try {
-              Expand-Archive -Path "assets-update.zip" -DestinationPath "assets" -Force
-              Remove-Item -Path "assets-update.zip" -Force -ErrorAction SilentlyContinue
-              Write-Log "Successfully applied assets-update.zip."
-            } catch {
-              Write-Log "Failed to expand assets-update.zip: $_"
-            }
-          }
-
-          if (Test-Path "broadcast-dialog-update.ps1") {
-            Write-Log "Found broadcast-dialog-update.ps1. Updating dialog scripts..."
-            try {
-              Copy-Item "broadcast-dialog-update.ps1" -Destination "broadcast-dialog.ps1" -Force
-              if (Test-Path "assets") {
-                Copy-Item "broadcast-dialog-update.ps1" -Destination "assets\\broadcast-dialog.ps1" -Force
-              }
-              Remove-Item -Path "broadcast-dialog-update.ps1" -Force -ErrorAction SilentlyContinue
-              Write-Log "Successfully updated broadcast-dialog.ps1."
-            } catch {
-              Write-Log "Failed to update broadcast-dialog.ps1: $_"
-            }
-          }
-
-          if (Test-Path "sentrix-helper-update.exe") {
-            Write-Log "Moving sentrix-helper-update.exe to sentrix-helper.exe with retries..."
-            $success = $false
-            for ($i = 1; $i -le 5; $i++) {
-              try {
-                Get-Process sentrix-helper -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-                taskkill /F /IM sentrix-helper* 2>&1 | Out-Null
-                if (Test-Path "sentrix-helper.exe") {
-                  Remove-Item -Path "sentrix-helper.exe" -Force -ErrorAction SilentlyContinue
-                }
-                Move-Item -Path "sentrix-helper-update.exe" -Destination "sentrix-helper.exe" -Force -ErrorAction Stop
-                $success = $true
-                Write-Log "Successfully swapped sentrix-helper.exe on attempt $i."
-                break
-              } catch {
-                Write-Log "Attempt $i to swap sentrix-helper.exe failed: $_. Retrying in 1 second..."
-                Start-Sleep -Seconds 1
-              }
-            }
-            if (-not $success) {
-              Write-Log "WARNING: Failed to swap sentrix-helper.exe after 5 attempts. Removing update binary to prevent loop."
-              Remove-Item -Path "sentrix-helper-update.exe" -Force -ErrorAction SilentlyContinue
-            }
-          }
-
-          if (Test-Path "sentrix-agent-update.exe") {
-            Write-Log "Moving sentrix-agent-update.exe to sentrix-agent.exe with retries..."
-            $success = $false
-            for ($i = 1; $i -le 5; $i++) {
-              try {
-                Get-Process sentrix-agent -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-                taskkill /F /IM sentrix-agent* 2>&1 | Out-Null
-                if (Test-Path "sentrix-agent.exe") {
-                  Remove-Item -Path "sentrix-agent.exe" -Force -ErrorAction SilentlyContinue
-                }
-                Move-Item -Path "sentrix-agent-update.exe" -Destination "sentrix-agent.exe" -Force -ErrorAction Stop
-                $success = $true
-                Write-Log "Successfully swapped sentrix-agent.exe on attempt $i."
-                break
-              } catch {
-                Write-Log "Attempt $i to swap sentrix-agent.exe failed: $_. Retrying in 1 second..."
-                Start-Sleep -Seconds 1
-              }
-            }
-            if (-not $success) {
-              Write-Log "WARNING: Failed to swap sentrix-agent.exe after 5 attempts. Removing update binary."
-              Remove-Item -Path "sentrix-agent-update.exe" -Force -ErrorAction SilentlyContinue
-            }
-          }
-
-          Write-Log "Restarting Sentrix Helper and Sentrix Agent tasks..."
-          Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
-          Start-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
-          if (-not (Get-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue -State Running)) {
-            Write-Log "Scheduled task start failed or not running, falling back to Start-Process for agent..."
-            Start-Process -FilePath "sentrix-agent.exe" -WorkingDirectory "${runtimeDir.replace(/\\/g, "\\\\")}"
-          }
-          Write-Log "Update swap completed successfully."
-        `.trim();
-
-        const encoded = Buffer.from(script, "utf16le").toString("base64");
-        const swapCommand = `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`;
-
-        exec(
-          swapCommand,
-          { cwd: runtimeDir, windowsHide: true },
-          (err, stdout, stderr) => {
-            if (err) {
-              logUpdate(`[Socket] Swap process error: ${err.message}`);
-            }
-            if (stderr) {
-              logUpdate(`[Socket] Swap process stderr: ${stderr}`);
-            }
-          },
-        );
-
-        logUpdate("[Socket] Swap command triggered. Agent exiting for update.");
-        callback?.({
-          success: true,
-          message: "Update staged and swap triggered.",
-        });
-        process.exit(0);
+    try {
+      const verification = verifyCommandPayload(payload);
+      if (!verification.success) {
+        console.warn(`[Socket] Rejected command: ${verification.message}`);
+        safeCallback(callback, { success: false, message: verification.message });
         return;
       }
 
-      const result = await runRemotePowerCommand(command);
-      console.log(`[Socket] Power command result:`, result);
-      callback?.(result);
-      return;
-    }
+      const { command, args } = verification.data;
+      if (typeof command !== "string" || command.length === 0) {
+        safeCallback(callback, { success: false, message: "Invalid command payload." });
+        return;
+      }
 
-    // Handle utility maintenance shortcuts
-    if (command.startsWith("utility:")) {
-      const action = command.replace("utility:", "");
-      console.log(`[Socket] Executing maintenance action: ${action}`);
-      const result = await runMaintenanceAction(action, args);
-      console.log(`[Socket] Maintenance action result:`, result);
-      callback?.(result);
-      return;
-    }
+      console.log(`[Socket] Received command: ${command}`, args);
 
-    // SPECIAL CASE: Surgical Unlock for SMB Update
-    if (command === "agent:prep-update") {
-      console.log(
-        "[Socket] Preparing for incoming SMB update. Activating Master Key...",
-      );
+      if (command === "kill-process") {
+        const result = await killProcess(args.pid);
+        safeCallback(callback, result);
+        return;
+      }
 
-      const script = `
-        net user Administrator /active:yes
-        Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'LocalAccountTokenFilterPolicy' -Value 1 -ErrorAction SilentlyContinue
-      `.trim();
+      if (command === "lockdown") {
+        const { performLockdown } = await import("./installer.service.js");
+        const result = await performLockdown();
+        safeCallback(callback, result);
+        return;
+      }
 
-      const encoded = Buffer.from(script, "utf16le").toString("base64");
-      const cmd = `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`;
+      const powerCommands = ["shutdown", "restart", "sleep", "lock"];
+      if (powerCommands.includes(command)) {
+        const result = await runRemotePowerCommand(command);
+        safeCallback(callback, result);
+        return;
+      }
 
-      exec(cmd, (error, stdout, stderr) => {
-        if (error) {
-          console.error(
-            `[Socket] Master Key activation failed: ${error.message}`,
-            stderr,
-          );
-          callback?.({
-            success: false,
-            message: `Failed to enable Administrator: ${error.message}. ${stderr}`,
-          });
-        } else {
-          console.log(
-            "[Socket] Master Key activation successful. Doors opened.",
-            stdout,
-          );
-          callback?.({
-            success: true,
-            message: "Master Key activation successful.",
-          });
+      if (command.startsWith("utility:")) {
+        const action = command.replace("utility:", "");
+        const result = await runMaintenanceAction(action, args);
+        safeCallback(callback, result);
+        return;
+      }
+
+      if (command === "update") {
+        const { updateBundleUrl } = args;
+        if (!updateBundleUrl) {
+          safeCallback(callback, { success: false, message: "Missing updateBundleUrl in command payload." });
+          return;
         }
-      });
 
-      return;
+        console.log(`[Socket] Received update command. Downloading bundle from ${updateBundleUrl}...`);
+        safeCallback(callback, { success: true, message: "Update bundle download started." });
+
+        // Perform download asynchronously in background
+        (async () => {
+          try {
+            const stagingDir = path.join(runtimeDir, "staging");
+            const stagingExtractedDir = path.join(stagingDir, "extracted");
+            const zipPath = path.join(stagingDir, "dist.zip");
+
+            if (fs.existsSync(stagingDir)) {
+              fs.rmSync(stagingDir, { recursive: true, force: true });
+            }
+            fs.mkdirSync(stagingExtractedDir, { recursive: true });
+
+            const fileStream = fs.createWriteStream(zipPath);
+            const parsedUrl = new URL(updateBundleUrl);
+
+            await new Promise((resolve, reject) => {
+              const reqOpts = {
+                hostname: parsedUrl.hostname,
+                port: parsedUrl.port || 443,
+                path: parsedUrl.pathname + parsedUrl.search,
+                method: "GET",
+                agent: agent,
+              };
+
+              const getReq = https.request(reqOpts, (res) => {
+                if (res.statusCode !== 200) {
+                  reject(new Error(`Failed to download update bundle. HTTP status ${res.statusCode}`));
+                  return;
+                }
+                res.pipe(fileStream);
+                fileStream.on("finish", () => {
+                  fileStream.close();
+                  resolve();
+                });
+              });
+
+              getReq.on("error", (err) => {
+                try { fs.unlinkSync(zipPath); } catch {}
+                reject(err);
+              });
+
+              getReq.end();
+            });
+
+            console.log("[Socket] Update bundle downloaded successfully. Extracting...");
+
+            // Extract zip using PowerShell
+            const extractPs = `
+              Add-Type -AssemblyName System.IO.Compression.FileSystem
+              [System.IO.Compression.ZipFile]::ExtractToDirectory('${zipPath.replace(/'/g, "''")}', '${stagingExtractedDir.replace(/'/g, "''")}')
+            `;
+            const tempPsPath = path.join(stagingDir, "extract.ps1");
+            fs.writeFileSync(tempPsPath, extractPs, "utf8");
+
+            await new Promise((resolve, reject) => {
+              exec(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${tempPsPath}"`, (error, stdout, stderr) => {
+                try { fs.unlinkSync(tempPsPath); } catch {}
+                if (error) {
+                  reject(new Error(`Extraction failed: ${stderr || error.message}`));
+                } else {
+                  resolve(stdout);
+                }
+              });
+            });
+
+            console.log("[Socket] Update bundle extracted to staging. Creating .update-ready marker...");
+            const readyMarker = path.join(runtimeDir, ".update-ready");
+            fs.writeFileSync(readyMarker, JSON.stringify({ timestamp: new Date().toISOString() }), "utf8");
+
+            console.log("[Socket] Update staged successfully. Exiting agent so Watchdog can apply swap...");
+            setTimeout(() => {
+              process.exit(0);
+            }, 1000);
+
+          } catch (updateErr) {
+            console.error("[Socket] Failed to process zero-touch update bundle:", updateErr.message);
+          }
+        })();
+
+        return;
+      }
+
+      safeCallback(callback, { success: false, message: `Unknown command: ${command}` });
+    } catch (cmdErr) {
+      safeCallback(callback, { success: false, message: `Command execution error: ${cmdErr.message}` });
     }
-
-    console.warn(`[Socket] Unknown command: ${command}`);
-    callback?.({ success: false, message: `Unknown command: ${command}` });
   });
 
   // --- API for the service ---
 
   return {
-    /**
-     * Sends a full metrics and hardware details packet to the core.
-     */
     sendMetrics(metrics, details) {
       const packet = {
         type: "metrics",
@@ -622,9 +630,6 @@ export function connectToCore({
       emitSigned("agent:metrics", packet);
     },
 
-    /**
-     * Sends a lightweight heartbeat packet with current metrics.
-     */
     sendHeartbeat(metrics) {
       const packet = {
         type: "heartbeat",
@@ -664,10 +669,23 @@ export function connectToCore({
     },
 
     isConnected() {
-      return socket.connected;
+      return !isClosed && isRegistered && socket.connected;
     },
 
     close() {
+      isClosed = true;
+      if (currentDiscoveryTimer) {
+        clearTimeout(currentDiscoveryTimer);
+        currentDiscoveryTimer = null;
+      }
+      if (currentRetryTimer) {
+        clearTimeout(currentRetryTimer);
+        currentRetryTimer = null;
+      }
+      if (currentRegTimeout) {
+        clearTimeout(currentRegTimeout);
+        currentRegTimeout = null;
+      }
       socket.close();
     },
   };

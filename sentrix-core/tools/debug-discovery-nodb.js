@@ -1,26 +1,41 @@
-import { getLocalSubnet, readArpTable, getPrimaryInterfaceAddress, pingHost, getHostnameForIp, getOpenPorts, findMacForIp } from "../src/modules/discovery/scanner.js";
-import { resolveVendor, detectDeviceType, getDeviceKind } from "../src/modules/discovery/detector.js";
+import {
+  getLocalSubnet,
+  readArpTable,
+  getPrimaryInterfaceAddress,
+  pingHost,
+  getHostnameForIp,
+  getOpenPorts,
+  findMacForIp,
+} from "../src/modules/discovery/scanner.js";
+import {
+  resolveVendor,
+  detectDeviceType,
+  getDeviceKind,
+} from "../src/modules/discovery/detector.js";
 
 async function debugDiscovery() {
   console.log("--- Sentrix Discovery Scanner Debug (No DB) ---");
-  
+
   // Manually override subnet for this environment as getLocalSubnet picked the wrong one
-  const subnet = "10.98.25"; 
+  const subnet = "192.168.1";
   console.log("Forced Subnet for Debug:", subnet);
 
-  const ipAddresses = Array.from({ length: 5 }, (_, index) => `${subnet}.${index + 1}`);
-  
+  const ipAddresses = Array.from(
+    { length: 5 },
+    (_, index) => `${subnet}.${index + 1}`,
+  );
+
   console.log("Pinging hosts...");
-  await Promise.all(ipAddresses.map(ip => pingHost(ip)));
+  await Promise.all(ipAddresses.map((ip) => pingHost(ip)));
 
   const updatedArp = await readArpTable();
-  
+
   const results = [];
   for (const ip of ipAddresses) {
     const mac = findMacForIp(updatedArp, ip);
     // Even if MAC is unknown, we can still report found IPs if ping was successful
     const isAlive = await pingHost(ip);
-    
+
     if (mac === "Unknown" && !isAlive) continue;
 
     const [{ hostname, source }, openPorts] = await Promise.all([
@@ -30,7 +45,7 @@ async function debugDiscovery() {
 
     const vendor = resolveVendor(null, mac);
     const type = detectDeviceType(ip, mac, openPorts, hostname, vendor, source);
-    
+
     results.push({
       IP: ip,
       MAC: mac,
@@ -38,7 +53,7 @@ async function debugDiscovery() {
       Source: source,
       Vendor: vendor,
       Type: type,
-      Ports: openPorts.join(",")
+      Ports: openPorts.join(","),
     });
   }
 
@@ -52,7 +67,7 @@ async function debugDiscovery() {
   process.exit(0);
 }
 
-debugDiscovery().catch(err => {
+debugDiscovery().catch((err) => {
   console.error("Discovery error:", err);
   process.exit(1);
 });

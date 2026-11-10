@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 import https from "https";
+import { networkIdentity } from "./lib/network-identity.js";
 import { Server } from "socket.io";
 const { default: createApp } = await import("./app.js");
 const { ensureDatabaseSchema } = await import("./lib/schema.js");
@@ -54,26 +55,42 @@ async function getCertificates() {
     fs.mkdirSync(certDir, { recursive: true });
   }
 
+  // Reuse existing certificates instead of regenerating on every startup.
+  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+    console.log("[HTTPS] Loading existing TLS certificate.");
+
+    return {
+      key: fs.readFileSync(keyPath),
+      cert: fs.readFileSync(certPath),
+    };
+  }
+
   const localIps = getLocalIpAddresses();
-  console.log(`[HTTPS] Generating self-signed certificates with SANs for: ${localIps.join(", ")}...`);
+
+  console.log(
+    `[HTTPS] Generating self-signed certificates with SANs for: ${localIps.join(", ")}...`
+  );
 
   const attrs = [{ name: "commonName", value: "sentrix.local" }];
+
   const altNames = [
     { type: 2, value: "localhost" },
     { type: 2, value: "sentrix.local" },
-    ...localIps.map(ip => ({ type: 7, ip }))
+    ...localIps.map(ip => ({ type: 7, ip })),
   ];
 
   const pems = await selfsigned.generate(attrs, {
     days: 365,
     extensions: [{
       name: "subjectAltName",
-      altNames: altNames
-    }]
+      altNames,
+    }],
   });
 
   fs.writeFileSync(keyPath, pems.private);
   fs.writeFileSync(certPath, pems.cert);
+
+  console.log("[HTTPS] New TLS certificate generated.");
 
   return {
     key: pems.private,
@@ -151,7 +168,12 @@ initSecurityService(io);
 startOfflineWatcher(io);
 startDiscoveryScheduler(io);
 startPruningService();
+networkIdentity.startPolling(15000);
+
+networkIdentity.on("ip-changed", ({ oldIp, newIp, serverUrl }) => {
+  io.to("agents").emit("server:ip-changed", { serverUrl });
+});
 
 server.listen(port, host, () => {
-  console.log(`Sentrix core running on ${backendUrl}`);
+  console.log(`Sentrix core running on ${networkIdentity.getServerUrl()}`);
 });
