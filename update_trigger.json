@@ -1,1 +1,5 @@
-{"ip":"10.98.25.223","credentials":{"user":"Administrator","pass":"SentrixLab2024!"},"action":"update"}
+{
+  "ip": "192.168.1.200",
+  "credentials": { "user": "Administrator", "pass": "SentrixLab2024!" },
+  "action": "update"
+}

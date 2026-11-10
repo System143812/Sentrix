@@ -6,133 +6,119 @@ import { fileURLToPath } from "url";
 
 const execAsync = promisify(exec);
 
-// Robust way to get the directory where the EXE is located (Works in CJS and pkg)
 const exeDir = (() => {
   if (process.pkg) return path.dirname(process.execPath);
-  
-  // Fallback for development/Node
   try {
     const filename = fileURLToPath(import.meta.url);
     return path.resolve(path.dirname(filename), "../../");
   } catch {
-    // If import.meta is not available (bundled CJS), use __dirname
-    return typeof __dirname !== 'undefined' 
-      ? path.resolve(__dirname, "../../") 
+    return typeof __dirname !== 'undefined'
+      ? path.resolve(__dirname, "../../")
       : process.cwd();
   }
 })();
 
-/**
- * Helper to wrap a PowerShell script in an encoded command for safe execution.
- */
 function toEncodedCommand(script) {
-  return `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${Buffer.from(script, "utf16le").toString("base64")}`;
+  return "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand " + Buffer.from(script, "utf16le").toString("base64");
 }
 
-/**
- * Registers the Sentrix Agent and Helper as scheduled tasks.
- */
 export async function registerAgentTasks(serverUrl) {
-  console.log("[Installer] Registering scheduled tasks...");
-  
-  const agentExe = "sentrix-agent.exe";
-  const helperExe = "sentrix-helper.exe";
-  
-  const setupScript = `
-    $ErrorActionPreference = "Stop"
-    $dir = '${exeDir.replace(/'/g, "''")}'
-    $url = '${serverUrl.replace(/'/g, "''")}'
-    
-    $agentPath = Join-Path $dir '${agentExe}'
-    $helperPath = Join-Path $dir '${helperExe}'
-    
-    # 1. Main Agent Registration (SYSTEM)
-    $action = New-ScheduledTaskAction -Execute $agentPath -Argument "--server-url $url" -WorkingDirectory $dir
-    $trigger = New-ScheduledTaskTrigger -AtStartup
-    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-    
-    Unregister-ScheduledTask -TaskName "Sentrix Agent" -Confirm:$false -ErrorAction SilentlyContinue
-    Register-ScheduledTask -TaskName "Sentrix Agent" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
-    if (-not (Get-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue)) {
-        throw "Sentrix Agent task was not created."
-    }
-    Start-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
+  console.log("[Installer] Registering Sentrix Agent Windows Service...");
 
-    # 2. Helper Registration via Launcher & schtasks (Bulletproof)
-    if (Test-Path $helperPath) {
-        $launcherPath = Join-Path $dir "launch-helper.ps1"
-        $launcherContent = @"
-Start-Process -FilePath "$helperPath" -WorkingDirectory "$dir" -WindowStyle Hidden
-"@
-        $launcherContent | Out-File -FilePath $launcherPath -Encoding utf8 -Force
+  const hostExe = "AgentServiceHost.exe";
+  const hostPath = path.join(exeDir, hostExe);
 
-        Unregister-ScheduledTask -TaskName "Sentrix Helper" -Confirm:$false -ErrorAction SilentlyContinue
-        $tr = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $launcherPath + '"'
-        schtasks /Create /TN "Sentrix Helper" /TR $tr /SC ONLOGON /RU "NT AUTHORITY\INTERACTIVE" /RL HIGHEST /F | Out-Null
-        if (-not (Get-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue)) {
-            throw "Sentrix Helper task was not created."
-        }
-        schtasks /Run /TN "Sentrix Helper" -ErrorAction SilentlyContinue | Out-Null
-    }
-  `;
+  if (!fs.existsSync(hostPath)) {
+    const errorMsg = `[Installer] FATAL: Required host executable not found at ${hostPath}.`;
+    console.error(errorMsg);
+    return { success: false, error: errorMsg };
+  }
+
+  const setupScript = [
+    "$ErrorActionPreference = 'Stop'",
+    `$dir = '${exeDir.replace(/'/g, "''")}'`,
+    `$url = '${serverUrl.replace(/'/g, "''")}'`,
+    `$hostPath = Join-Path $dir '${hostExe}'`,
+    'Unregister-ScheduledTask -TaskName "Sentrix Agent" -Confirm:$false -ErrorAction SilentlyContinue',
+    'Unregister-ScheduledTask -TaskName "Sentrix Helper" -Confirm:$false -ErrorAction SilentlyContinue',
+    'if (Get-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue) { throw "Failed to remove legacy scheduled task: Sentrix Agent" }',
+    'if (Get-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue) { throw "Failed to remove legacy scheduled task: Sentrix Helper" }',
+    '$serviceName = "SentrixAgent"',
+    '$existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue',
+    'if ($existingService) {',
+    "    if ($existingService.Status -eq 'Running') {",
+    '        Stop-Service -Name $serviceName -Force',
+    '        $sw = [Diagnostics.Stopwatch]::StartNew()',
+    '        while (($sw.ElapsedMilliseconds -lt 10000) -and ((Get-Service -Name $serviceName -ErrorAction SilentlyContinue).Status -eq \'Running\')) { Start-Sleep -Milliseconds 500 }',
+    '    }',
+    '    $stoppedService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue',
+    '    if ($stoppedService -and $stoppedService.Status -ne \'Stopped\') {',
+    '        throw "Existing service $serviceName did not stop within 10 seconds. Current status: $($stoppedService.Status)"',
+    '    }',
+    '    & sc.exe delete $serviceName | Out-Null',
+    '    if ($LASTEXITCODE -ne 0) { throw "sc.exe delete failed with exit code $LASTEXITCODE" }',
+    '    $sw = [Diagnostics.Stopwatch]::StartNew()',
+    '    while ($sw.ElapsedMilliseconds -lt 15000) {',
+    '        $check = Get-Service -Name $serviceName -ErrorAction SilentlyContinue',
+    '        if (-not $check) { break }',
+    '        Start-Sleep -Milliseconds 500',
+    '    }',
+    '    $checkFinal = Get-Service -Name $serviceName -ErrorAction SilentlyContinue',
+    '    if ($checkFinal) { throw "Service $serviceName is still marked for deletion after timeout." }',
+    '}',
+    '$binPath = "`"$hostPath`""',
+    '& sc.exe create $serviceName binPath= $binPath start= auto obj= "NT AUTHORITY\\SYSTEM" | Out-Null',
+    'if ($LASTEXITCODE -ne 0) { throw "sc.exe create failed with exit code $LASTEXITCODE" }',
+    '& sc.exe config $serviceName displayName= "Sentrix Agent Service" | Out-Null',
+    'if ($LASTEXITCODE -ne 0) { throw "sc.exe config failed with exit code $LASTEXITCODE" }',
+    '& sc.exe failure $serviceName reset= 86400 actions= restart/60000/restart/60000/restart/60000 | Out-Null',
+    'if ($LASTEXITCODE -ne 0) { throw "sc.exe failure failed with exit code $LASTEXITCODE" }',
+    'Start-Service -Name $serviceName',
+    '$sw = [Diagnostics.Stopwatch]::StartNew()',
+    '$started = $false',
+    'while ($sw.ElapsedMilliseconds -lt 15000) {',
+    '    $svc = Get-Service -Name $serviceName -ErrorAction SilentlyContinue',
+    '    if ($svc -and $svc.Status -eq \'Running\') { $started = $true; break }',
+    '    Start-Sleep -Milliseconds 500',
+    '}',
+    'if (-not $started) { throw "Service $serviceName failed to reach Running state within timeout." }',
+    'Write-Host "[Installer] Sentrix Agent Windows Service successfully registered and running."'
+  ].join("\r\n");
 
   try {
     const { stdout, stderr } = await execAsync(toEncodedCommand(setupScript), {
       maxBuffer: 1024 * 1024,
     });
-    console.log("[Installer] Task registration complete.");
-    if (stderr?.trim()) {
-      console.warn(`[Installer] Task registration stderr: ${stderr.trim()}`);
-    }
+    console.log("[Installer] Windows Service registration complete.");
     return { success: true, stdout, stderr };
   } catch (error) {
     const details = [error.message, error.stderr?.trim()].filter(Boolean).join("\n");
-    console.error("[Installer] Task registration failed:", details);
+    console.error("[Installer] Windows Service registration failed:", details);
     return { success: false, error: details };
   }
 }
 
-/**
- * Performs security lockdown on the machine.
- */
 export async function performLockdown() {
   console.log("[Installer] Performing security lockdown...");
 
-  const lockdownScript = `
-    # 1. Disable built-in Administrator
-    Disable-LocalUser -Name "Administrator" -ErrorAction SilentlyContinue
-
-    # 2. Re-enable Remote UAC Filter (Secure State)
-    Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" -Name "LocalAccountTokenFilterPolicy" -Value 0 -ErrorAction SilentlyContinue
-
-    # 3. Close Setup Firewall Rules
-    $rules = @("WINRM-HTTP-In-TCP", "WINRM-HTTP-In-TCP-PUBLIC", "FPS-SMB-In-TCP", "WMI-In-TCP")
-    foreach ($rule in $rules) {
-        Disable-NetFirewallRule -Name $rule -ErrorAction SilentlyContinue
-    }
-    
-    # Also broader groups
-    Disable-NetFirewallRule -DisplayGroup "Remote Administration" -ErrorAction SilentlyContinue
-    Disable-NetFirewallRule -DisplayGroup "Windows Remote Management" -ErrorAction SilentlyContinue
-    Disable-NetFirewallRule -DisplayGroup "Windows Management Instrumentation (WMI)" -ErrorAction SilentlyContinue
-
-    # 4. Iron Folder Lockdown (Permissions) - Protect installation files, grant Read-Execute to Users
-    $path = 'C:\ProgramData\SentrixAgent'
-    if (Test-Path $path) {
-        # Disable inheritance and remove all existing permissions
-        $acl = Get-Acl $path
-        $acl.SetAccessRuleProtection($true, $false)
-        Set-Acl $path $acl
-
-        # Grant Full Control to SYSTEM and Administrators only
-        & icacls.exe $path /grant "SYSTEM:(OI)(CI)F" /inheritance:e | Out-Null
-        & icacls.exe $path /grant "Administrators:(OI)(CI)F" /inheritance:e | Out-Null
-
-        # Grant Read & Execute to BUILTIN\Users so standard user helper can read binaries/config/scripts, without recursive write
-        & icacls.exe $path /grant "BUILTIN\Users:(OI)(CI)(RX)" | Out-Null
-    }
-  `;
+  const lockdownScript = [
+    'Disable-LocalUser -Name "Administrator" -ErrorAction SilentlyContinue',
+    'Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" -Name "LocalAccountTokenFilterPolicy" -Value 0 -ErrorAction SilentlyContinue',
+    '$rules = @("WINRM-HTTP-In-TCP", "WINRM-HTTP-In-TCP-PUBLIC", "FPS-SMB-In-TCP", "WMI-In-TCP")',
+    'foreach ($rule in $rules) { Disable-NetFirewallRule -Name $rule -ErrorAction SilentlyContinue }',
+    'Disable-NetFirewallRule -DisplayGroup "Remote Administration" -ErrorAction SilentlyContinue',
+    'Disable-NetFirewallRule -DisplayGroup "Windows Remote Management" -ErrorAction SilentlyContinue',
+    'Disable-NetFirewallRule -DisplayGroup "Windows Management Instrumentation (WMI)" -ErrorAction SilentlyContinue',
+    "$path = 'C:\\ProgramData\\SentrixAgent'",
+    'if (Test-Path $path) {',
+    '    $acl = Get-Acl $path',
+    '    $acl.SetAccessRuleProtection($true, $false)',
+    '    Set-Acl $path $acl',
+    '    & icacls.exe $path /grant "SYSTEM:(OI)(CI)F" /inheritance:e | Out-Null',
+    '    & icacls.exe $path /grant "Administrators:(OI)(CI)F" /inheritance:e | Out-Null',
+    '    & icacls.exe $path /grant "BUILTIN\\Users:(OI)(CI)(RX)" | Out-Null',
+    '}'
+  ].join("\r\n");
 
   try {
     const { stdout, stderr } = await execAsync(toEncodedCommand(lockdownScript));

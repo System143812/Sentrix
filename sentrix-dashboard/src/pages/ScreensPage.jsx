@@ -20,19 +20,68 @@ export function ScreensPage({ dashboardData }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   const devices = dashboardData?.clients || [
-    { id: "1", hostname: "LAB-PC-01", ip: "10.98.25.101", group: "Lab A", status: "online", activeApp: "Visual Studio Code", fps: 12 },
-    { id: "2", hostname: "LAB-PC-02", ip: "10.98.25.102", group: "Lab A", status: "online", activeApp: "Google Chrome", fps: 15 },
-    { id: "3", hostname: "LAB-PC-03", ip: "10.98.25.103", group: "Lab A", status: "idle", activeApp: "Desktop", fps: 0 },
-    { id: "4", hostname: "LAB-PC-04", ip: "10.98.25.104", group: "Lab B", status: "online", activeApp: "Microsoft Word", fps: 10 },
-    { id: "5", hostname: "LAB-PC-05", ip: "10.98.25.105", group: "Lab B", status: "offline", activeApp: "Offline", fps: 0 },
-    { id: "6", hostname: "LAB-PC-06", ip: "10.98.25.106", group: "Lab B", status: "online", activeApp: "VLC Media Player", fps: 24 },
+    {
+      id: "1",
+      hostname: "LAB-PC-01",
+      ip: "192.168.1.101",
+      group: "Lab A",
+      status: "online",
+      activeApp: "Visual Studio Code",
+      fps: 12,
+    },
+    {
+      id: "2",
+      hostname: "LAB-PC-02",
+      ip: "192.168.1.102",
+      group: "Lab A",
+      status: "online",
+      activeApp: "Google Chrome",
+      fps: 15,
+    },
+    {
+      id: "3",
+      hostname: "LAB-PC-03",
+      ip: "192.168.1.103",
+      group: "Lab A",
+      status: "idle",
+      activeApp: "Desktop",
+      fps: 0,
+    },
+    {
+      id: "4",
+      hostname: "LAB-PC-04",
+      ip: "192.168.1.104",
+      group: "Lab B",
+      status: "online",
+      activeApp: "Microsoft Word",
+      fps: 10,
+    },
+    {
+      id: "5",
+      hostname: "LAB-PC-05",
+      ip: "192.168.1.105",
+      group: "Lab B",
+      status: "offline",
+      activeApp: "Offline",
+      fps: 0,
+    },
+    {
+      id: "6",
+      hostname: "LAB-PC-06",
+      ip: "192.168.1.106",
+      group: "Lab B",
+      status: "online",
+      activeApp: "VLC Media Player",
+      fps: 24,
+    },
   ];
 
   const filteredDevices = devices.filter((device) => {
     const matchesQuery =
       device.hostname?.toLowerCase().includes(query.toLowerCase()) ||
       device.ip?.toLowerCase().includes(query.toLowerCase());
-    const matchesGroup = selectedGroup === "all" || device.group === selectedGroup;
+    const matchesGroup =
+      selectedGroup === "all" || device.group === selectedGroup;
     return matchesQuery && matchesGroup;
   });
 
@@ -51,7 +100,10 @@ export function ScreensPage({ dashboardData }) {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 items-center gap-3">
             <div className="relative flex-1 max-w-sm">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
               <input
                 type="text"
                 placeholder="Search by hostname or IP..."
@@ -78,7 +130,9 @@ export function ScreensPage({ dashboardData }) {
               <button
                 onClick={() => setViewMode("grid")}
                 className={`rounded-md px-3 py-1 text-xs font-bold transition ${
-                  viewMode === "grid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"
+                  viewMode === "grid"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-900"
                 }`}
               >
                 Grid View
@@ -86,7 +140,9 @@ export function ScreensPage({ dashboardData }) {
               <button
                 onClick={() => setViewMode("table")}
                 className={`rounded-md px-3 py-1 text-xs font-bold transition ${
-                  viewMode === "table" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"
+                  viewMode === "table"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-900"
                 }`}
               >
                 Table View
@@ -121,8 +177,14 @@ export function ScreensPage({ dashboardData }) {
                   </div>
 
                   <div className="text-center">
-                    <Monitor size={36} className="mx-auto text-slate-600 group-hover:text-slate-400 transition" strokeWidth={1.5} />
-                    <p className="mt-1 text-[11px] font-medium text-slate-400">Live WebRTC Stream</p>
+                    <Monitor
+                      size={36}
+                      className="mx-auto text-slate-600 group-hover:text-slate-400 transition"
+                      strokeWidth={1.5}
+                    />
+                    <p className="mt-1 text-[11px] font-medium text-slate-400">
+                      Live WebRTC Stream
+                    </p>
                   </div>
 
                   <div className="flex items-center justify-between text-[10px] text-slate-400">
@@ -151,7 +213,9 @@ export function ScreensPage({ dashboardData }) {
               <div className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <p className="text-xs font-bold text-slate-900">{device.hostname}</p>
+                    <p className="text-xs font-bold text-slate-900">
+                      {device.hostname}
+                    </p>
                     <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
                       {device.group || "Unassigned"}
                     </span>
@@ -163,7 +227,10 @@ export function ScreensPage({ dashboardData }) {
           ))}
         </div>
       ) : (
-        <Card padding="0" className="border-slate-200/60 bg-white shadow-sm overflow-hidden">
+        <Card
+          padding="0"
+          className="border-slate-200/60 bg-white shadow-sm overflow-hidden"
+        >
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
@@ -179,9 +246,16 @@ export function ScreensPage({ dashboardData }) {
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                 {filteredDevices.map((device) => (
-                  <tr key={device.id} className="hover:bg-slate-50/50 transition">
-                    <td className="py-3 px-4 font-bold text-slate-900">{device.hostname}</td>
-                    <td className="py-3 px-4 font-mono text-slate-500">{device.ip}</td>
+                  <tr
+                    key={device.id}
+                    className="hover:bg-slate-50/50 transition"
+                  >
+                    <td className="py-3 px-4 font-bold text-slate-900">
+                      {device.hostname}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-slate-500">
+                      {device.ip}
+                    </td>
                     <td className="py-3 px-4">
                       <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
                         {device.group || "Unassigned"}
@@ -190,8 +264,12 @@ export function ScreensPage({ dashboardData }) {
                     <td className="py-3 px-4">
                       <StatusBadge status={device.status} />
                     </td>
-                    <td className="py-3 px-4 text-slate-600">{device.activeApp}</td>
-                    <td className="py-3 px-4 text-emerald-600 font-bold">{device.fps} FPS</td>
+                    <td className="py-3 px-4 text-slate-600">
+                      {device.activeApp}
+                    </td>
+                    <td className="py-3 px-4 text-emerald-600 font-bold">
+                      {device.fps} FPS
+                    </td>
                     <td className="py-3 px-4 text-right">
                       <button
                         onClick={() => setSelectedDevice(device)}
@@ -219,8 +297,12 @@ export function ScreensPage({ dashboardData }) {
                   <Monitor size={20} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">{selectedDevice.hostname} — Focused Stream</h3>
-                  <p className="text-[11px] font-medium text-slate-500">{selectedDevice.ip} • Lab: {selectedDevice.group}</p>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {selectedDevice.hostname} — Focused Stream
+                  </h3>
+                  <p className="text-[11px] font-medium text-slate-500">
+                    {selectedDevice.ip} • Lab: {selectedDevice.group}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -253,9 +335,17 @@ export function ScreensPage({ dashboardData }) {
               </div>
 
               <div className="text-center">
-                <Monitor size={64} className="mx-auto text-slate-700 animate-pulse" strokeWidth={1} />
-                <p className="mt-3 text-sm font-bold text-slate-400">Receiving Secure WebRTC Feed...</p>
-                <p className="mt-1 text-xs text-slate-600">Client Privacy Consent Verified • DTLS 1.3 Encrypted</p>
+                <Monitor
+                  size={64}
+                  className="mx-auto text-slate-700 animate-pulse"
+                  strokeWidth={1}
+                />
+                <p className="mt-3 text-sm font-bold text-slate-400">
+                  Receiving Secure WebRTC Feed...
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Client Privacy Consent Verified • DTLS 1.3 Encrypted
+                </p>
               </div>
 
               <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between bg-black/70 backdrop-blur rounded-xl p-3 border border-slate-800">
@@ -267,7 +357,9 @@ export function ScreensPage({ dashboardData }) {
                     <Lock size={14} /> Lock Input
                   </button>
                 </div>
-                <span className="text-xs font-mono text-slate-400">Latency: 14ms</span>
+                <span className="text-xs font-mono text-slate-400">
+                  Latency: 14ms
+                </span>
               </div>
             </div>
           </div>

@@ -103,6 +103,16 @@ export async function sendClientCommand(req, res, next) {
       throw new AppError(400, "Unsupported remote command.");
     }
 
+    if (command === "utility:broadcast-message") {
+      const text = payload.text;
+      if (typeof text !== "string" || text.trim().length === 0) {
+        throw new AppError(400, "Broadcast message cannot be empty.");
+      }
+      if (text.length > 150) {
+        throw new AppError(400, "Broadcast message cannot exceed 150 characters.");
+      }
+    }
+
     const client = await clientService.getClientById(id);
     
     // Enrich payload with the sender's role if available

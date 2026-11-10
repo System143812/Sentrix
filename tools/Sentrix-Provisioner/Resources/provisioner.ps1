@@ -1,298 +1,271 @@
-# Sentrix Master Image Prep Script (Streamlined)
-# Run this as Administrator. It "unlocks" the PC for Passive SMB deployment.
+# Sentrix Master Image Prep Script (Windows Service Architecture + Watchdog)
+# Run this as Administrator. It unlocks the PC, configures Administrator and SMB, and registers the local Watchdog for binary swapping and service recovery.
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "--- Sentrix Master Image Prep Starting ---" -ForegroundColor Cyan
+Write-Host "Configuring Administrator account and local Watchdog..." -ForegroundColor Yellow
+Write-Host ""
 
-# 1. Enable the built-in Administrator account
-# Needed for the initial SMB Administrative Share (C$) connection.
-Write-Host "[1/6] Enabling built-in Administrator account..." -NoNewline
-try {
-    Enable-LocalUser -Name "Administrator"
-    Write-Host " [OK]" -ForegroundColor Green
-} catch {
-    Write-Host " [FAILED or Already Enabled]" -ForegroundColor Yellow
+# Load centralized build configuration for Administrator credentials (Fail-closed)
+$configPath = Join-Path $PSScriptRoot "provisioner-config.json"
+
+if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
+    throw "Provisioner configuration not found: $configPath"
 }
 
-# 2. Set a password for the Administrator account
-$password = "SentrixLab2026!" 
+try {
+    $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json -ErrorAction Stop
+} catch {
+    throw "Failed to read provisioner configuration: $($_.Exception.Message)"
+}
+
+if ([string]::IsNullOrWhiteSpace($config.adminUsername) -or
+    [string]::IsNullOrWhiteSpace($config.adminPassword)) {
+    throw "Provisioner configuration must contain adminUsername and adminPassword."
+}
+
+$adminUser = $config.adminUsername
+$adminPass = $config.adminPassword
+
+# 1. Enable the built-in Administrator account and verify SID (-500)
+Write-Host "[1/6] Enabling and verifying built-in Administrator account..." -NoNewline
+try {
+    $adminAccount = Get-LocalUser -Name $adminUser -ErrorAction Stop
+    if (-not $adminAccount.Enabled) {
+        Enable-LocalUser -Name $adminUser -ErrorAction Stop
+        $adminAccount = Get-LocalUser -Name $adminUser -ErrorAction Stop
+    }
+
+    $sidStr = $adminAccount.Sid.Value
+    if (-not $sidStr.EndsWith("-500")) {
+        throw "Account '$adminUser' (SID: $sidStr) is not the built-in Administrator account (SID must end in -500)."
+    }
+    Write-Host " [OK]" -ForegroundColor Green
+} catch {
+    Write-Host " [FAILED: $($_.Exception.Message)]" -ForegroundColor Red
+    throw
+}
+
+# 2. Set a password for the Administrator account (do not print password)
 Write-Host "[2/6] Setting Administrator password..." -NoNewline
-$admin = [adsi]"WinNT://localhost/Administrator,user"
-$admin.SetPassword($password)
-Write-Host " [OK]" -ForegroundColor Green
+try {
+    $admin = [adsi]"WinNT://localhost/$adminUser,user"
+    $admin.SetPassword($adminPass)
+    Write-Host " [OK]" -ForegroundColor Green
+} catch {
+    Write-Host " [FAILED: $($_.Exception.Message)]" -ForegroundColor Red
+    throw
+}
 
 # 3. Disable Remote UAC Filter (LocalAccountTokenFilterPolicy)
-# Allows remote admins to map administrative shares (C$) over the network.
 Write-Host "[3/6] Configuring Remote UAC policy..." -NoNewline
-$registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-$name = "LocalAccountTokenFilterPolicy"
-if (-not (Test-Path $registryPath)) { New-Item -Path $registryPath -Force | Out-Null }
-New-ItemProperty -Path $registryPath -Name $name -Value 1 -PropertyType DWord -Force | Out-Null
-Write-Host " [OK]" -ForegroundColor Green
+try {
+    $registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+    $name = "LocalAccountTokenFilterPolicy"
+    if (-not (Test-Path $registryPath)) { New-Item -Path $registryPath -Force | Out-Null }
+    New-ItemProperty -Path $registryPath -Name $name -Value 1 -PropertyType DWord -Force | Out-Null
+    Write-Host " [OK]" -ForegroundColor Green
+} catch {
+    Write-Host " [FAILED: $($_.Exception.Message)]" -ForegroundColor Red
+    throw
+}
 
-# 4. Open Firewall Ports (SMB Only)
+# 4. Open Firewall Ports (SMB Only) with strict error checking
 Write-Host "[4/6] Opening Firewall Ports (SMB)..." -NoNewline
 try {
-    Enable-NetFirewallRule -Name "FPS-SMB-In-TCP" -ErrorAction SilentlyContinue
+    Enable-NetFirewallRule -Name "FPS-SMB-In-TCP" -ErrorAction Stop
+    $rule = Get-NetFirewallRule -Name "FPS-SMB-In-TCP" -ErrorAction Stop
+    if ($rule.Enabled -ne 'True') {
+        throw "Firewall rule FPS-SMB-In-TCP is not enabled."
+    }
     Write-Host " [OK]" -ForegroundColor Green
 } catch {
-    Write-Host " [FAILED]" -ForegroundColor Yellow
+    throw "Firewall configuration failed: $($_.Exception.Message)"
 }
 
-# 5. Add Antivirus Exclusions
-Write-Host "[5/6] Adding Windows Defender Exclusions..." -NoNewline
+# 5. Add Antivirus Exclusions & Secure Folder ACLs (Consistent ACL protection without conflicting /inheritance:e)
+Write-Host "[5/6] Adding Windows Defender Exclusions & ACLs..." -NoNewline
 try {
     $targetPath = "C:\ProgramData\SentrixAgent"
     if (-not (Test-Path $targetPath)) { New-Item -ItemType Directory -Path $targetPath -Force | Out-Null }
-    Add-MpPreference -ExclusionPath $targetPath -ErrorAction SilentlyContinue
+
+    try {
+        Add-MpPreference -ExclusionPath $targetPath -ErrorAction Stop
+    } catch {
+        Write-Warning "Add-MpPreference failed or Windows Defender is restricted/disabled ($($_.Exception.Message)). Skipping Defender exclusion."
+    }
+
+    $acl = Get-Acl $targetPath
+    $acl.SetAccessRuleProtection($true, $false)
+    Set-Acl $targetPath $acl
+
+    & icacls.exe $targetPath /grant "SYSTEM:(OI)(CI)F" /q 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "icacls SYSTEM grant failed with exit code $LASTEXITCODE" }
+    & icacls.exe $targetPath /grant "Administrators:(OI)(CI)F" /q 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "icacls Administrators grant failed with exit code $LASTEXITCODE" }
+    & icacls.exe $targetPath /grant "BUILTIN\Users:(OI)(CI)(RX)" /q 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "icacls Users grant failed with exit code $LASTEXITCODE" }
+
     Write-Host " [OK]" -ForegroundColor Green
 } catch {
-    Write-Host " [SKIPPED/FAILED]" -ForegroundColor Yellow
+    Write-Host " [SKIPPED/FAILED: $($_.Exception.Message)]" -ForegroundColor Yellow
+    throw
 }
 
-# 6. Clean Slate & Create Permanent Sentrix Watchdog
-# This task ensures the agent is always running and handles updates/reactivation.
-Write-Host "[6/6] Cleaning old tasks & creating Permanent Watchdog..." -NoNewline
+# 6. Clean Slate (Authoritative cleanup via remove-sentrix.ps1) & Register Watchdog Task
+Write-Host "[6/6] Performing clean-slate cleanup and registering Watchdog Task..." -NoNewline
 try {
     $targetPath = "C:\ProgramData\SentrixAgent"
     if (-not (Test-Path $targetPath)) { New-Item -ItemType Directory -Path $targetPath -Force | Out-Null }
-    
-    # Wipe any old traces
-    Unregister-ScheduledTask -TaskName "Sentrix Agent" -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-    Unregister-ScheduledTask -TaskName "Sentrix Helper" -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-    Unregister-ScheduledTask -TaskName "Sentrix Bootstrap" -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-    Unregister-ScheduledTask -TaskName "Sentrix Watchdog" -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
 
-    # Write the watchdog logic to a dedicated file
+    # Locate authoritative remove-sentrix.ps1
+    $removeScriptPath = Join-Path $PSScriptRoot "remove-sentrix.ps1"
+
+    if (-not (Test-Path -LiteralPath $removeScriptPath -PathType Leaf)) {
+        throw "Required cleanup script not found: $removeScriptPath"
+    }
+
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $removeScriptPath
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Sentrix cleanup failed with exit code $LASTEXITCODE. Provisioning aborted."
+    }
+
+    # Verify authoritative removal of old service
+    if (Get-Service -Name "SentrixAgent" -ErrorAction SilentlyContinue) {
+        throw "Cleanup validation failed: SentrixAgent service still exists."
+    }
+
+    # Verify authoritative removal of legacy scheduled tasks (including old Watchdog)
+    foreach ($taskName in @("Sentrix Agent", "Sentrix Helper", "Sentrix Bootstrap", "Sentrix Watchdog")) {
+        if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+            throw "Cleanup validation failed: Scheduled task '$taskName' still exists."
+        }
+    }
+
+    # Ensure target directory exists
+    if (-not (Test-Path $targetPath)) {
+        New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
+    }
+
+    # Verify stale deployment files are removed (directory contents must be empty)
+    $remainingItems = @(
+        Get-ChildItem -LiteralPath $targetPath -Force -ErrorAction Stop
+    )
+
+    if ($remainingItems.Count -gt 0) {
+        $remainingNames = ($remainingItems | Select-Object -ExpandProperty Name) -join ", "
+        throw "Cleanup validation failed. Unexpected files remain: $remainingNames"
+    }
+
+    # Create provisional Watchdog Script for binary swapping & health checks
     $watchdogFile = "$targetPath\watchdog.ps1"
-    $logFile = "$targetPath\watchdog.log"
     $watchdogScript = @'
 $log = 'C:\ProgramData\SentrixAgent\watchdog.log'
-$exe = 'C:\ProgramData\SentrixAgent\sentrix-agent.exe'
-$updateExe = 'C:\ProgramData\SentrixAgent\sentrix-agent-update.exe'
-$helperExe = 'C:\ProgramData\SentrixAgent\sentrix-helper.exe'
-$updateHelperExe = 'C:\ProgramData\SentrixAgent\sentrix-helper-update.exe'
-$targetPath = 'C:\ProgramData\SentrixAgent'
+$serviceName = 'SentrixAgent'
+$baseDir = 'C:\ProgramData\SentrixAgent'
 
 function Log-Message($msg) {
     $timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
     Add-Content -Path $log -Value "[$timestamp] $msg"
 }
 
-# 1. Check for pending updates (helper, agent, assets, or scripts)
-    $assetsZip = "$targetPath\assets-update.zip"
-    $assetsUpdateDir = "$targetPath\assets-update"
-    $dialogUpdate = "$targetPath\broadcast-dialog-update.ps1"
+# 1. Check for pending updates (deferred for future SCM coordination)
+$updateFiles = @(
+    'C:\ProgramData\SentrixAgent\sentrix-agent-update.exe',
+    'C:\ProgramData\SentrixAgent\sentrix-helper-update.exe',
+    'C:\ProgramData\SentrixAgent\AgentServiceHost-update.exe'
+)
+foreach ($uf in $updateFiles) {
+    if (Test-Path $uf) {
+        Log-Message "Detected pending update package $uf (deferred pending SCM coordination)."
+    }
+}
 
-    if ((Test-Path $updateExe) -or (Test-Path $updateHelperExe) -or (Test-Path $assetsZip) -or (Test-Path $assetsUpdateDir) -or (Test-Path $dialogUpdate)) {
-        Log-Message "Detected pending updates (binaries, assets, or scripts). Preparing update..."
+# 2. Check service status, deployment readiness marker, and independently validate manifest & payload
+$service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+$readyMarker = 'C:\ProgramData\SentrixAgent\.deployment-ready'
+$manifestPath = 'C:\ProgramData\SentrixAgent\asset-manifest.json'
 
-        # Stop scheduled tasks to release file locks
-        Stop-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
-        Stop-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
+if (($null -eq $service) -and (Test-Path $readyMarker) -and (Test-Path $manifestPath)) {
+    Log-Message "Deployment readiness marker and manifest detected. Performing strict integrity validation..."
+    $payloadValid = $true
 
-        # Kill running processes
-        Get-Process sentrix-helper -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-        Get-Process sentrix-agent -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-        taskkill /F /IM sentrix-helper* 2>&1 | Out-Null
-        taskkill /F /IM sentrix-agent* 2>&1 | Out-Null
-
-        Start-Sleep -Seconds 2
-
-        # Apply asset and script updates
-        if (Test-Path $assetsZip) {
-            Log-Message "Found assets-update.zip. Extracting to assets..."
-            try {
-                Expand-Archive -Path $assetsZip -DestinationPath "$targetPath\assets" -Force
-                Remove-Item -Path $assetsZip -Force -ErrorAction SilentlyContinue
-                if (Test-Path "$targetPath\assets\broadcast-dialog.ps1") {
-                    Copy-Item "$targetPath\assets\broadcast-dialog.ps1" -Destination "$targetPath\broadcast-dialog.ps1" -Force
-                }
-                Log-Message "Successfully applied assets-update.zip."
-            } catch {
-                Log-Message "Failed to expand assets-update.zip: $_"
-            }
+    try {
+        $markerData = Get-Content -LiteralPath $readyMarker -Raw | ConvertFrom-Json -ErrorAction Stop
+        if ([string]::IsNullOrWhiteSpace($markerData.deploymentId)) {
+            Log-Message "Payload validation failed: Marker missing deploymentId."
+            $payloadValid = $false
         }
 
-        if (Test-Path $assetsUpdateDir) {
-            Log-Message "Found assets-update directory. Copying to assets..."
-            try {
-                Copy-Item "$assetsUpdateDir\*" -Destination "$targetPath\assets\" -Recurse -Force
-                Remove-Item -Path $assetsUpdateDir -Recurse -Force -ErrorAction SilentlyContinue
-                if (Test-Path "$targetPath\assets\broadcast-dialog.ps1") {
-                    Copy-Item "$targetPath\assets\broadcast-dialog.ps1" -Destination "$targetPath\broadcast-dialog.ps1" -Force
-                }
-                Log-Message "Successfully applied assets-update directory."
-            } catch {
-                Log-Message "Failed to copy assets-update directory: $_"
-            }
+        $rawManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -ErrorAction Stop
+        $metaEntry = $rawManifest | Where-Object { $null -ne $_.deploymentId }
+        if (-not $metaEntry -or $metaEntry.deploymentId -ne $markerData.deploymentId) {
+            Log-Message "Payload validation failed: Deployment ID mismatch between marker and manifest."
+            $payloadValid = $false
         }
 
-        if (Test-Path $dialogUpdate) {
-            Log-Message "Found broadcast-dialog-update.ps1. Updating dialog scripts..."
-            try {
-                Copy-Item $dialogUpdate -Destination "$targetPath\broadcast-dialog.ps1" -Force
-                if (Test-Path "$targetPath\assets") {
-                    Copy-Item $dialogUpdate -Destination "$targetPath\assets\broadcast-dialog.ps1" -Force
-                }
-                Remove-Item -Path $dialogUpdate -Force -ErrorAction SilentlyContinue
-                Log-Message "Successfully updated broadcast-dialog.ps1."
-            } catch {
-                Log-Message "Failed to update broadcast-dialog.ps1: $_"
-            }
-        }
-
-    # Swap helper first if pending update exists
-    if (Test-Path $updateHelperExe) {
-        Log-Message "Swapping sentrix-helper.exe with retries..."
-        $helperSwapped = $false
-        for ($i = 1; $i -le 5; $i++) {
-            try {
-                Get-Process sentrix-helper -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-                taskkill /F /IM sentrix-helper* 2>&1 | Out-Null
-                if (Test-Path $helperExe) {
-                    Remove-Item -Path $helperExe -Force -ErrorAction SilentlyContinue
-                }
-                Move-Item -Path $updateHelperExe -Destination $helperExe -Force -ErrorAction Stop
-                $helperSwapped = $true
-                Log-Message "Successfully swapped sentrix-helper.exe on attempt $i."
+        $manifestItems = $rawManifest | Where-Object { $null -ne $_.relPath }
+        foreach ($item in $manifestItems) {
+            $itemPath = Join-Path $baseDir $item.relPath
+            if (-not (Test-Path -LiteralPath $itemPath -PathType Leaf)) {
+                Log-Message "Payload validation failed: Missing file $($item.relPath)"
+                $payloadValid = $false
                 break
-            } catch {
-                Log-Message "Attempt $i to swap sentrix-helper.exe failed: $_. Retrying in 1s..."
-                Start-Sleep -Seconds 1
             }
-        }
-        if (-not $helperSwapped) {
-            Log-Message "WARNING: Failed to swap sentrix-helper.exe after 5 attempts. Removing update binary."
-            Remove-Item -Path $updateHelperExe -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    # Swap agent second if pending update exists
-    if (Test-Path $updateExe) {
-        Log-Message "Swapping sentrix-agent.exe with retries..."
-        $agentSwapped = $false
-        for ($i = 1; $i -le 5; $i++) {
-            try {
-                Get-Process sentrix-agent -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-                taskkill /F /IM sentrix-agent* 2>&1 | Out-Null
-                if (Test-Path $exe) {
-                    Remove-Item -Path $exe -Force -ErrorAction SilentlyContinue
-                }
-                Move-Item -Path $updateExe -Destination $exe -Force -ErrorAction Stop
-                $agentSwapped = $true
-                Log-Message "Successfully swapped sentrix-agent.exe on attempt $i."
+            $itemSize = (Get-Item -LiteralPath $itemPath).Length
+            if ($itemSize -eq 0 -or $itemSize -ne [long]$item.size) {
+                Log-Message "Payload validation failed: Size mismatch or empty file for $($item.relPath)"
+                $payloadValid = $false
                 break
-            } catch {
-                Log-Message "Attempt $i to swap sentrix-agent.exe failed: $_. Retrying in 1s..."
-                Start-Sleep -Seconds 1
+            }
+            $itemHash = (Get-FileHash -LiteralPath $itemPath -Algorithm SHA256).Hash.ToLower()
+            if ($itemHash -ne $item.hash.ToLower()) {
+                Log-Message "Payload validation failed: SHA-256 hash mismatch for $($item.relPath)"
+                $payloadValid = $false
+                break
             }
         }
-        if (-not $agentSwapped) {
-            Log-Message "WARNING: Failed to swap sentrix-agent.exe after 5 attempts. Removing update binary."
-            Remove-Item -Path $updateExe -Force -ErrorAction SilentlyContinue
-        }
+    } catch {
+        Log-Message "Exception during payload integrity validation: $_"
+        $payloadValid = $false
     }
 
-    # Restart scheduled tasks
-    Log-Message "Restarting Sentrix Helper and Sentrix Agent tasks..."
-    Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
-    Start-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
-}
-
-# 2. Ensure agent is running and deduplicated
-$agentProcesses = Get-Process -Name "sentrix-agent" -ErrorAction SilentlyContinue
-
-if ($agentProcesses.Count -gt 1) {
-    Log-Message "Detected $($agentProcesses.Count) duplicate sentrix-agent instances. Pruning extras..."
-    $agentProcesses | Select-Object -Skip 1 | Stop-Process -Force -ErrorAction SilentlyContinue
-} elseif ($null -eq $agentProcesses -or $agentProcesses.Count -eq 0) {
-    if (Test-Path $exe) {
-        Log-Message "Agent not running. Triggering setup/activation..."
-        $setup = Start-Process -FilePath $exe -ArgumentList "--setup" -WorkingDirectory $targetPath -WindowStyle Hidden -Wait -PassThru
-        Log-Message "Setup attempt finished with exit code $($setup.ExitCode)."
-
-        $agentTask = Get-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction SilentlyContinue
-        if ($null -ne $agentTask) {
-            try {
-                Start-ScheduledTask -TaskName "Sentrix Agent" -ErrorAction Stop
-                Log-Message "Sentrix Agent task verified and start signal sent."
-            } catch {
-                Log-Message "FAILED to start Sentrix Agent task: $($_.Exception.Message)"
+    if ($payloadValid) {
+        Log-Message "Payload integrity validation passed successfully. Executing setup-service.ps1..."
+        $setupScriptPath = 'C:\ProgramData\SentrixAgent\src\utils\setup-service.ps1'
+        try {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $setupScriptPath 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                Log-Message "setup-service.ps1 executed successfully (Exit Code 0)."
+            } else {
+                Log-Message "setup-service.ps1 failed with exit code $LASTEXITCODE."
             }
-        } else {
-            Log-Message "Sentrix Agent task is still missing after setup. Starting executable directly as fallback."
-            try {
-                Start-Process -FilePath $exe -WorkingDirectory $targetPath -WindowStyle Hidden
-            } catch {
-                Log-Message "FAILED to start agent fallback: $($_.Exception.Message)"
-            }
+        } catch {
+            Log-Message "Exception during setup-service.ps1 execution: $_"
         }
+    } else {
+        Log-Message "Bootstrap skipped due to incomplete, modified, or invalid deployment payload."
     }
-}
-
-# 3. Ensure Sentrix Helper task and process are running (checked via IPC port 4101)
-$helperTask = Get-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
-
-$helperRunning = $false
-try {
-    $socket = New-Object System.Net.Sockets.TcpClient
-    $ar = $socket.BeginConnect("127.0.0.1", 4101, $null, $null)
-    $success = $ar.AsyncWaitHandle.WaitOne(1000, $false)
-    if ($success -and $socket.Connected) {
-        $helperRunning = $true
-        $socket.EndConnect($ar)
-        $socket.Close()
-    }
-} catch {
-}
-
-if ($null -eq $helperTask) {
-    Log-Message "Sentrix Helper task is missing. Re-registering via launcher..."
-    if (Test-Path $helperExe) {
-        $launcherPath = Join-Path $targetPath "launch-helper.ps1"
-        $launcherContent = @"
-Start-Process -FilePath "$helperExe" -WorkingDirectory "$targetPath" -WindowStyle Hidden
-"@
-        $launcherContent | Out-File -FilePath $launcherPath -Encoding utf8 -Force
-
-        Unregister-ScheduledTask -TaskName "Sentrix Helper" -Confirm:$false -ErrorAction SilentlyContinue
-        schtasks /Create /TN "Sentrix Helper" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcherPath`"" /SC ONLOGON /RU "NT AUTHORITY\INTERACTIVE" /RL HIGHEST /F | Out-Null
-        Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
-        Log-Message "Sentrix Helper task re-registered and triggered via Scheduled Task."
-    }
-} elseif (-not $helperRunning -and (Test-Path $helperExe)) {
-    Log-Message "Sentrix Helper not listening on IPC port 4101. Triggering Sentrix Helper task..."
-    Start-ScheduledTask -TaskName "Sentrix Helper" -ErrorAction SilentlyContinue
-    $runOut = schtasks /Run /TN "Sentrix Helper" 2>&1
-    Log-Message "Sentrix Helper start triggered. Result: $($runOut -join ' ')"
 }
 '@
     $watchdogScript | Out-File -FilePath $watchdogFile -Encoding utf8 -Force
 
-    # Create the permanent watchdog task (runs every minute as SYSTEM)
-    # Using BOTH triggers so the task runs immediately and survives reboots:
-    #   1. AtStartup — fires on every boot
-    #   2. Once + RepetitionInterval — repeats every minute from a safe epoch start time
-    $watchdogAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watchdogFile`""
+    # Register Watchdog Scheduled Task (Runs at Startup and every minute as SYSTEM)
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watchdogFile`""
     $startupTrigger = New-ScheduledTaskTrigger -AtStartup
     $repeatTrigger = New-ScheduledTaskTrigger -Once -At "2020-01-01T00:00:00" -RepetitionInterval (New-TimeSpan -Minutes 1)
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
     $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 
-    Register-ScheduledTask -TaskName "Sentrix Watchdog" -Action $watchdogAction -Trigger @($startupTrigger, $repeatTrigger) -Settings $settings -Principal $principal -Force | Out-Null
+    Register-ScheduledTask -TaskName "Sentrix Watchdog" -Action $action -Trigger @($startupTrigger, $repeatTrigger) -Settings $settings -Principal $principal -Force | Out-Null
+    Start-ScheduledTask -TaskName "Sentrix Watchdog" -ErrorAction SilentlyContinue
 
-    # Trigger the first run immediately
-    Start-ScheduledTask -TaskName "Sentrix Watchdog"
-    
     Write-Host " [OK]" -ForegroundColor Green
 } catch {
     Write-Host " [FAILED: $($_.Exception.Message)]" -ForegroundColor Red
+    throw
 }
 
-Write-Host "`n--- Prep Complete! ---" -ForegroundColor Cyan
-Write-Host "This PC is now ready for Permanent Zero-Touch management."
-Write-Host "1. Push agent files via SMB to C:\ProgramData\SentrixAgent"
-Write-Host "2. The Watchdog task will detect and install the agent automatically."
-Write-Host "Credentials: Administrator / $password" -ForegroundColor Yellow
+Write-Host "`n--- Sentrix Master Image Prep Complete ---" -ForegroundColor Cyan

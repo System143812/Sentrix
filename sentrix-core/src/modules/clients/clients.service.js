@@ -30,6 +30,7 @@ import {
 } from "../metrics/hardware.service.js";
 import { DiscoveryRepository } from "../discovery/discovery.repository.js";
 import { clearDeploymentCacheState } from "../discovery/discovery.service.js";
+import { grantRegistrationGrace } from "../../system/heartbeat/heartbeat.service.js";
 
 function normalizeMac(mac = "") {
   return String(mac || "")
@@ -120,6 +121,17 @@ export async function registerClient(clientData) {
         return macMatch;
       });
     }
+
+    // Priority C: IP address match fallback (for redeploy scenarios)
+    if (!match) {
+      match = allClients.find(c => {
+        const ipMatch = clientData.ip && c.ip === clientData.ip && !c.archived;
+        if (ipMatch) {
+          console.log(`[CORE DEBUG] Matched by IP: ${c.ip} on client ${c.id}`);
+        }
+        return ipMatch;
+      });
+    }
   }
 
   if (!match) {
@@ -193,6 +205,7 @@ export async function registerClient(clientData) {
     await processIncomingMetrics(effectiveId, incomingMetrics, now);
   }
 
+  grantRegistrationGrace(effectiveId);
   await recordUptimeStatus(effectiveId, "online", now);
 
   if (hasIncomingDetails) {
@@ -220,8 +233,7 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
 
   console.log(`[CORE] Updating metrics for agent: ${id} (${currentClient.hostname})`);
   const normalizedMetrics = await processIncomingMetrics(id, metrics, now);
-  await recordUptimeStatus(id, "online", now);
-  
+
   if (details) {
     try {
       await saveHardwareDetails(id, details);
@@ -230,14 +242,8 @@ export async function updateClientMetrics(id, metrics = {}, details = null) {
     }
   }
 
-  const success = await ClientRepository.updateMetrics(id, normalizedMetrics, "online", now, details);
+  const success = await ClientRepository.updateMetrics(id, normalizedMetrics, now, details);
   if (!success) return null;
-
-  if (currentClient.ip) {
-    try {
-      await DiscoveryRepository.clearProcessingByIp(currentClient.ip, "success", now);
-    } catch (err) {}
-  }
 
   return getClientById(id);
 }
@@ -261,15 +267,8 @@ export async function touchClientHeartbeat(id, metrics = null) {
     normalizedMetrics = await processIncomingMetrics(id, metrics, now);
   }
 
-  const success = await ClientRepository.updateStatus(id, "online", now, normalizedMetrics);
+  const success = await ClientRepository.updateStatus(id, now, normalizedMetrics);
   if (!success) return null;
-  await recordUptimeStatus(id, "online", now);
-
-  if (currentClient.ip) {
-    try {
-      await DiscoveryRepository.clearProcessingByIp(currentClient.ip, "success", now);
-    } catch (err) {}
-  }
 
   return getClientById(id);
 }
@@ -337,7 +336,7 @@ export async function archiveClient(id) {
 
 export async function markClientOffline(id) {
   const now = Date.now();
-  const success = await ClientRepository.updateStatus(id, "offline", now);
+  const success = await ClientRepository.updateClientStatusOnly(id, "offline", now);
   if (!success) return null;
   await recordUptimeStatus(id, "offline", now);
 

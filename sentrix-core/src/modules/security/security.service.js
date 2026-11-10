@@ -152,7 +152,8 @@ export async function signAgentCommand(clientId, command, args = {}) {
     throw new Error("Agent command signing failed: hardware identity is not bound.");
   }
 
-  const data = { command, args };
+  const commandId = crypto.randomUUID();
+  const data = { command, args, commandId };
   const timestamp = Date.now();
   const payload = JSON.stringify(data) + timestamp;
   const hmac = crypto

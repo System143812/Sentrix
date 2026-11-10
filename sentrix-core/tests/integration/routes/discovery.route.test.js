@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import request from 'supertest';
-import express from 'express';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import request from "supertest";
+import express from "express";
 import discoveryRouter from "../../../src/modules/discovery/discovery.route.js";
 import * as discoveryService from "../../../src/modules/discovery/discovery.service.js";
 import { errorHandler } from "../../../src/middlewares/error.middleware.js";
@@ -10,7 +10,7 @@ vi.mock("../../../src/modules/discovery/discovery.service.js", () => ({
   runDiscoveryScan: vi.fn(),
   deployAgentToHost: vi.fn(),
   getInterfaces: vi.fn(),
-  recordAgentDeployment: vi.fn()
+  recordAgentDeployment: vi.fn(),
 }));
 import {
   getDiscoverySnapshot,
@@ -24,20 +24,22 @@ import {
 
 vi.mock("../../../src/modules/audit/audit.service.js");
 vi.mock("../../../src/modules/security/security.service.js", () => ({
-  signAgentCommand: vi.fn((clientId, command, args = {}) => Promise.resolve({
-    data: { command, args },
-    hmac: 'signed-hmac',
-    timestamp: 1234567890
-  }))
+  signAgentCommand: vi.fn((clientId, command, args = {}) =>
+    Promise.resolve({
+      data: { command, args },
+      hmac: "signed-hmac",
+      timestamp: 1234567890,
+    }),
+  ),
 }));
 vi.mock("../../../src/modules/clients/clients.service.js", () => ({
-  getAllClients: vi.fn().mockResolvedValue([])
+  getAllClients: vi.fn().mockResolvedValue([]),
 }));
 import { getAllClients } from "../../../src/modules/clients/clients.service.js";
 
 vi.mock("../../../src/middlewares/auth.middleware.js", () => ({
   authenticate: (req, res, next) => next(),
-  requireRole: () => (req, res, next) => next()
+  requireRole: () => (req, res, next) => next(),
 }));
 
 const mockIo = {
@@ -48,86 +50,106 @@ const mockIo = {
   sockets: {
     adapter: {
       rooms: {
-        get: vi.fn().mockReturnValue(new Set(['dummy-socket-id']))
-      }
-    }
-  }
+        get: vi.fn().mockReturnValue(new Set(["dummy-socket-id"])),
+      },
+    },
+  },
 };
 
 const app = express();
 app.use(express.json());
-app.set('io', mockIo);
-app.use('/api/discovery', discoveryRouter);
+app.set("io", mockIo);
+app.use("/api/discovery", discoveryRouter);
 app.use(errorHandler);
 
-describe('Discovery Controller (Full Coverage)', () => {
+describe("Discovery Controller (Full Coverage)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('POST /api/discovery/scan', async () => {
+  it("POST /api/discovery/scan", async () => {
     runDiscoveryScan.mockResolvedValue();
     getDiscoverySnapshot.mockReturnValue({ scanning: false, results: [] });
-    const res = await request(app).post('/api/discovery/scan').send({ subnet: '10.98.25' });
-    expect(res.status).toBe(200);
-  });
-
-  it('GET /api/discovery/interfaces', async () => {
-    const res = await request(app).get('/api/discovery/interfaces');
-    expect(res.status).toBe(200);
-  });
-
-  it('GET /api/discovery/', async () => {
-    getDiscoverySnapshot.mockReturnValue({ scanning: false, results: [] });
-    const res = await request(app).get('/api/discovery/');
-    expect(res.status).toBe(200);
-  });
-
-  it('POST /api/discovery/deploy', async () => {
-    deployAgentToHost.mockResolvedValue({ success: true, message: 'Deployed' });
     const res = await request(app)
-      .post('/api/discovery/deploy')
-      .send({ ip: '127.0.0.1', credentials: { user: 'a', pass: 'p' } });
-    
+      .post("/api/discovery/scan")
+      .send({ subnet: "192.168.1" });
+    expect(res.status).toBe(200);
+  });
+
+  it("GET /api/discovery/interfaces", async () => {
+    const res = await request(app).get("/api/discovery/interfaces");
+    expect(res.status).toBe(200);
+  });
+
+  it("GET /api/discovery/", async () => {
+    getDiscoverySnapshot.mockReturnValue({ scanning: false, results: [] });
+    const res = await request(app).get("/api/discovery/");
+    expect(res.status).toBe(200);
+  });
+
+  it("POST /api/discovery/deploy", async () => {
+    deployAgentToHost.mockResolvedValue({ success: true, message: "Deployed" });
+    const res = await request(app)
+      .post("/api/discovery/deploy")
+      .send({ ip: "127.0.0.1", credentials: { user: "a", pass: "p" } });
+
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
   });
 
-  it('POST /api/discovery/deploy (Zero-Touch Update)', async () => {
-    getDiscoverySnapshot.mockReturnValue({ devices: [{ ip: '10.98.25.10', registered_client_id: 'agent-123' }] });
-    getAllClients.mockResolvedValue([{ ip: '10.98.25.10', id: 'agent-123' }]);
+  it("POST /api/discovery/deploy (Zero-Touch Update)", async () => {
+    getDiscoverySnapshot.mockReturnValue({
+      devices: [{ ip: "192.168.1.10", registered_client_id: "agent-123" }],
+    });
+    getAllClients.mockResolvedValue([{ ip: "192.168.1.10", id: "agent-123" }]);
 
-    const res = await request(app)
-      .post('/api/discovery/deploy')
-      .send({
-        ip: '10.98.25.10',
-        action: 'update'
-      });
+    const res = await request(app).post("/api/discovery/deploy").send({
+      ip: "192.168.1.10",
+      action: "update",
+    });
 
     expect(res.status).toBe(200);
-    expect(mockIo.to).toHaveBeenCalledWith('agent:agent-123');
-    expect(mockIo.emit).toHaveBeenCalledWith('agent:command', {
-      data: { command: 'update', args: { agentBinaryUrl: expect.any(String), helperBinaryUrl: expect.any(String) } },
-      hmac: 'signed-hmac',
-      timestamp: 1234567890
+    expect(mockIo.to).toHaveBeenCalledWith("agent:agent-123");
+    expect(mockIo.emit).toHaveBeenCalledWith("agent:command", {
+      data: {
+        command: "update",
+        args: {
+          updateBundleUrl: expect.any(String),
+        },
+      },
+      hmac: "signed-hmac",
+      timestamp: 1234567890,
     });
   });
 
-  it('POST /api/discovery/deploy (missing ip)', async () => {
+  it("POST /api/discovery/deploy (missing ip)", async () => {
     const res = await request(app)
-      .post('/api/discovery/deploy')
-      .send({ credentials: { user: 'a', pass: 'p' } });
-    
+      .post("/api/discovery/deploy")
+      .send({ credentials: { user: "a", pass: "p" } });
+
     expect(res.status).toBe(400);
   });
 
-  it('POST /api/discovery/deploy (failed deployment)', async () => {
-    deployAgentToHost.mockResolvedValue({ success: false, message: 'Access denied' });
+  it("POST /api/discovery/deploy (failed deployment)", async () => {
+    deployAgentToHost.mockResolvedValue({
+      success: false,
+      message: "Access denied",
+    });
     const res = await request(app)
-      .post('/api/discovery/deploy')
-      .send({ ip: '127.0.0.1' });
-    
+      .post("/api/discovery/deploy")
+      .send({ ip: "127.0.0.1" });
+
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(false);
+  });
+
+  it("GET /api/discovery/update/bundle (missing parameters)", async () => {
+    const res = await request(app).get("/api/discovery/update/bundle");
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /api/discovery/update/bundle (invalid token)", async () => {
+    const res = await request(app).get("/api/discovery/update/bundle?agentId=123&token=invalid");
+    expect(res.status).toBe(403);
   });
 });

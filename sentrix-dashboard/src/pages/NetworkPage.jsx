@@ -3,7 +3,8 @@ import {
   CircleHelp,
   Laptop,
   Monitor,
-  PackageCheck,
+  Package,
+  ArrowUp,
   Printer,
   Radar,
   LoaderCircle,
@@ -15,12 +16,13 @@ import {
   X,
   ChevronDown,
   ShieldAlert,
+  Users,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { Card } from "../components/Card.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { ProgressBar } from "../components/ProgressBar.jsx";
-import { DeployDialog } from "../components/DeployDialog.jsx";
+import { BatchActionModal } from "../components/BatchActionModal.jsx";
 import { useToast } from "../components/ToastProvider.jsx";
 import { Pagination } from "../components/Pagination.jsx";
 import { usePaginationState } from "../hooks/usePaginationState.js";
@@ -70,16 +72,23 @@ function getDeploymentFailure(error, ip) {
   const rawMessage = error?.message || "Agent deployment failed.";
   const normalized = rawMessage.toLowerCase();
 
+  if (normalized.includes("offline")) {
+    return {
+      title: "Agent is offline. Please try again later.",
+      detail: `Sentrix could not reach the agent at ${ip}. The device appears to be offline or disconnected. Please ensure the agent service is running on the target PC and try again.`,
+      technical: rawMessage,
+    };
+  }
+
   if (
     normalized.includes("not found") ||
     normalized.includes("unavailable") ||
-    normalized.includes("offline") ||
     normalized.includes("timed out") ||
     normalized.includes("timeout") ||
     normalized.includes("rpc server is unavailable")
   ) {
     return {
-      title: "Agent deployment failed. Device is unavailable.",
+      title: "Device is unavailable or unreachable.",
       detail: `Sentrix could not reach ${ip}. Confirm the target PC is powered on, connected to the network, and reachable from this dashboard.`,
       technical: rawMessage,
     };
@@ -93,8 +102,8 @@ function getDeploymentFailure(error, ip) {
     normalized.includes("permission")
   ) {
     return {
-      title: "Deployment blocked by target PC security controls.",
-      detail: "The target PC appears to be rejecting the remote installer because of Windows security filtering, firewall rules, or administrator permission restrictions.",
+      title: "Action blocked by target PC security controls.",
+      detail: "The target PC rejected the request due to Windows security filtering, firewall rules, or administrator permission restrictions.",
       technical: rawMessage,
     };
   }
@@ -107,15 +116,15 @@ function getDeploymentFailure(error, ip) {
     normalized.includes("wrong")
   ) {
     return {
-      title: "Deployment failed because the credentials were rejected.",
-      detail: "Check the administrator username and password, then try the deployment again.",
+      title: "Authentication failed.",
+      detail: "The administrator credentials were rejected by the target device. Please verify your administrator username and password.",
       technical: rawMessage,
     };
   }
 
   return {
-    title: "Agent deployment failed.",
-    detail: "Sentrix could not complete the installer push. Review the technical message below, then retry after checking the target PC connection and permissions.",
+    title: rawMessage.includes("offline") ? "Agent is offline. Please try again later." : rawMessage,
+    detail: "Review the technical details below or check target PC connection and status.",
     technical: rawMessage,
   };
 }
@@ -189,10 +198,14 @@ export function NetworkPage({
   deployingIp,
 }) {
   const canDeploy = user?.role === "network_admin";
-  const [selectedIp, setSelectedIp] = useState(null);
+  const [showDeployModal, setShowDeployModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [batchLoading, setBatchLoading] = useState(false);
   const [deploymentFailure, setDeploymentFailure] = useState(null);
   const [retryRequest, setRetryRequest] = useState(null);
-  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
   // Initialize targetSubnet from localStorage, falling back to snapshot or empty
   const [targetSubnet, setTargetSubnet] = useState(() => {
     return localStorage.getItem("sentrix_preferred_subnet") || snapshot?.subnet || "";
@@ -202,25 +215,57 @@ export function NetworkPage({
   const { currentPage, pageSize, setCurrentPage, setPageSize } = usePaginationState("network", 5);
 
   const scanResults = useMemo(() => {
+    let devices = snapshot?.devices || [];
+    if (targetSubnet) {
+      const normalizedTarget = targetSubnet.split('/')[0].replace(/\.0$/, '');
+      devices = devices.filter((host) => host.ip?.startsWith(`${normalizedTarget}.`));
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      devices = devices.filter(d =>
+        (d.ip && d.ip.toLowerCase().includes(q)) ||
+        (d.mac && d.mac.toLowerCase().includes(q)) ||
+        (d.hostname && d.hostname.toLowerCase().includes(q))
+      );
+    }
+
+    if (statusFilter !== "all") {
+      devices = devices.filter(d => {
+        const st = (d.agent_status || "no agent").toLowerCase();
+        if (statusFilter === "running") return st === "running" || st === "online";
+        if (statusFilter === "no agent") return st === "none" || st === "no agent" || !st;
+        if (statusFilter === "deploying") return st === "deploying";
+        if (statusFilter === "updating") return st === "updating";
+        return true;
+      });
+    }
+
+    return devices;
+  }, [snapshot?.devices, targetSubnet, searchQuery, statusFilter]);
+
+  const eligibleCount = useMemo(() => {
     const devices = snapshot?.devices || [];
-    if (!targetSubnet) return devices;
-    
-    // Normalize targetSubnet to remove any trailing .0 or /24
-    const normalizedTarget = targetSubnet.split('/')[0].replace(/\.0$/, '');
-    
-    // Filter devices to only show those matching the selected subnet prefix
-    return devices.filter((host) => host.ip?.startsWith(`${normalizedTarget}.`));
-  }, [snapshot?.devices, targetSubnet]);
-  
+    return devices.filter(d => {
+      if (!d.deploy_eligible || d.gateway) return false;
+      const st = (d.agent_status || "no agent").toLowerCase();
+      if (st === "running" || st === "online" || st === "deploying" || st === "updating") return false;
+      return true;
+    }).length;
+  }, [snapshot?.devices]);
+
+  const updateableCount = useMemo(() => {
+    const devices = snapshot?.devices || [];
+    return devices.filter(d => d.agent_status === "running" || d.deployment_action === "update").length;
+  }, [snapshot?.devices]);
+
   const paginatedResults = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return scanResults.slice(start, start + pageSize);
   }, [scanResults, currentPage, pageSize]);
 
-  const selectedHost = scanResults.find((host) => host.ip === selectedIp);
   const scanLoading = snapshot?.status === "scanning";
 
-  // Persist targetSubnet choice and sync with backend defaults
   useEffect(() => {
     if (targetSubnet) {
       localStorage.setItem("sentrix_preferred_subnet", targetSubnet);
@@ -228,49 +273,89 @@ export function NetworkPage({
   }, [targetSubnet]);
 
   useEffect(() => {
-    // If we have no preference yet, use the backend's active subnet
     if (!targetSubnet && snapshot?.subnet) {
       setTargetSubnet(snapshot.subnet);
-    } 
-    // If still empty but we have interfaces, pick the first one
-    else if (!targetSubnet && interfaces.length > 0) {
+    } else if (!targetSubnet && interfaces.length > 0) {
       setTargetSubnet(interfaces[0].subnet);
     }
   }, [snapshot?.subnet, interfaces, targetSubnet]);
 
-  // Reset to page 1 when scan results change (e.g. new scan started)
   useEffect(() => {
     setCurrentPage(1);
   }, [snapshot?.lastScanAt]);
 
-  async function handleDeploy(credentials) {
+  async function handleBatchDeploy(selectedIps) {
+    if (!canDeploy || selectedIps.length === 0) return;
+    setBatchLoading(true);
+    let successCount = 0;
+
     try {
-      if (!canDeploy) {
-        throw new Error("Only network admins can deploy agents.");
+      const devicesMap = new Map((snapshot?.devices || []).map(d => [d.ip, d]));
+
+      for (const ip of selectedIps) {
+        const device = devicesMap.get(ip);
+        if (!device || !device.deploy_eligible || device.gateway) {
+          const errMsg = `Device ${ip} is not valid or eligible for agent deployment.`;
+          console.error(errMsg);
+          notify(errMsg, "failed");
+          continue;
+        }
+
+        try {
+          await onDeploy(ip, "PC", null, "deploy");
+          successCount++;
+        } catch (err) {
+          const failure = getDeploymentFailure(err, ip);
+          console.error(`Failed to deploy to ${ip}:`, err);
+          notify(failure.title, "failed");
+        }
       }
-      await onDeploy(selectedIp, "PC", credentials, "deploy");
-      notify(`Setup started for ${selectedIp}.`, "success");
-      setSelectedIp(null);
+
+      if (successCount > 0) {
+        notify(`Batch deployment initiated for ${successCount} host(s).`, "success");
+        setShowDeployModal(false);
+      }
     } catch (error) {
-      const failure = getDeploymentFailure(error, selectedIp);
-      setRetryRequest({ ip: selectedIp, credentials, action: "deploy" });
-      setDeploymentFailure(failure);
-      setSelectedIp(null);
-      notify(failure.title, "failed");
+      notify("Batch deployment encountered an error.", "failed");
+    } finally {
+      setBatchLoading(false);
     }
   }
 
-  async function handleDirectUpdate(ip) {
+  async function handleBatchUpdate(selectedIps) {
+    if (!canDeploy || selectedIps.length === 0) return;
+    setBatchLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+    let lastErrorMsg = "";
+
     try {
-      if (!canDeploy) {
-        throw new Error("Only network admins can update agents.");
+      for (const ip of selectedIps) {
+        try {
+          await onDeploy(ip, "PC", null, "update");
+          successCount++;
+        } catch (err) {
+          failCount++;
+          const rawMsg = err?.message || `Failed to update agent at ${ip}.`;
+          lastErrorMsg = rawMsg.toLowerCase().includes("offline")
+            ? "Agent is offline. Please try again later."
+            : rawMsg;
+          console.error(`Failed to update ${ip}:`, err);
+        }
       }
-      await onDeploy(ip, "PC", null, "update");
-      notify(`Zero-touch update command sent for ${ip}.`, "success");
+      if (successCount > 0) {
+        notify(`Batch update initiated for ${successCount} agent(s).`, "success");
+      }
+      if (failCount > 0 && successCount === 0) {
+        notify(lastErrorMsg || "Batch update failed.", "failed");
+      }
+      if (failCount === 0) {
+        setShowUpdateModal(false);
+      }
     } catch (error) {
-      const failure = getDeploymentFailure(error, ip);
-      setDeploymentFailure(failure);
-      notify(failure.title, "failed");
+      notify(error?.message || "Batch update encountered an error.", "failed");
+    } finally {
+      setBatchLoading(false);
     }
   }
 
@@ -284,37 +369,34 @@ export function NetworkPage({
       await onDeploy(ip, "PC", credentials, action);
       notify(`Setup started for ${ip}.`, "success");
       setRetryRequest(null);
-      setSelectedIp(null);
     } catch (error) {
       const failure = getDeploymentFailure(error, ip);
       setDeploymentFailure(failure);
       notify(failure.title, "failed");
-      setSelectedIp(null);
     }
   }
 
-  const isError = deployMessage?.toLowerCase().includes("failed") || 
-                  deployMessage?.toLowerCase().includes("error") ||
-                  deployMessage?.toLowerCase().includes("wrong");
-
   return (
     <div className="page-reveal space-y-6">
-      {selectedIp ? (
-        <DeployDialog
-          ip={selectedIp}
-          mode={
-            selectedHost?.deployment_action === "activate"
-              ? "activate"
-              : selectedHost?.deployment_action === "update"
-                ? "update"
-                : "deploy"
-          }
-          onCancel={() => setSelectedIp(null)}
-          onConfirm={handleDeploy}
-          loading={deployingIp === selectedIp}
-          error={isError ? deployMessage : null}
+      {showDeployModal && (
+        <BatchActionModal
+          mode="deploy"
+          devices={snapshot?.devices || []}
+          onClose={() => setShowDeployModal(false)}
+          onConfirm={handleBatchDeploy}
+          loading={batchLoading}
         />
-      ) : null}
+      )}
+
+      {showUpdateModal && (
+        <BatchActionModal
+          mode="update"
+          devices={snapshot?.devices || []}
+          onClose={() => setShowUpdateModal(false)}
+          onConfirm={handleBatchUpdate}
+          loading={batchLoading}
+        />
+      )}
 
       <DeploymentFailureOverlay
         failure={deploymentFailure}
@@ -354,6 +436,8 @@ export function NetworkPage({
         <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-semibold text-white/70">
           <div className="relative">
             <select
+              aria-label="Target Subnet"
+              data-testid="subnet-selector"
               value={targetSubnet}
               onChange={(e) => {
                 if (!canDeploy) return;
@@ -391,21 +475,61 @@ export function NetworkPage({
         </div>
       </PageHeader>
 
-      {deployMessage && !selectedIp ? (
-        <div className={`rounded-lg border p-4 text-sm shadow-sm ${
-          isError 
-            ? "border-red-200 bg-red-50 text-red-800" 
-            : "border-emerald-200 bg-emerald-50 text-emerald-800"
-        }`}>
-          {deployMessage}
-        </div>
-      ) : null}
-
       <Card padding="6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-100 pb-5 mb-5">
+          <div className="flex flex-wrap items-center gap-3 flex-1">
+            <div className="relative min-w-[240px]">
+              <input
+                type="text"
+                placeholder="Search IP, MAC, hostname..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400"
+              />
+            </div>
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400"
+              >
+                <option value="all">All Agent Statuses</option>
+                <option value="running">Running</option>
+                <option value="no agent">No Agent</option>
+                <option value="deploying">Deploying</option>
+                <option value="updating">Updating</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {canDeploy && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowDeployModal(true)}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                >
+                  <Package size={14} />
+                  <span>Deploy ({eligibleCount})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowUpdateModal(true)}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                >
+                  <ArrowUp size={14} />
+                  <span>Update ({updateableCount})</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h3 className="text-lg font-semibold">Devices found</h3>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-500">
               Hostnames are best-effort. Registered Sentrix agents are the
               trusted identity source.
             </p>
@@ -424,19 +548,18 @@ export function NetworkPage({
           </div>
         ) : (
           <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200">
-            <div className="hidden min-w-[1000px] gap-4 bg-slate-50/50 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 xl:grid xl:grid-cols-[minmax(160px,1.1fr)_minmax(110px,0.65fr)_minmax(140px,0.9fr)_minmax(120px,0.8fr)_70px_110px_130px] border-b border-slate-100">
+            <div className="hidden min-w-[900px] gap-4 bg-slate-50/50 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 xl:grid xl:grid-cols-[minmax(180px,1.2fr)_minmax(120px,0.8fr)_minmax(150px,1.0fr)_minmax(140px,0.9fr)_80px_130px] border-b border-slate-100">
               <div>Host</div>
               <div>IP</div>
               <div>MAC</div>
               <div>Vendor</div>
               <div>Type</div>
               <div>Agent Status</div>
-              <div className="text-right">Action</div>
             </div>
             {paginatedResults.map((host) => (
               <div
                 key={host.ip}
-                className="grid gap-4 border-t border-slate-100 bg-white px-4 py-4 text-sm text-slate-700 first:border-t-0 xl:min-w-[1000px] xl:grid-cols-[minmax(160px,1.1fr)_minmax(110px,0.65fr)_minmax(140px,0.9fr)_minmax(120px,0.8fr)_70px_110px_130px] xl:items-center hover:bg-slate-50/30 transition-all"
+                className="grid gap-4 border-t border-slate-100 bg-white px-4 py-4 text-sm text-slate-700 first:border-t-0 xl:min-w-[900px] xl:grid-cols-[minmax(180px,1.2fr)_minmax(120px,0.8fr)_minmax(150px,1.0fr)_minmax(140px,0.9fr)_80px_130px] xl:items-center hover:bg-slate-50/30 transition-all"
               >
                 <div className="min-w-0">
                   <p className="break-words font-semibold text-slate-800">
@@ -489,48 +612,6 @@ export function NetworkPage({
                   }`}>
                     {host.agent_status === "running" ? "Running" : host.agent_status === "deploying" ? "Deploying" : host.agent_status === "updating" ? "Updating" : "No agent"}
                   </span>
-                </div>
-                <div className="flex justify-start xl:justify-end">
-                  {canDeploy ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (host.deployment_action === "update") {
-                          handleDirectUpdate(host.ip);
-                        } else {
-                          setSelectedIp(host.ip);
-                        }
-                      }}
-                      disabled={!host.deploy_eligible || deployingIp === host.ip || host.agent_status === "deploying" || host.agent_status === "updating" || host.deployment_action === "deploying" || host.deployment_action === "updating"}
-                      className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-900 px-3 text-[10px] font-semibold uppercase tracking-wider text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                      title={
-                        host.deploy_eligible
-                          ? `Prepare installer for ${host.device_type}`
-                          : host.gateway
-                            ? "Deployment is not available for router/gateway devices"
-                            : `Deployment is not available for ${host.device_kind || host.device_type || "this device"}`
-                      }
-                    >
-                      {deployingIp === host.ip || host.agent_status === "deploying" || host.agent_status === "updating" || host.deployment_action === "deploying" || host.deployment_action === "updating" ? (
-                        <LoaderCircle className="animate-spin" size={14} />
-                      ) : (
-                        <PackageCheck size={14} />
-                      )}
-                      {host.agent_status === "updating" || host.deployment_action === "updating"
-                        ? "Updating"
-                        : host.agent_status === "deploying" || host.deployment_action === "deploying"
-                        ? "Deploying"
-                        : host.deployment_action === "update"
-                        ? "Update"
-                        : host.deploy_eligible
-                        ? "Deploy"
-                        : "Not eligible"}
-                    </button>
-                  ) : (
-                    <span className="inline-flex h-9 items-center rounded-lg border border-slate-100 bg-slate-50 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      View only
-                    </span>
-                  )}
                 </div>
               </div>
             ))}

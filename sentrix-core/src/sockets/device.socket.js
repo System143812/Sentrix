@@ -26,6 +26,7 @@ import {
 } from "../modules/security/security.service.js";
 import { grantRegistrationGrace } from "../system/heartbeat/heartbeat.service.js";
 import { serverTraceLog } from "../utils/tracing.js";
+import { networkIdentity } from "../lib/network-identity.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "sentrix-secret";
 
@@ -104,7 +105,8 @@ export function registerDeviceSocket(io) {
       user: socketUser || socket.request.user,
     };
 
-    console.log(`[SOCKET] Handshake attempt from IP: ${req.ip}, Role: ${socket.handshake.query.role}, AgentID: ${req.headers["x-sentrix-agent-id"] || "MISSING"}`);
+    const tokenPresent = Boolean(req.headers["x-sentrix-provisioning-token"] || req.headers["X-Sentrix-Provisioning-Token"]);
+    console.log(`[SOCKET] Handshake attempt from IP: ${req.ip}, Role: ${socket.handshake.query.role}, AgentID: ${req.headers["x-sentrix-agent-id"] || "MISSING"}, TokenPresent: ${tokenPresent}`);
 
     try {
       if (await isRequestRateLimited(req)) {
@@ -146,6 +148,8 @@ export function registerDeviceSocket(io) {
                || socket.handshake.query.agentId
                || null;
 
+    console.log(`[SOCKET] Incoming Agent socket connection: socketId=${socket.id}, agentId=${agentId || "unbound"}, clientIp=${socket.handshake.address}, role=${role}`);
+
     if (role === "dashboard") {
       socket.join("dashboards");
       socket.emit("devices:update", await getClientSummary());
@@ -155,7 +159,8 @@ export function registerDeviceSocket(io) {
     socket.on("agent:register", async (payload = {}, callback) => {
       try {
         agentId = payload.agentId || payload.id;
-        console.log(`[SOCKET] Received agent:register for ID: ${agentId} from IP: ${socket.handshake.address}`);
+        const serverMac = networkIdentity.getCurrentMac();
+        console.log(`[SOCKET] Registration request received: agentId=${agentId}, clientIp=${socket.handshake.address}, coreIp=${networkIdentity.getCurrentIp()}, coreMac=${serverMac}`);
         const registrationResult = await registerClient(payload);
         grantRegistrationGrace(registrationResult.id);
         socket.join("agents");
@@ -163,9 +168,11 @@ export function registerDeviceSocket(io) {
         socket.emit("settings:telemetry", await getTelemetrySettings());
         await broadcastUpdate(io);
         console.log(`[SOCKET] Agent registered successfully: ${registrationResult.id} (Status: ${registrationResult.status})`);
-        callback?.({ success: true, secureKey: registrationResult.secureKey });
+        console.log(`[SOCKET] Registration response dispatched: agentId=${registrationResult.id}, success=true, serverMac=${serverMac}, callbackReached=true`);
+        callback?.({ success: true, secureKey: registrationResult.secureKey, serverMac });
       } catch (error) {
         console.error(`[SOCKET] Registration error for ID ${agentId || 'unknown'}:`, error.message);
+        console.log(`[SOCKET] Registration response dispatched: agentId=${agentId || 'unknown'}, success=false, callbackReached=true`);
         callback?.({ success: false, message: error.message });
       }
     });

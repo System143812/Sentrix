@@ -97,8 +97,8 @@ export const ClientRepository = {
     );
   },
 
-  async updateMetrics(id, metrics, status, now, details = null) {
-    const params = [JSON.stringify(metrics), status, now, now];
+  async updateMetrics(id, metrics, now, details = null) {
+    const params = [JSON.stringify(metrics), now, now];
     let detailsSql = "";
 
     if (details) {
@@ -112,7 +112,6 @@ export const ClientRepository = {
       `
       UPDATE clients
       SET metrics = ?,
-          status = ?,
           updated_at = ?,
           last_seen_at = ?
           ${detailsSql}
@@ -123,8 +122,8 @@ export const ClientRepository = {
     return rows.affectedRows > 0;
   },
 
-  async updateStatus(id, status, now, metrics = null) {
-    const params = [status, now, now];
+  async updateStatus(id, now, metrics = null) {
+    const params = [now, now];
     let metricsSql = "";
 
     if (metrics) {
@@ -137,8 +136,7 @@ export const ClientRepository = {
     const [rows] = await pool.query(
       `
       UPDATE clients
-      SET status = ?,
-          updated_at = ?,
+      SET updated_at = ?,
           last_seen_at = ?
           ${metricsSql}
       WHERE id = ? AND archived = 0

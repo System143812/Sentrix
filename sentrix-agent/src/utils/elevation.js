@@ -10,28 +10,17 @@ export function isAdmin() {
   }
 
   try {
-    // Check for High Mandatory Level (S-1-16-12288) or System Mandatory Level (S-1-16-16384)
-    // Also check for the Administrators group (S-1-5-32-544)
-    const { stdout } = execSync("whoami /groups /fo csv /nh", { 
-      encoding: "utf8", 
+    // Check effective administrator membership via .NET WindowsPrincipal
+    const psCommand = "[Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent().IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)";
+    const base64Command = Buffer.from(psCommand, "utf16le").toString("base64");
+    const { stdout } = execSync(`powershell -NoProfile -NonInteractive -EncodedCommand ${base64Command}`, {
+      encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
       windowsHide: true
     });
-    
-    const hasHighIntegrity = stdout.includes("S-1-16-12288") || stdout.includes("S-1-16-16384");
-    const isLocalAdmin = stdout.includes("S-1-5-32-544");
-    
-    if (hasHighIntegrity || isLocalAdmin) return true;
-
-    // Fallback if whoami groups is ambiguous
-    try {
-      execSync("net session", { stdio: "ignore", windowsHide: true });
-      return true;
-    } catch {
-      return false;
-    }
+    return stdout.trim().toLowerCase() === "true";
   } catch {
-    // Ultimate fallback
+    // Fallback to net session if .NET execution fails
     try {
       execSync("net session", { stdio: "ignore", windowsHide: true });
       return true;
@@ -47,33 +36,61 @@ export function isAdmin() {
  */
 export function isSystem() {
   if (process.platform !== "win32") return false;
+
   try {
-    // Check for System Mandatory Level (S-1-16-16384) in groups
-    const { stdout: groups } = execSync("whoami /groups /fo csv /nh", { 
-      encoding: "utf8", 
+    // Check current user SID via .NET WindowsIdentity
+    const psCommand = "[Security.Principal.WindowsIdentity]::GetCurrent().User.Value -eq 'S-1-5-18'";
+    const base64Command = Buffer.from(psCommand, "utf16le").toString("base64");
+    const { stdout } = execSync(`powershell -NoProfile -NonInteractive -EncodedCommand ${base64Command}`, {
+      encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
       windowsHide: true
     });
-    if (groups.includes("S-1-16-16384")) return true;
-
-    // Check if the user SID is SYSTEM (S-1-5-18)
-    const { stdout: user } = execSync("whoami /user /fo csv /nh", { 
-      encoding: "utf8", 
-      stdio: ["ignore", "pipe", "ignore"],
-      windowsHide: true
-    });
-    if (user.includes("S-1-5-18")) return true;
-
-    // Fallback to name check (less reliable but okay as last resort)
-    const { stdout: name } = execSync("whoami", { 
-      encoding: "utf8", 
-      stdio: ["ignore", "pipe", "ignore"],
-      windowsHide: true
-    });
-    return name.trim().toLowerCase().includes("system") || name.toLowerCase().includes("système");
+    return stdout.trim().toLowerCase() === "true";
   } catch {
-    return false;
+    // Fallback to whoami /user checking for S-1-5-18
+    try {
+      const { stdout } = execSync("whoami /user /fo csv /nh", {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        windowsHide: true
+      });
+      return stdout.includes("S-1-5-18");
+    } catch {
+      return false;
+    }
   }
+}
+
+/**
+ * Robust Windows command-line argument quoting according to standard Windows rules.
+ * @param {string} arg
+ * @returns {string}
+ */
+export function quoteArg(arg) {
+  if (arg === undefined || arg === null || arg === "") return '""';
+  if (!/[ \t\n\v"]/.test(arg)) {
+    return arg;
+  }
+  let result = '"';
+  for (let i = 0; i < arg.length; i++) {
+    let backslashes = 0;
+    while (i < arg.length && arg[i] === '\\') {
+      backslashes++;
+      i++;
+    }
+    if (i === arg.length) {
+      result += '\\'.repeat(backslashes * 2);
+      break;
+    }
+    if (arg[i] === '"') {
+      result += '\\'.repeat(backslashes * 2 + 1) + '"';
+    } else {
+      result += '\\'.repeat(backslashes) + arg[i];
+    }
+  }
+  result += '"';
+  return result;
 }
 
 /**
@@ -85,16 +102,25 @@ export function elevate() {
     return false;
   }
 
-  // Use PowerShell to relaunch the process with 'RunAs' verb
   const executable = process.argv[0];
-  const args = process.argv.slice(1).map(arg => `"${arg}"`).join(" ");
-  
-  const command = `Start-Process "${executable}" -ArgumentList ${args} -Verb RunAs -WindowStyle Hidden`;
-  
+  const args = process.argv.slice(1);
+  const argumentString = args.map(quoteArg).join(" ");
+
+  // Use .NET ProcessStartInfo with UseShellExecute = true and Verb = 'runas' for robust elevation and argument preservation
+  const psScript = `
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = '${executable.replace(/'/g, "''")}'
+    $psi.Arguments = '${argumentString.replace(/'/g, "''")}'
+    $psi.UseShellExecute = $true
+    $psi.Verb = 'runas'
+    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+    [System.Diagnostics.Process]::Start($psi)
+  `;
+  const base64Command = Buffer.from(psScript, "utf16le").toString("base64");
+
   try {
-    execSync(`powershell -Command "${command}"`, { stdio: "ignore" });
+    execSync(`powershell -NoProfile -NonInteractive -EncodedCommand ${base64Command}`, { stdio: "ignore" });
     process.exit(0);
-    return true;
   } catch (error) {
     console.error("[Elevation] Failed to relaunch as administrator:", error.message);
     return false;

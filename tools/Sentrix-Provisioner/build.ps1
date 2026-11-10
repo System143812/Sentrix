@@ -41,11 +41,42 @@ Write-Host "[INFO] Found MSBuild: $msbuild" -ForegroundColor Green
 
 # Build the project
 Write-Host ""
+Write-Host "[BUILD] Synchronizing provisioner resources..." -ForegroundColor Yellow
+
+$resourcesDir = "$PSScriptRoot\Resources"
+if (-not (Test-Path $resourcesDir)) {
+    New-Item -ItemType Directory -Path $resourcesDir -Force | Out-Null
+}
+
+$sourceScript = "$PSScriptRoot\..\..\scripts\Sentrix-PC-Provisioner.ps1"
+$targetScript = "$PSScriptRoot\Resources\provisioner.ps1"
+if (-not (Test-Path -LiteralPath $sourceScript -PathType Leaf)) {
+    throw "Required source script not found: $sourceScript"
+}
+Copy-Item -Path $sourceScript -Destination $targetScript -Force
+Write-Host " [OK] Synchronized provisioner.ps1" -ForegroundColor Green
+
+$sourceConfig = "$PSScriptRoot\..\..\provisioner-config.json"
+$targetConfig = "$PSScriptRoot\Resources\provisioner-config.json"
+if (-not (Test-Path -LiteralPath $sourceConfig -PathType Leaf)) {
+    throw "Required provisioner configuration not found: $sourceConfig"
+}
+Copy-Item -Path $sourceConfig -Destination $targetConfig -Force
+Write-Host " [OK] Synchronized provisioner-config.json" -ForegroundColor Green
+
+$sourceRemove = "$PSScriptRoot\..\..\remove-sentrix.ps1"
+$targetRemove = "$PSScriptRoot\Resources\remove-sentrix.ps1"
+if (-not (Test-Path -LiteralPath $sourceRemove -PathType Leaf)) {
+    throw "Required remove script not found: $sourceRemove"
+}
+Copy-Item -Path $sourceRemove -Destination $targetRemove -Force
+Write-Host " [OK] Synchronized remove-sentrix.ps1" -ForegroundColor Green
+
 Write-Host "[BUILD] Compiling Sentrix Provisioner..." -ForegroundColor Yellow
 
 $projectFile = "$PSScriptRoot\Sentrix-Provisioner.csproj"
 
-& $msbuild $projectFile /p:Configuration=$Configuration /p:OutputPath=$OutputPath /verbosity:minimal /nologo
+& $msbuild $projectFile /t:Rebuild /p:Configuration=$Configuration /p:OutputPath=$OutputPath /verbosity:minimal /nologo
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""

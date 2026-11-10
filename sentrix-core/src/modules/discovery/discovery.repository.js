@@ -124,4 +124,16 @@ export const DiscoveryRepository = {
     );
     return rows;
   },
+
+  async deleteStaleScanResults(threshold) {
+    try {
+      await pool.query("DELETE FROM discovery_scan_results WHERE last_scanned_at < ?", [threshold]);
+    } catch (err) {}
+  },
+
+  async deleteScanResultByIp(ip) {
+    try {
+      await pool.query("DELETE FROM discovery_scan_results WHERE ip = ?", [ip]);
+    } catch (err) {}
+  },
 };

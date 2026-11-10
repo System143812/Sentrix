@@ -313,7 +313,11 @@ export function getLocalGatewayCandidates(subnet) {
   return candidates;
 }
 
-export function getPrimaryInterfaceAddress() {
+/**
+ * Returns the primary network interface (IP + MAC) for the server,
+ * filtering out virtual/VPN adapters.
+ */
+export function getPrimaryInterface() {
   const interfaces = os.networkInterfaces();
   const candidates = [];
 
@@ -323,7 +327,7 @@ export function getPrimaryInterfaceAddress() {
         const cleanMac = record.mac.toLowerCase().replace(/[:-]/g, '');
         // Locally Administered Addresses (LAA) are almost always virtual/VPN
         const isLAA = /^[0-9a-f][26ae]/.test(cleanMac);
-        
+
         const isVirtual = /virtual|vbox|vmware|docker|veth|vpn|sandbox|bridge/i.test(name) ||
                          isLAA ||
                          cleanMac.startsWith('080027') ||
@@ -335,6 +339,7 @@ export function getPrimaryInterfaceAddress() {
         candidates.push({
           name,
           address: record.address,
+          mac: record.mac,
           isVirtual,
           isCommonLan: record.address.startsWith("192.168.") || record.address.startsWith("10.") || record.address.startsWith("172.")
         });
@@ -349,8 +354,12 @@ export function getPrimaryInterfaceAddress() {
   });
 
   if (candidates.length > 0) {
-    return candidates[0].address;
+    return { ip: candidates[0].address, mac: candidates[0].mac };
   }
 
-  return null;
+  return { ip: null, mac: null };
+}
+
+export function getPrimaryInterfaceAddress() {
+  return getPrimaryInterface().ip;
 }

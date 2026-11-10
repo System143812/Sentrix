@@ -126,9 +126,15 @@ export function BroadcastDialog({ onCancel, onSend, device, allDevices = [] }) {
             })}
           </div>
 
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Message Text</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Message Text</p>
+            <span className={`text-[10px] font-bold ${message.length > 130 ? 'text-amber-500' : 'text-slate-400'}`}>
+              {message.length} / 150
+            </span>
+          </div>
           <textarea
             autoFocus
+            maxLength={150}
             className="w-full h-28 rounded-lg border border-slate-200 bg-slate-50/50 p-4 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100/50 transition-all resize-none"
             onChange={(e) => setMessage(e.target.value)}
             placeholder="e.g. Lab will close in 5 minutes. Please save your work."
