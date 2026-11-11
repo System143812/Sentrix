@@ -76,9 +76,14 @@ namespace Sentrix.ServiceHost
 
         private void ApplyPendingUpdate()
         {
+            string inProgressMarker = Path.Combine(_exeDir, ".update-in-progress");
             try
             {
                 string readyMarker = Path.Combine(_exeDir, ".update-ready");
+                if (!File.Exists(readyMarker))
+                {
+                    readyMarker = Path.Combine(_exeDir, ".deployment-ready");
+                }
                 string stagingDir = Path.Combine(_exeDir, "staging");
                 string stagingExtractedDir = Path.Combine(stagingDir, "extracted");
                 string watchdogLogPath = Path.Combine(_exeDir, "watchdog.log");
@@ -88,11 +93,77 @@ namespace Sentrix.ServiceHost
                     return;
                 }
 
+                // Create update-in-progress lock file to inform watchdog/monitors
+                try { File.WriteAllText(inProgressMarker, DateTime.UtcNow.ToString("o")); } catch { }
+
                 string timeStr = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                string logHeader = "[" + timeStr + "] Update readiness marker detected. Applying update swap from staging...\r\n";
+                string logHeader = "[" + timeStr + "] Update readiness marker detected. Applying clean-and-replace update swap from staging...\r\n";
                 File.AppendAllText(watchdogLogPath, logHeader);
 
-                // Copy files recursively, skipping AgentServiceHost.exe
+                // 1. Terminate any running helper processes to release file locks
+                try
+                {
+                    foreach (var proc in Process.GetProcessesByName("sentrix-helper"))
+                    {
+                        try { proc.Kill(); proc.WaitForExit(2000); } catch { }
+                    }
+                }
+                catch { }
+
+                // 2. Hardcoded whitelist of files to preserve in root
+                string[] preserveFiles = new string[] {
+                    ".env",
+                    "agent-id.txt",
+                    "server.crt",
+                    "agent.log",
+                    "helper.log",
+                    "watchdog.log",
+                    "native-toast-debug.log",
+                    "sentrix-agent.lock"
+                };
+
+                // 3. Clean root files except whitelisted ones and AgentServiceHost.exe
+                foreach (string filePath in Directory.GetFiles(_exeDir))
+                {
+                    string fileName = Path.GetFileName(filePath);
+                    if (string.Equals(fileName, "AgentServiceHost.exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    if (Array.Exists(preserveFiles, f => string.Equals(f, fileName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        continue;
+                    }
+                    try
+                    {
+                        File.SetAttributes(filePath, FileAttributes.Normal);
+                        File.Delete(filePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        File.AppendAllText(watchdogLogPath, "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "] Warning: Could not delete old file " + fileName + ": " + ex.Message + "\r\n");
+                    }
+                }
+
+                // 4. Clean root subdirectories except staging
+                foreach (string dirPath in Directory.GetDirectories(_exeDir))
+                {
+                    string dirName = Path.GetFileName(dirPath);
+                    if (string.Equals(dirName, "staging", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    try
+                    {
+                        Directory.Delete(dirPath, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        File.AppendAllText(watchdogLogPath, "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "] Warning: Could not delete old directory " + dirName + ": " + ex.Message + "\r\n");
+                    }
+                }
+
+                // 5. Copy new files from staging/extracted recursively to root
                 foreach (string newFilePath in Directory.GetFiles(stagingExtractedDir, "*.*", SearchOption.AllDirectories))
                 {
                     string relativePath = newFilePath.Substring(stagingExtractedDir.Length + 1);
@@ -109,28 +180,58 @@ namespace Sentrix.ServiceHost
                         Directory.CreateDirectory(targetSubDir);
                     }
 
+                    if (File.Exists(targetFilePath))
+                    {
+                        try { File.SetAttributes(targetFilePath, FileAttributes.Normal); } catch { }
+                    }
+
                     File.Copy(newFilePath, targetFilePath, true);
                 }
 
-                // Clean up ready marker and staging dir
+                // 6. Clean up ready marker and staging dir with retries
                 try { File.Delete(readyMarker); } catch { }
-                try { Directory.Delete(stagingDir, true); } catch { }
+
+                bool stagingCleaned = false;
+                for (int attempt = 1; attempt <= 3; attempt++)
+                {
+                    try
+                    {
+                        if (Directory.Exists(stagingDir))
+                        {
+                            foreach (string sf in Directory.GetFiles(stagingDir, "*.*", SearchOption.AllDirectories))
+                            {
+                                try { File.SetAttributes(sf, FileAttributes.Normal); } catch { }
+                            }
+                            Directory.Delete(stagingDir, true);
+                        }
+                        stagingCleaned = true;
+                        break;
+                    }
+                    catch
+                    {
+                        Thread.Sleep(500);
+                    }
+                }
 
                 string timeStr2 = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                string logFooter = "[" + timeStr2 + "] Update swap applied successfully. Launching updated agent...\r\n";
+                string logFooter = "[" + timeStr2 + "] Clean-and-replace update swap applied successfully (staging cleaned: " + stagingCleaned + "). Launching updated agent...\r\n";
                 File.AppendAllText(watchdogLogPath, logFooter);
-                SafeLogEntry("Update swap applied successfully from staging.", EventLogEntryType.Information);
+                SafeLogEntry("Clean-and-replace update swap applied successfully from staging.", EventLogEntryType.Information);
             }
             catch (Exception ex)
             {
                 string timeStr3 = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                string logError = "[" + timeStr3 + "] ERROR applying update swap: " + ex.Message + "\r\n";
+                string logError = "[" + timeStr3 + "] ERROR applying clean-and-replace update swap: " + ex.Message + "\r\n";
                 try
                 {
                     File.AppendAllText(Path.Combine(_exeDir, "watchdog.log"), logError);
                 }
                 catch { }
                 SafeLogEntry("Failed to apply update swap: " + ex.Message, EventLogEntryType.Error);
+            }
+            finally
+            {
+                try { if (File.Exists(inProgressMarker)) File.Delete(inProgressMarker); } catch { }
             }
         }
 

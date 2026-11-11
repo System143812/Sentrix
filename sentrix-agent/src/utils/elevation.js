@@ -102,8 +102,9 @@ export function elevate() {
     return false;
   }
 
-  const executable = process.argv[0];
-  const args = process.argv.slice(1);
+  const executable = process.execPath;
+  // Filter out virtual pkg snapshot paths (e.g. C:\snapshot\...) from args
+  const args = process.argv.slice(1).filter(arg => !arg || !arg.toLowerCase().includes("snapshot"));
   const argumentString = args.map(quoteArg).join(" ");
 
   // Use .NET ProcessStartInfo with UseShellExecute = true and Verb = 'runas' for robust elevation and argument preservation

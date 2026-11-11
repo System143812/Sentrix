@@ -57,9 +57,16 @@ Copy-Item -Path $sourceScript -Destination $targetScript -Force
 Write-Host " [OK] Synchronized provisioner.ps1" -ForegroundColor Green
 
 $sourceConfig = "$PSScriptRoot\..\..\provisioner-config.json"
+$sourceConfigExample = "$PSScriptRoot\..\..\provisioner-config.json.example"
 $targetConfig = "$PSScriptRoot\Resources\provisioner-config.json"
+
 if (-not (Test-Path -LiteralPath $sourceConfig -PathType Leaf)) {
-    throw "Required provisioner configuration not found: $sourceConfig"
+    if (Test-Path -LiteralPath $sourceConfigExample -PathType Leaf) {
+        Write-Host " [INFO] provisioner-config.json not found. Copying from provisioner-config.json.example..." -ForegroundColor Yellow
+        Copy-Item -Path $sourceConfigExample -Destination $sourceConfig -Force
+    } else {
+        throw "Required provisioner configuration not found: $sourceConfig and no example found at $sourceConfigExample"
+    }
 }
 Copy-Item -Path $sourceConfig -Destination $targetConfig -Force
 Write-Host " [OK] Synchronized provisioner-config.json" -ForegroundColor Green

@@ -309,7 +309,7 @@ async function deployAgentViaSMB(ip, arg2, arg3, arg4, arg5, arg6) {
               New-Item -ItemType Directory -Path \$remotePath -Force | Out-Null
           }
 
-          Write-Host "[DEPLOY] Copying staging files recursively to remote path..."
+          Write-Host "[DEPLOY] Copying deployment files recursively to remote path..."
           Copy-Item -Path "\$localBuildDirSrc\\*" -Destination \$remotePath -Recurse -Force -ErrorAction Stop
 
           \$markerPayload = @{
@@ -318,13 +318,22 @@ async function deployAgentViaSMB(ip, arg2, arg3, arg4, arg5, arg6) {
               agentId      = \$agentId
           } | ConvertTo-Json -Compress
 
-          \$finalMarker = "\$remotePath\\\\.deployment-ready"
+          \$deploymentMarker = "\$remotePath\\\\.deployment-ready"
           \$tempMarker = "\$remotePath\\\\.deployment-ready.tmp"
           \$markerPayload | Out-File -FilePath \$tempMarker -Encoding utf8 -Force
-          if (Test-Path -LiteralPath \$finalMarker -ErrorAction Stop) { Remove-Item -LiteralPath \$finalMarker -Force -ErrorAction Stop }
-          Move-Item -LiteralPath \$tempMarker -Destination \$finalMarker -Force
+          if (Test-Path -LiteralPath \$deploymentMarker -ErrorAction Stop) { Remove-Item -LiteralPath \$deploymentMarker -Force -ErrorAction Stop }
+          Move-Item -LiteralPath \$tempMarker -Destination \$deploymentMarker -Force
 
-          Write-Host "[DEPLOY] SUCCESS: Files pushed recursively. Local Watchdog will validate and activate."
+          Write-Host "[DEPLOY] Executing setup-service.ps1 on remote host..."
+          \$setupScript = "\$remotePath\\\\src\\\\utils\\\\setup-service.ps1"
+          if (Test-Path \$setupScript) {
+              & powershell.exe -NoProfile -ExecutionPolicy Bypass -File \$setupScript
+              Write-Host "[DEPLOY] setup-service.ps1 executed successfully."
+          } else {
+              Write-Host "[DEPLOY] WARNING: setup-service.ps1 not found at \$setupScript. Skipping remote service setup."
+          }
+
+          Write-Host "[DEPLOY] SUCCESS: Files pushed and service configured successfully."
       } finally {
           Remove-PSDrive -Name \$driveName -Force -ErrorAction SilentlyContinue
       }
