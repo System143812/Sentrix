@@ -24,6 +24,16 @@ You need ONE of the following:
 2. **Visual Studio 2019/2022** (Community Edition is free)
 3. **.NET Framework 4.0 (already on Windows)** - See option 3 below
 
+### Configuration
+
+Before building or running the provisioner, ensure `provisioner-config.json` exists in the repository root (a template `provisioner-config.json.example` is provided; `build.ps1` will automatically copy it if missing):
+```json
+{
+  "adminUsername": "Administrator",
+  "adminPassword": "YourSecurePasswordHere"
+}
+```
+
 ---
 
 ### Option 1: Build with PowerShell Script (Easiest)

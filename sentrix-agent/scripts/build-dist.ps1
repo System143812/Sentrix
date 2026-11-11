@@ -87,6 +87,11 @@ if (Test-Path "Modules") {
     Copy-Item "Modules\*" -Destination $modulesDestDir -Recurse -Force
 }
 
+Write-Host "--- Copying Source Utilities & SessionLauncher ---"
+$distSrcDir = Join-Path $distDir "src"
+if (-not (Test-Path $distSrcDir)) { New-Item -ItemType Directory -Path $distSrcDir | Out-Null }
+Copy-Item "src\utils" -Destination $distSrcDir -Recurse -Force
+
 Write-Host "--- Packaging dist folder into sentrix-agent-dist.zip ---"
 $zipPath = Join-Path $distDir "sentrix-agent-dist.zip"
 $tempZipPath = Join-Path $agentRoot "sentrix-agent-dist-temp.zip"

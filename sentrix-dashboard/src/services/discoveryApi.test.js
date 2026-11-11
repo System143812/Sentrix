@@ -36,12 +36,12 @@ describe('discoveryApi', () => {
       json: () => Promise.resolve({ success: true, data: { success: true } })
     });
 
-    const result = await deployAgent('127.0.0.1', 'PC', { user: 'a', pass: 'p' }, 'deploy');
+    const result = await deployAgent('127.0.0.1', 'PC', 'deploy');
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/discovery/deploy'),
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ ip: '127.0.0.1', device_type: 'PC', credentials: { user: 'a', pass: 'p' }, action: 'deploy' })
+        body: JSON.stringify({ ip: '127.0.0.1', device_type: 'PC', action: 'deploy' })
       })
     );
     expect(result.success).toBe(true);

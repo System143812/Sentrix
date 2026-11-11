@@ -302,7 +302,7 @@ export function NetworkPage({
         }
 
         try {
-          await onDeploy(ip, "PC", null, "deploy");
+          await onDeploy(ip, "PC", "deploy");
           successCount++;
         } catch (err) {
           const failure = getDeploymentFailure(err, ip);
@@ -332,7 +332,7 @@ export function NetworkPage({
     try {
       for (const ip of selectedIps) {
         try {
-          await onDeploy(ip, "PC", null, "update");
+          await onDeploy(ip, "PC", "update");
           successCount++;
         } catch (err) {
           failCount++;
@@ -362,11 +362,11 @@ export function NetworkPage({
   async function handleRetryDeploy() {
     if (!retryRequest?.ip) return;
 
-    const { ip, credentials, action = "deploy" } = retryRequest;
+    const { ip, action = "deploy" } = retryRequest;
     setDeploymentFailure(null);
 
     try {
-      await onDeploy(ip, "PC", credentials, action);
+      await onDeploy(ip, "PC", action);
       notify(`Setup started for ${ip}.`, "success");
       setRetryRequest(null);
     } catch (error) {
