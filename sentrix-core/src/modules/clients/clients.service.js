@@ -5,7 +5,6 @@ import {
   computeSecureFingerprint,
 } from "../security/security.service.js";
 import {
-  getClientHardware,
   saveHardwareDetails,
   processIncomingMetrics,
   getLatestClientProcesses,
@@ -163,8 +162,8 @@ export async function registerClient(clientData) {
 
   // For the main table, we want normalized metrics
   const metricsToPersist = hasIncomingMetrics
-    ? await normalizeMetrics(incomingMetrics)
-    : (existing?.metrics || await normalizeMetrics({}));
+    ? normalizeMetrics(incomingMetrics)
+    : (existing?.metrics || normalizeMetrics({}));
 
   const detailsToPersist = hasIncomingDetails
     ? incomingDetails
@@ -181,7 +180,7 @@ export async function registerClient(clientData) {
   // Clear any active deployment processing record for this IP or MAC upon successful registration
   try {
     await DiscoveryRepository.clearProcessingByIpOrMac(clientData.ip, clientData.mac, "success", now);
-    clearDeploymentCacheState(clientData.ip, clientData.mac);
+    await clearDeploymentCacheState(clientData.ip, clientData.mac);
   } catch (err) {
     // ignore
   }

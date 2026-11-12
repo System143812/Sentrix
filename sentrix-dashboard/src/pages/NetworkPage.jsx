@@ -256,7 +256,7 @@ export function NetworkPage({
 
   const updateableCount = useMemo(() => {
     const devices = snapshot?.devices || [];
-    return devices.filter(d => d.agent_status === "running" || d.deployment_action === "update").length;
+    return devices.filter(d => d.agent_status === "running" || d.agent_status === "online").length;
   }, [snapshot?.devices]);
 
   const paginatedResults = useMemo(() => {

@@ -36,6 +36,11 @@ export async function scan(req, res, next) {
     const snapshot = getDiscoverySnapshot();
     io?.to("dashboards").emit("discovery:update", snapshot);
 
+    try {
+      const { getClientSummary } = await import("../clients/clients.service.js");
+      io?.to("dashboards").emit("devices:update", await getClientSummary());
+    } catch {}
+
     res.json({
       success: true,
       data: snapshot,
@@ -94,7 +99,7 @@ export async function deploy(req, res, next) {
     const TIMEOUT_MS = action === "update" ? 300000 : 300000;
     if (
       existingRecord &&
-      ["deploying", "updating", "requested"].includes(existingRecord.status)
+      existingRecord.status === "requested"
     ) {
       if (now - existingRecord.updated_at < TIMEOUT_MS) {
         return res.status(409).json({
@@ -136,8 +141,7 @@ export async function deploy(req, res, next) {
         hostname: snapshotDevice?.hostname,
         status: "updating",
         userId: req.user?.id,
-        is_processing: 1,
-        operation: "update",
+        action: "update",
       });
 
       io?.to("dashboards").emit("discovery:update", getDiscoverySnapshot());

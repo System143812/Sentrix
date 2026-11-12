@@ -89,6 +89,26 @@ export function useDiscovery() {
   async function deploy(ip, deviceType, action = "deploy") {
     setDeployingIp(ip);
     setMessage("");
+
+    // Optimistically update local snapshot state immediately so UI transitions instantly
+    setSnapshot((prev) => {
+      const nextDevices = (prev.devices || []).map((d) => {
+        if (d.ip === ip) {
+          const newStatus = action === "update" ? "updating" : "deploying";
+          return {
+            ...d,
+            agent_status: newStatus,
+            deployment_action: newStatus,
+          };
+        }
+        return d;
+      });
+      return {
+        ...prev,
+        devices: nextDevices,
+      };
+    });
+
     try {
       const result = await discoveryApi.deployAgent(ip, deviceType, action);
       setMessage(result.message || `${action === "activate" ? "Activation" : action === "update" ? "Update" : "Setup"} successful for ${ip}.`);

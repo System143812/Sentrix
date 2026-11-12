@@ -5,6 +5,7 @@ import {
   getLocalSubnet,
   getAvailableInterfaces,
   getPrimaryInterfaceAddress,
+  getPrimaryInterface,
   getLocalGatewayCandidates,
   runNmapPingScan,
   pingHost,
@@ -12,6 +13,7 @@ import {
   getHostnameForIp,
   getOpenPorts,
   findMacForIp,
+  commandExists,
 } from "./scanner.js";
 import {
   resolveVendor,
@@ -65,14 +67,17 @@ export async function isDeviceAliveInDiscovery(ip, mac = null) {
   const STALE_THRESHOLD_MS = 300000; // 5 minutes
   const now = Date.now();
 
-  if (device && (now - (device.last_seen || 0) < STALE_THRESHOLD_MS)) {
+  if (device && now - (device.last_seen || 0) < STALE_THRESHOLD_MS) {
     return true;
   }
   if (mac) {
     const normMac = normalizeMac(mac);
     if (normMac && normMac !== "UNKNOWN") {
       for (const d of lastScanResults.values()) {
-        if (normalizeMac(d.mac) === normMac && (now - (d.last_seen || 0) < STALE_THRESHOLD_MS)) {
+        if (
+          normalizeMac(d.mac) === normMac &&
+          now - (d.last_seen || 0) < STALE_THRESHOLD_MS
+        ) {
           return true;
         }
       }
@@ -119,15 +124,6 @@ function normalizeMac(mac = "") {
     .replace(/[^A-F0-9]/g, "");
 }
 
-async function getDeploymentRecordsByIp() {
-  try {
-    const rows = await DiscoveryRepository.findDeploymentRecords();
-    return new Map(rows.map((row) => [row.ip, row]));
-  } catch {
-    return new Map();
-  }
-}
-
 export async function recordAgentDeployment({
   ip,
   mac = null,
@@ -135,128 +131,171 @@ export async function recordAgentDeployment({
   status = "requested",
   message = "",
   userId = null,
-  is_processing = 0,
-  operation = "deploy",
+  action = "deploy",
 }) {
+  console.log(`[STATE DIAGNOSTIC] recordAgentDeployment called for IP: ${ip}, status: ${status}, action: ${action}`);
   try {
+    const isUpdate = action === "update" || status === "updating";
+    const targetStatus = isUpdate ? "updating" : "deploying";
+
     await DiscoveryRepository.upsertDeploymentRecord({
       ip,
       mac,
       hostname,
-      status,
+      status: "requested", // Always use valid ENUM 'requested' for agent_deployment_records table
       message,
       userId,
-      is_processing,
-      operation,
       now: Date.now(),
     });
-
-    const isUpdate = operation === "update";
-    const targetStatus = is_processing === 1 ? (isUpdate ? "updating" : "deploying") : status;
     const device = lastScanResults.get(ip);
     if (device) {
       device.agent_status = targetStatus;
       device.deployment_action = targetStatus;
+      device.last_seen = Date.now();
+      device.last_scanned_at = Date.now();
     }
     if (latestSnapshot.devices) {
-      const snapDev = latestSnapshot.devices.find(d => d.ip === ip);
+      const snapDev = latestSnapshot.devices.find((d) => d.ip === ip);
       if (snapDev) {
         snapDev.agent_status = targetStatus;
         snapDev.deployment_action = targetStatus;
+        snapDev.last_seen = Date.now();
+        snapDev.last_scanned_at = Date.now();
       }
     }
+
+    if (device) {
+      await saveScanResultsToDb([device]);
+    } else {
+      await DiscoveryRepository.upsertScanResults(
+        [
+          {
+            ip,
+            mac: mac || "Unknown",
+            hostname: hostname || `Host ${ip.split(".").at(-1)}`,
+            agent_status: targetStatus,
+            deployment_action: targetStatus,
+            last_scanned_at: Date.now(),
+          },
+        ],
+        Date.now(),
+      );
+    }
+    console.log(`[STATE DIAGNOSTIC] recordAgentDeployment completed for IP: ${ip}, targetStatus: ${targetStatus}`);
   } catch (err) {
-    console.warn("[Discovery] Failed to persist deployment record:", err.message);
+    console.warn(
+      "[Discovery] Failed to persist deployment record:",
+      err.message,
+    );
   }
 }
 
-export function clearDeploymentCacheState(ip, mac) {
+export async function clearDeploymentCacheState(ip, mac) {
   const normMac = normalizeMac(mac);
   for (const [deviceIp, device] of lastScanResults.entries()) {
     const matchIp = ip && deviceIp === ip;
-    const matchMac = normMac && normMac !== "UNKNOWN" && normalizeMac(device.mac) === normMac;
+    const matchMac =
+      normMac && normMac !== "UNKNOWN" && normalizeMac(device.mac) === normMac;
     if (matchIp || matchMac) {
       device.agent_status = "running";
       device.deployment_action = "update";
+      await saveScanResultsToDb([device]);
     }
   }
   if (latestSnapshot.devices) {
-    latestSnapshot.devices.forEach((device) => {
+    for (const device of latestSnapshot.devices) {
       const matchIp = ip && device.ip === ip;
-      const matchMac = normMac && normMac !== "UNKNOWN" && normalizeMac(device.mac) === normMac;
+      const matchMac =
+        normMac &&
+        normMac !== "UNKNOWN" &&
+        normalizeMac(device.mac) === normMac;
       if (matchIp || matchMac) {
         device.agent_status = "running";
         device.deployment_action = "update";
+        await saveScanResultsToDb([device]);
       }
-    });
+    }
   }
 }
 
 function getAgentStateForDevice(
   device,
   registeredClient = null,
+  existingDevice = null,
   deploymentRecord = null,
 ) {
   const deployEligible = canDeployAgent(device.device_type);
-  const HEARTBEAT_FRESHNESS_MS = 30000; // 30 seconds threshold (matches heartbeat timeout)
+  const HEARTBEAT_FRESHNESS_MS = 90000; // 90 seconds (1 min 30 sec) threshold
   const now = Date.now();
+  const TIMEOUT_MS = 300000; // 5 minutes grace period
 
-  // 1. Check database processing status first (Source of Truth for deployment/updates)
-  if (deploymentRecord && Number(deploymentRecord.is_processing) === 1) {
-    const isUpdate = deploymentRecord.operation === "update";
-    const TIMEOUT_MS = 300000; // 5 minutes grace period for both deploy and update
-    if (now - deploymentRecord.updated_at < TIMEOUT_MS) {
+  // 1. Check if device was recently set to deploying or updating (within 5 min grace period)
+  // Check both existingDevice (discovery_scan_results) and deploymentRecord (agent_deployment_records)
+  const activeDeployment = deploymentRecord || existingDevice;
+  const isRequestedDeployment = activeDeployment?.status === "requested";
+  const isStatusDeployment = ["deploying", "updating"].includes(activeDeployment?.agent_status);
+
+  const deploymentTimestamp = activeDeployment ? Number(
+    activeDeployment.updated_at || activeDeployment.requested_at || activeDeployment.last_scanned_at || activeDeployment.last_seen || now,
+  ) : null;
+  const diffMs = deploymentTimestamp ? now - deploymentTimestamp : null;
+
+  console.log(`[STATE DIAGNOSTIC] getAgentStateForDevice:`, {
+    activeDeployment: activeDeployment ? { agent_status: activeDeployment.agent_status, status: activeDeployment.status, updated_at: activeDeployment.updated_at, requested_at: activeDeployment.requested_at } : null,
+    isRequestedDeployment,
+    isStatusDeployment,
+    deploymentTimestamp,
+    diffMs,
+    TIMEOUT_MS,
+    hasRegisteredClient: Boolean(registeredClient)
+  });
+
+  if (activeDeployment && (isRequestedDeployment || isStatusDeployment)) {
+    if (deploymentTimestamp && diffMs < TIMEOUT_MS) {
+      const isUpdate = Boolean(registeredClient) || activeDeployment.agent_status === "updating" || activeDeployment.action === "update";
+      const targetStatus = isUpdate ? "updating" : "deploying";
+      const lastSeen = Number(registeredClient?.lastSeenAt || registeredClient?.last_agent_seen_at || 0);
+
+      console.log(`[STATE DIAGNOSTIC] Grace period active (status requested/deploying/updating within ${TIMEOUT_MS}ms). Forcing status to: ${targetStatus}`);
       return {
-        agent_status: isUpdate ? "updating" : "deploying",
-        deployment_action: isUpdate ? "updating" : "deploying",
-        registered_client_id: registeredClient?.id || deploymentRecord.registered_client_id || null,
-        last_agent_seen_at: registeredClient?.lastSeenAt || registeredClient?.last_agent_seen_at || null,
+        agent_status: targetStatus,
+        deployment_action: targetStatus,
+        registered_client_id: registeredClient?.id || activeDeployment.registered_client_id || null,
+        last_agent_seen_at: lastSeen || activeDeployment.last_agent_seen_at || null,
         deploy_eligible: deployEligible,
       };
     } else {
-      // Timeout exceeded (5 minutes passed with no restart/registration): clear processing in DB
-      DiscoveryRepository.clearProcessingByIp(deploymentRecord.ip, "timeout", now).catch(() => {});
-
-      // Fallback after 5 min grace time:
-      // If agent is still running (registeredClient online / fresh heartbeat -> agent didn't restart at all and nothing happened), return "running".
-      // Else (agent crashed, turned off, or never deployed), return "none" (no agent).
-      if (registeredClient) {
-        const lastSeen = registeredClient.lastSeenAt || registeredClient.last_agent_seen_at || 0;
-        const isHeartbeatFresh = registeredClient.status === "online" && (now - lastSeen <= HEARTBEAT_FRESHNESS_MS);
-        return {
-          agent_status: isHeartbeatFresh ? "running" : "none",
-          deployment_action: isUpdate ? "update" : (deployEligible ? "deploy" : "not_eligible"),
-          registered_client_id: registeredClient.id,
-          last_agent_seen_at: lastSeen || null,
-          deploy_eligible: true,
-        };
-      } else {
-        return {
-          agent_status: "none",
-          deployment_action: deployEligible ? "deploy" : "not_eligible",
-          registered_client_id: null,
-          last_agent_seen_at: null,
-          deploy_eligible: deployEligible,
-        };
-      }
+      console.log(`[STATE DIAGNOSTIC] Grace period expired or invalid timestamp: diffMs=${diffMs}, TIMEOUT_MS=${TIMEOUT_MS}`);
     }
   }
 
   // 2. If a registered client exists, an agent is installed on this device
   if (registeredClient) {
-    const lastSeen = registeredClient.lastSeenAt || registeredClient.last_agent_seen_at || 0;
-    const isHeartbeatFresh = registeredClient.status === "online" && (now - lastSeen <= HEARTBEAT_FRESHNESS_MS);
+    const lastSeen =
+      registeredClient.lastSeenAt || registeredClient.last_agent_seen_at || 0;
+    const isOnline = registeredClient.status === "online";
+    const isHeartbeatFresh =
+      isOnline && (lastSeen === 0 || now - lastSeen <= HEARTBEAT_FRESHNESS_MS);
 
+    const targetStatus = isHeartbeatFresh ? "running" : "none";
+    console.log(`[STATE DIAGNOSTIC] Fell through to registeredClient check -> returning agent_status: ${targetStatus}`, {
+      isOnline,
+      lastSeen,
+      now,
+      isHeartbeatFresh
+    });
+
+    const isRunning = targetStatus === "running";
     return {
-      agent_status: isHeartbeatFresh ? "running" : "none",
-      deployment_action: "update",
+      agent_status: targetStatus,
+      deployment_action: isRunning ? "update" : (deployEligible ? "deploy" : "not_eligible"),
       registered_client_id: registeredClient.id,
       last_agent_seen_at: lastSeen || null,
       deploy_eligible: true,
     };
   }
 
-  // 3. No agent registered and no deployment in progress
+  // 3. No agent registered and no active deployment in progress
   return {
     agent_status: "none",
     deployment_action: deployEligible ? "deploy" : "not_eligible",
@@ -267,7 +306,11 @@ function getAgentStateForDevice(
 }
 
 async function saveScanResultsToDb(devices) {
-  await DiscoveryRepository.upsertScanResults(devices, Date.now());
+  try {
+    await DiscoveryRepository.upsertScanResults(devices, Date.now());
+  } catch (err) {
+    console.error("[Discovery] saveScanResultsToDb error:", err.message);
+  }
 }
 
 export async function loadDiscoveryResultsFromDb() {
@@ -291,6 +334,7 @@ export async function loadDiscoveryResultsFromDb() {
           (canDeployAgent(row.device_type) ? "deploy" : "not_eligible"),
         registered_client_id: row.registered_client_id,
         last_agent_seen_at: row.last_agent_seen_at,
+        last_seen: row.last_scanned_at || Date.now(),
         deploy_eligible:
           row.deployment_action === "not_eligible"
             ? false
@@ -332,6 +376,7 @@ export async function loadDiscoveryResultsFromDb() {
 }
 
 export async function scanLocalNetwork(targetSubnet = null) {
+  const scanStartTime = Date.now();
   const subnet = targetSubnet || getLocalSubnet();
   if (!subnet) {
     updateSnapshot({
@@ -356,20 +401,28 @@ export async function scanLocalNetwork(targetSubnet = null) {
   );
   const gatewayCandidates = getLocalGatewayCandidates(subnet);
 
+  const hasNmap = await commandExists("nmap");
   const nmapResultsPromise = runNmapPingScan(subnet);
-  const registeredClientsPromise = getAllClients().catch(() => []);
 
-  // Ping hosts in batches to avoid overwhelming the OS and ensure ARP table population
-  const batchSize = 30;
-  for (let i = 0; i < ipAddresses.length; i += batchSize) {
-    const batch = ipAddresses.slice(i, i + batchSize);
-    await Promise.all(batch.map((ip) => pingHost(ip)));
-    // Small pause between batches
-    await new Promise((resolve) => setTimeout(resolve, 100));
+  const pingResults = new Set();
+  if (!hasNmap) {
+    // Ping hosts in batches to avoid overwhelming the OS and ensure ARP table population (fallback if nmap not installed)
+    const batchSize = 30;
+    for (let i = 0; i < ipAddresses.length; i += batchSize) {
+      const batch = ipAddresses.slice(i, i + batchSize);
+      const results = await Promise.all(
+        batch.map(async (ip) => ({ ip, alive: await pingHost(ip) }))
+      );
+      results.forEach((r) => {
+        if (r.alive) pingResults.add(r.ip);
+      });
+      // Small pause between batches
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    // Small extra delay for ARP table to settle
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
-
-  // Small extra delay for ARP table to settle
-  await new Promise((resolve) => setTimeout(resolve, 500));
 
   updateSnapshot({
     progress: 35,
@@ -378,10 +431,19 @@ export async function scanLocalNetwork(targetSubnet = null) {
 
   const arpTable = await readArpTable();
   const nmapResults = await nmapResultsPromise;
-  const registeredClients = await registeredClientsPromise;
-  const deploymentRecordsByIp = await getDeploymentRecordsByIp().catch(
-    () => new Map(),
+
+  // Fetch fresh registered clients and deployment records at the end of the scan collection phase
+  // to prevent overriding new agent status with stale pre-scan data.
+  const registeredClients = await getAllClients().catch(() => []);
+  const dbScanResults = await DiscoveryRepository.findScanResults().catch(
+    () => [],
   );
+  const dbDeviceMap = new Map(dbScanResults.map((d) => [d.ip, d]));
+  const deploymentRecords = await DiscoveryRepository.findDeploymentRecords().catch(
+    () => [],
+  );
+  const deploymentMap = new Map(deploymentRecords.map((r) => [r.ip, r]));
+
   const registeredByIp = new Map(
     registeredClients
       .filter((client) => client.ip)
@@ -392,53 +454,66 @@ export async function scanLocalNetwork(targetSubnet = null) {
       .filter((client) => normalizeMac(client.mac))
       .map((client) => [normalizeMac(client.mac), client]),
   );
-  const deploymentRecordsByMac = new Map(
-    [...deploymentRecordsByIp.values()]
-      .filter((record) => normalizeMac(record.mac))
-      .map((record) => [normalizeMac(record.mac), record]),
-  );
 
   const devices = await Promise.all(
     ipAddresses.map(async (ip) => {
       const nmapDevice = nmapResults.get(ip);
+      const isPingAlive = hasNmap ? Boolean(nmapDevice) : pingResults.has(ip);
+      const arpMac = findMacForIp(arpTable, ip);
+      const clientByIp = registeredByIp.get(ip);
+
+      const isAlive = Boolean(
+        nmapDevice ||
+        isPingAlive ||
+        (arpMac && arpMac !== "Unknown")
+      );
+      if (!isAlive) {
+        return null;
+      }
+
       const mac =
         nmapDevice?.mac && nmapDevice.mac !== "Unknown"
           ? nmapDevice.mac
-          : findMacForIp(arpTable, ip);
+          : arpMac && arpMac !== "Unknown"
+            ? arpMac
+            : clientByIp?.mac || "Unknown";
+
+      // DHCP-Safe Matching: Prioritize MAC address matching over IP matching
+      const clientByMac = registeredByMac.get(normalizeMac(mac));
+
+      let registeredClient = clientByMac || clientByIp || null;
 
       const openPorts = await getOpenPorts(ip);
 
-      // DHCP-Safe Matching: Prioritize MAC address matching over IP matching
-      // to prevent stale agent records from latching onto a new device assigned this IP by DHCP.
-      const clientByMac = registeredByMac.get(normalizeMac(mac));
-      const clientByIp = registeredByIp.get(ip);
+      const hasOpenPorts = openPorts.length > 0;
+      const isOnlineRegisteredClient = Boolean(
+        registeredClient &&
+        (registeredClient.status === "online" ||
+         (registeredClient.lastSeenAt && Date.now() - registeredClient.lastSeenAt < 60000))
+      );
 
-      let registeredClient = null;
-      if (clientByMac) {
-        registeredClient = clientByMac;
-      } else if (clientByIp) {
-        // If matched by IP, allow if scanned mac is Unknown or matches clientByIp
-        const registeredClientMacNorm = normalizeMac(clientByIp.mac);
-        if (
-          !mac ||
-          mac === "Unknown" ||
-          !clientByIp.mac ||
-          clientByIp.mac === "Unknown" ||
-          registeredClientMacNorm === normalizeMac(mac) ||
-          !registeredByMac.has(registeredClientMacNorm)
-        ) {
-          registeredClient = clientByIp;
-        }
-      }
-
-      const isAlive =
+      const reallyAlive = Boolean(
         nmapDevice ||
-        mac !== "Unknown" ||
-        openPorts.length > 0;
-      if (!isAlive) return null;
+        isPingAlive ||
+        hasOpenPorts ||
+        isOnlineRegisteredClient
+      );
+      if (!reallyAlive) return null;
 
       const effectiveMac =
         mac !== "Unknown" ? mac : registeredClient?.mac || "Unknown";
+
+      // Dynamically exclude the Sentrix server itself (IP or MAC match)
+      const serverPrimaryIp = getPrimaryInterfaceAddress();
+      const serverIface = getPrimaryInterface();
+      const serverMacNorm = normalizeMac(serverIface.mac);
+
+      if (
+        ip === serverPrimaryIp ||
+        (normalizeMac(effectiveMac) !== "UNKNOWN" && normalizeMac(effectiveMac) === serverMacNorm)
+      ) {
+        return null;
+      }
 
       const [{ hostname, source }] = await Promise.all([getHostnameForIp(ip)]);
 
@@ -484,9 +559,7 @@ export async function scanLocalNetwork(targetSubnet = null) {
         openPorts,
         gateway,
       );
-      const deploymentRecord =
-        deploymentRecordsByIp.get(ip) ||
-        deploymentRecordsByMac.get(normalizeMac(effectiveMac));
+      const existingDevice = dbDeviceMap.get(ip) || lastScanResults.get(ip);
 
       return {
         ip,
@@ -502,7 +575,8 @@ export async function scanLocalNetwork(targetSubnet = null) {
         ...getAgentStateForDevice(
           { device_type },
           registeredClient,
-          deploymentRecord,
+          existingDevice,
+          deploymentMap.get(ip),
         ),
       };
     }),
@@ -510,67 +584,34 @@ export async function scanLocalNetwork(targetSubnet = null) {
 
   const discoveredDevices = devices.filter((device) => device !== null);
 
-  // Manually inject the server itself if it's on this subnet but missing from results
-  // (arp -a often excludes the local machine)
-  const primaryIp = getPrimaryInterfaceAddress();
-  if (primaryIp && primaryIp.startsWith(`${subnet}.`)) {
-    const alreadyFound = discoveredDevices.find((d) => d.ip === primaryIp);
-    if (!alreadyFound) {
-      const serverMac =
-        os
-          .networkInterfaces()
-          [
-            Object.keys(os.networkInterfaces()).find((name) =>
-              os.networkInterfaces()[name].some((r) => r.address === primaryIp),
-            )
-          ]?.find((r) => r.address === primaryIp)?.mac || "Unknown";
-
-      const registeredClient =
-        registeredByIp.get(primaryIp) ||
-        registeredByMac.get(normalizeMac(serverMac));
-
-      discoveredDevices.push({
-        ip: primaryIp,
-        mac: serverMac,
-        hostname: getDisplayHostname(
-          primaryIp,
-          os.hostname(),
-          registeredClient,
-        ),
-        hostname_source: "system",
-        vendor: "Sentrix Server",
-        device_type: "Server",
-        device_kind: "Management Server",
-        gateway: false,
-        open_ports: [Number(process.env.PORT || 4000)],
-        last_seen: Date.now(),
-        ...getAgentStateForDevice(
-          { device_type: "Server" },
-          registeredClient,
-          null,
-        ),
-      });
-    }
-  }
-
   lastScanResults.clear();
   discoveredDevices.forEach((device) => lastScanResults.set(device.ip, device));
 
   await saveScanResultsToDb(discoveredDevices);
 
-  // Sync client statuses and fast-TTL purge stale network devices
+  // Sync client statuses and fast-TTL purge stale network devices FIRST
   try {
-    const { getAllClients, markClientOnline, markClientOffline } = await import("../clients/clients.service.js");
+    // Sweep-based instant cleanup: remove any discovery records not seen in this scan session
+    await DiscoveryRepository.deleteStaleScanResults(scanStartTime);
+
+    const { getAllClients, markClientOnline, markClientOffline } =
+      await import("../clients/clients.service.js");
     const registeredClients = await getAllClients();
 
-    const scannedIps = new Set(discoveredDevices.map(d => d.ip));
-    const scannedMacs = new Set(discoveredDevices.map(d => normalizeMac(d.mac)).filter(m => m && m !== "UNKNOWN"));
+    const scannedIps = new Set(discoveredDevices.map((d) => d.ip));
+    const scannedMacs = new Set(
+      discoveredDevices
+        .map((d) => normalizeMac(d.mac))
+        .filter((m) => m && m !== "UNKNOWN"),
+    );
 
     for (const client of registeredClients) {
       const clientMacNorm = normalizeMac(client.mac);
       const isFound =
         (client.ip && scannedIps.has(client.ip)) ||
-        (clientMacNorm && clientMacNorm !== "UNKNOWN" && scannedMacs.has(clientMacNorm));
+        (clientMacNorm &&
+          clientMacNorm !== "UNKNOWN" &&
+          scannedMacs.has(clientMacNorm));
 
       if (isFound) {
         if (client.status === "offline") {
@@ -583,31 +624,25 @@ export async function scanLocalNetwork(targetSubnet = null) {
         }
         if (client.ip) {
           lastScanResults.delete(client.ip);
-          await DiscoveryRepository.deleteScanResultByIp(client.ip).catch(() => {});
+          await DiscoveryRepository.deleteScanResultByIp(client.ip).catch(
+            () => {},
+          );
         }
       }
     }
-
-    // Purge stale unmanaged discovery scan results older than 60 seconds (Fast TTL)
-    const STALE_THRESHOLD_MS = 60000; // 1 minute
-    const now = Date.now();
-    for (const [ip, device] of lastScanResults.entries()) {
-      if (now - (device.last_seen || 0) > STALE_THRESHOLD_MS) {
-        lastScanResults.delete(ip);
-        await DiscoveryRepository.deleteScanResultByIp(ip).catch(() => {});
-      }
-    }
-    await DiscoveryRepository.deleteStaleScanResults(now - STALE_THRESHOLD_MS).catch(() => {});
-
   } catch (err) {
-    console.warn("[Discovery] Failed to sync client statuses / prune stale devices:", err.message);
+    console.warn(
+      "[Discovery] Failed to sync client statuses / prune stale devices:",
+      err.message,
+    );
   }
+
+  await loadDiscoveryResultsFromDb();
 
   updateSnapshot({
     status: "idle",
     progress: 100,
     subnet,
-    devices: discoveredDevices,
     lastScanAt: Date.now(),
     nextScanAt: Date.now() + AUTO_SCAN_INTERVAL_MS,
     message: `Found ${discoveredDevices.length} network devices.`,
@@ -650,6 +685,10 @@ export function startDiscoveryScheduler(io) {
     emitSnapshot();
     await runDiscoveryScan(preferredSubnet);
     emitSnapshot();
+    try {
+      const { getClientSummary } = await import("../clients/clients.service.js");
+      io.to("dashboards").emit("devices:update", await getClientSummary());
+    } catch {}
   };
 
   loadDiscoveryResultsFromDb().then(() => emitSnapshot());
@@ -675,29 +714,27 @@ export async function deployAgentToHost(
   const now = Date.now();
   const TIMEOUT_MS = action === "update" ? 60000 : 90000;
 
-  if (
-    existingRecord &&
-    ["deploying", "updating", "requested"].includes(existingRecord.status)
-  ) {
+  if (existingRecord && existingRecord.status === "requested") {
     if (now - existingRecord.updated_at < TIMEOUT_MS) {
-      throw new Error("Deployment or update already in progress for this device.");
+      throw new Error(
+        "Deployment or update already in progress for this device.",
+      );
     } else {
-      console.warn(`[Discovery] Stale deployment record found for ${ip} (status: ${existingRecord.status}). Overwriting.`);
+      console.warn(
+        `[Discovery] Stale deployment record found for ${ip} (status: ${existingRecord.status}). Overwriting.`,
+      );
     }
   }
 
   const hadPreExistingClient = Boolean(scanRecord?.registered_client_id);
-  const isUpdate = action === "update";
-  const initialStatus = isUpdate ? "updating" : "deploying";
 
   await recordAgentDeployment({
     ip,
     mac: scanRecord?.mac,
     hostname: scanRecord?.hostname,
-    status: initialStatus,
+    status: "requested",
     userId,
-    is_processing: 1,
-    operation: action,
+    action,
   });
 
   const result = await deployAgentToHostInternal(
@@ -706,10 +743,7 @@ export async function deployAgentToHost(
     credentials,
     { action },
   );
-  const deploymentStatus = result.success
-    ? (isUpdate ? "updating" : "deploying")
-    : "failed";
-  const isProcessing = result.success ? 1 : 0;
+  const deploymentStatus = result.success ? "requested" : "failed";
 
   // If the SMB push failed and a ghost provisioning record was created by generateProvisioningToken,
   // archive it immediately so it does not appear as a phantom device in the dashboard.
@@ -738,8 +772,6 @@ export async function deployAgentToHost(
     status: deploymentStatus,
     message: result.message,
     userId,
-    is_processing: isProcessing,
-    operation: action,
   });
   return result;
 }
@@ -753,11 +785,15 @@ export async function handleAgentDisconnectDiscovery(agentId) {
 
     let existingRecord = null;
     try {
-      existingRecord = await DiscoveryRepository.findDeploymentRecordByIp(client.ip);
+      existingRecord = await DiscoveryRepository.findDeploymentRecordByIp(
+        client.ip,
+      );
     } catch {}
 
-    if (existingRecord && Number(existingRecord.is_processing) === 1) {
-      console.log(`[Discovery] Skipping discovery reset on disconnect for ${agentId} (${client.ip}): deployment/update in progress.`);
+    if (existingRecord && existingRecord.status === "requested") {
+      console.log(
+        `[Discovery] Skipping discovery reset on disconnect for ${agentId} (${client.ip}): deployment/update in progress.`,
+      );
       return;
     }
 
@@ -766,10 +802,15 @@ export async function handleAgentDisconnectDiscovery(agentId) {
 
     for (const [deviceIp, device] of lastScanResults.entries()) {
       const matchIp = deviceIp === client.ip;
-      const matchMac = normMac && normMac !== "UNKNOWN" && normalizeMac(device.mac) === normMac;
+      const matchMac =
+        normMac &&
+        normMac !== "UNKNOWN" &&
+        normalizeMac(device.mac) === normMac;
       if (matchIp || matchMac) {
         device.agent_status = "none";
-        device.deployment_action = canDeployAgent(device.device_type) ? "deploy" : "not_eligible";
+        device.deployment_action = canDeployAgent(device.device_type)
+          ? "deploy"
+          : "not_eligible";
         device.registered_client_id = null;
         updated = true;
       }
@@ -778,10 +819,15 @@ export async function handleAgentDisconnectDiscovery(agentId) {
     if (latestSnapshot.devices) {
       latestSnapshot.devices.forEach((device) => {
         const matchIp = device.ip === client.ip;
-        const matchMac = normMac && normMac !== "UNKNOWN" && normalizeMac(device.mac) === normMac;
+        const matchMac =
+          normMac &&
+          normMac !== "UNKNOWN" &&
+          normalizeMac(device.mac) === normMac;
         if (matchIp || matchMac) {
           device.agent_status = "none";
-          device.deployment_action = canDeployAgent(device.device_type) ? "deploy" : "not_eligible";
+          device.deployment_action = canDeployAgent(device.device_type)
+            ? "deploy"
+            : "not_eligible";
           device.registered_client_id = null;
           updated = true;
         }
@@ -790,9 +836,14 @@ export async function handleAgentDisconnectDiscovery(agentId) {
 
     if (updated) {
       await saveScanResultsToDb(Array.from(lastScanResults.values()));
-      console.log(`[Discovery] Reset agent status to 'none' for disconnected agent ${agentId} (${client.ip}).`);
+      console.log(
+        `[Discovery] Reset agent status to 'none' for disconnected agent ${agentId} (${client.ip}).`,
+      );
     }
   } catch (err) {
-    console.warn(`[Discovery] Failed to handle agent disconnect discovery for ${agentId}:`, err.message);
+    console.warn(
+      `[Discovery] Failed to handle agent disconnect discovery for ${agentId}:`,
+      err.message,
+    );
   }
 }

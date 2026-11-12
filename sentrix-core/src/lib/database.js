@@ -19,4 +19,6 @@ const pool = mysql.createPool({
   connectTimeout: 10000, // 10 seconds
 });
 
+console.log(`[DB] MySQL Pool created for host: "${process.env.DB_HOST || "localhost"}", port: ${process.env.DB_PORT || 3306}, database: "${process.env.DB_DATABASE || "sentrix"}"`);
+
 export default pool;
