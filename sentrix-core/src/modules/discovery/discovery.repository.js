@@ -21,33 +21,29 @@ export const DiscoveryRepository = {
     status = "requested",
     message = "",
     userId = null,
-    is_processing = 0,
-    operation = "deploy",
     now,
   }) {
     await pool.query(
       `
       INSERT INTO agent_deployment_records
-        (ip, mac, hostname, status, message, requested_by, requested_at, updated_at, is_processing, operation)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (ip, mac, hostname, status, message, requested_by, requested_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         mac = COALESCE(VALUES(mac), mac),
         hostname = COALESCE(VALUES(hostname), hostname),
         status = VALUES(status),
         message = VALUES(message),
         requested_by = COALESCE(VALUES(requested_by), requested_by),
-        updated_at = VALUES(updated_at),
-        is_processing = VALUES(is_processing),
-        operation = VALUES(operation)
+        updated_at = VALUES(updated_at)
       `,
-      [ip, mac, hostname, status, message, userId, now, now, is_processing ? 1 : 0, operation],
+      [ip, mac, hostname, status, message, userId, now, now],
     );
   },
 
   async clearProcessingByIp(ip, status = "success", now = Date.now()) {
     try {
       await pool.query(
-        `UPDATE agent_deployment_records SET is_processing = 0, status = ?, updated_at = ? WHERE ip = ?`,
+        `UPDATE agent_deployment_records SET status = ?, updated_at = ? WHERE ip = ?`,
         [status, now, ip]
       );
     } catch (err) {
@@ -71,7 +67,7 @@ export const DiscoveryRepository = {
         }
       }
       await pool.query(
-        `UPDATE agent_deployment_records SET is_processing = 0, status = ?, updated_at = ? ${where}`,
+        `UPDATE agent_deployment_records SET status = ?, updated_at = ? ${where}`,
         params
       );
     } catch (err) {
@@ -80,41 +76,68 @@ export const DiscoveryRepository = {
   },
 
   async upsertScanResults(devices, now) {
-    for (const device of devices) {
-      await pool.query(
-        `
-        INSERT INTO discovery_scan_results
-          (ip, mac, hostname, vendor, device_type, device_kind, open_ports, agent_status, registered_client_id, deployment_action, last_agent_seen_at, last_scanned_at)
-        VALUES
-          (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          mac = VALUES(mac),
-          hostname = VALUES(hostname),
-          vendor = VALUES(vendor),
-          device_type = VALUES(device_type),
-          device_kind = VALUES(device_kind),
-          open_ports = VALUES(open_ports),
-          agent_status = VALUES(agent_status),
-          registered_client_id = VALUES(registered_client_id),
-          deployment_action = VALUES(deployment_action),
-          last_agent_seen_at = VALUES(last_agent_seen_at),
-          last_scanned_at = VALUES(last_scanned_at)
-        `,
-        [
-          device.ip,
-          device.mac,
-          device.hostname,
-          device.vendor,
-          device.device_type,
-          device.device_kind,
-          JSON.stringify(device.open_ports),
-          device.agent_status || "none",
-          device.registered_client_id || null,
-          device.deployment_action || "not_eligible",
-          device.last_agent_seen_at || null,
-          now,
-        ],
-      );
+    console.log(`[DiscoveryRepository] upsertScanResults called with ${devices?.length || 0} devices.`);
+    try {
+      for (const device of devices) {
+        const ip = String(device.ip || "").slice(0, 45);
+        const mac = device.mac ? String(device.mac).trim().slice(0, 17) : null;
+        const hostname = device.hostname ? String(device.hostname).trim().slice(0, 255) : null;
+        const vendor = device.vendor ? String(device.vendor).trim().slice(0, 255) : null;
+        const device_type = device.device_type ? String(device.device_type).trim().slice(0, 100) : null;
+        const device_kind = device.device_kind ? String(device.device_kind).trim().slice(0, 100) : null;
+        const openPortsJson = JSON.stringify(device.open_ports || []);
+
+        let agent_status = device.agent_status || "none";
+        if (!["running", "none", "deploying", "updating"].includes(agent_status)) {
+          agent_status = "none";
+        }
+
+        const registered_client_id = device.registered_client_id || null;
+        const deployment_action = device.deployment_action ? String(device.deployment_action).trim().slice(0, 40) : "not_eligible";
+        const last_agent_seen_at = device.last_agent_seen_at || null;
+
+        await pool.query(
+          `
+          INSERT INTO discovery_scan_results
+            (ip, mac, hostname, vendor, device_type, device_kind, open_ports, agent_status, registered_client_id, deployment_action, last_agent_seen_at, last_scanned_at)
+          VALUES
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            mac = VALUES(mac),
+            hostname = VALUES(hostname),
+            vendor = VALUES(vendor),
+            device_type = VALUES(device_type),
+            device_kind = VALUES(device_kind),
+            open_ports = VALUES(open_ports),
+            agent_status = VALUES(agent_status),
+            registered_client_id = VALUES(registered_client_id),
+            deployment_action = VALUES(deployment_action),
+            last_agent_seen_at = VALUES(last_agent_seen_at),
+            last_scanned_at = VALUES(last_scanned_at)
+          `,
+          [
+            ip,
+            mac,
+            hostname,
+            vendor,
+            device_type,
+            device_kind,
+            openPortsJson,
+            agent_status,
+            registered_client_id,
+            deployment_action,
+            last_agent_seen_at,
+            now,
+          ],
+        );
+      }
+      const [serverInfo] = await pool.query("SELECT @@port as port, @@hostname as host, DATABASE() as db");
+      console.log(`[DB Diagnostic] Server Port: ${serverInfo[0].port}, Hostname: ${serverInfo[0].host}, DB: ${serverInfo[0].db}`);
+      const [dbInfo] = await pool.query("SELECT COUNT(*) as cnt FROM discovery_scan_results");
+      console.log(`[DB Diagnostic] Total rows in discovery_scan_results: ${dbInfo[0].cnt}`);
+    } catch (err) {
+      console.error("[DiscoveryRepository] upsertScanResults failed:", err.message, err.stack);
+      throw err;
     }
   },
 

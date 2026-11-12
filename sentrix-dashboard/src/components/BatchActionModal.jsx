@@ -14,7 +14,7 @@ export function BatchActionModal({
   // Filter devices based on mode and tab
   const { availableDevices, activeDevices } = useMemo(() => {
     if (mode === "update") {
-      const avail = devices.filter(d => d.agent_status === "running" || d.deployment_action === "update");
+      const avail = devices.filter(d => d.agent_status === "running" || d.agent_status === "online");
       const act = devices.filter(d => d.agent_status === "updating" || d.deployment_action === "updating");
       return { availableDevices: avail, activeDevices: act };
     } else {
@@ -53,6 +53,9 @@ export function BatchActionModal({
   function handleSubmit(e) {
     e.preventDefault();
     if (selectedIps.size === 0) return;
+    const isUpdate = mode === "update";
+    // Immediately switch to the "active" tab so the user sees the devices move to Deploying/Updating instantly
+    setActiveTab("active");
     onConfirm(Array.from(selectedIps));
   }
 

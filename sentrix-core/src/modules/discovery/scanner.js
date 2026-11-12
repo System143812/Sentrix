@@ -70,8 +70,8 @@ export async function runNmapPingScan(subnet) {
   }
 
   try {
-    const { stdout } = await execFileAsync("nmap", ["-sn", `${subnet}.0/24`], {
-      timeout: 30000,
+    const { stdout } = await execFileAsync("nmap", ["-T4", "-sn", `${subnet}.0/24`], {
+      timeout: 15000,
     });
     const devices = new Map();
     const blocks = stdout.split(/Nmap scan report for /i).slice(1);
