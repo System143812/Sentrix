@@ -133,7 +133,9 @@ export async function recordAgentDeployment({
   userId = null,
   action = "deploy",
 }) {
-  console.log(`[STATE DIAGNOSTIC] recordAgentDeployment called for IP: ${ip}, status: ${status}, action: ${action}`);
+  // console.log(
+  //   `[STATE DIAGNOSTIC] recordAgentDeployment called for IP: ${ip}, status: ${status}, action: ${action}`,
+  // );
   try {
     const isUpdate = action === "update" || status === "updating";
     const targetStatus = isUpdate ? "updating" : "deploying";
@@ -181,7 +183,9 @@ export async function recordAgentDeployment({
         Date.now(),
       );
     }
-    console.log(`[STATE DIAGNOSTIC] recordAgentDeployment completed for IP: ${ip}, targetStatus: ${targetStatus}`);
+    // console.log(
+    //   `[STATE DIAGNOSTIC] recordAgentDeployment completed for IP: ${ip}, targetStatus: ${targetStatus}`,
+    // );
   } catch (err) {
     console.warn(
       "[Discovery] Failed to persist deployment record:",
@@ -233,39 +237,57 @@ function getAgentStateForDevice(
   // Check both existingDevice (discovery_scan_results) and deploymentRecord (agent_deployment_records)
   const activeDeployment = deploymentRecord || existingDevice;
   const isRequestedDeployment = activeDeployment?.status === "requested";
-  const isStatusDeployment = ["deploying", "updating"].includes(activeDeployment?.agent_status);
+  const isStatusDeployment = ["deploying", "updating"].includes(
+    activeDeployment?.agent_status,
+  );
 
-  const deploymentTimestamp = activeDeployment ? Number(
-    activeDeployment.updated_at || activeDeployment.requested_at || activeDeployment.last_scanned_at || activeDeployment.last_seen || now,
-  ) : null;
+  const deploymentTimestamp = activeDeployment
+    ? Number(
+        activeDeployment.updated_at ||
+          activeDeployment.requested_at ||
+          activeDeployment.last_scanned_at ||
+          activeDeployment.last_seen ||
+          now,
+      )
+    : null;
   const diffMs = deploymentTimestamp ? now - deploymentTimestamp : null;
 
-  console.log(`[STATE DIAGNOSTIC] getAgentStateForDevice:`, {
-    activeDeployment: activeDeployment ? { agent_status: activeDeployment.agent_status, status: activeDeployment.status, updated_at: activeDeployment.updated_at, requested_at: activeDeployment.requested_at } : null,
-    isRequestedDeployment,
-    isStatusDeployment,
-    deploymentTimestamp,
-    diffMs,
-    TIMEOUT_MS,
-    hasRegisteredClient: Boolean(registeredClient)
-  });
+  // console.log(`[STATE DIAGNOSTIC] getAgentStateForDevice:`, {
+  //   activeDeployment: activeDeployment ? { agent_status: activeDeployment.agent_status, status: activeDeployment.status, updated_at: activeDeployment.updated_at, requested_at: activeDeployment.requested_at } : null,
+  //   isRequestedDeployment,
+  //   isStatusDeployment,
+  //   deploymentTimestamp,
+  //   diffMs,
+  //   TIMEOUT_MS,
+  //   hasRegisteredClient: Boolean(registeredClient)
+  // });
 
   if (activeDeployment && (isRequestedDeployment || isStatusDeployment)) {
     if (deploymentTimestamp && diffMs < TIMEOUT_MS) {
-      const isUpdate = Boolean(registeredClient) || activeDeployment.agent_status === "updating" || activeDeployment.action === "update";
+      const isUpdate =
+        Boolean(registeredClient) ||
+        activeDeployment.agent_status === "updating" ||
+        activeDeployment.action === "update";
       const targetStatus = isUpdate ? "updating" : "deploying";
-      const lastSeen = Number(registeredClient?.lastSeenAt || registeredClient?.last_agent_seen_at || 0);
+      const lastSeen = Number(
+        registeredClient?.lastSeenAt ||
+          registeredClient?.last_agent_seen_at ||
+          0,
+      );
 
-      console.log(`[STATE DIAGNOSTIC] Grace period active (status requested/deploying/updating within ${TIMEOUT_MS}ms). Forcing status to: ${targetStatus}`);
       return {
         agent_status: targetStatus,
         deployment_action: targetStatus,
-        registered_client_id: registeredClient?.id || activeDeployment.registered_client_id || null,
-        last_agent_seen_at: lastSeen || activeDeployment.last_agent_seen_at || null,
+        registered_client_id:
+          registeredClient?.id || activeDeployment.registered_client_id || null,
+        last_agent_seen_at:
+          lastSeen || activeDeployment.last_agent_seen_at || null,
         deploy_eligible: deployEligible,
       };
     } else {
-      console.log(`[STATE DIAGNOSTIC] Grace period expired or invalid timestamp: diffMs=${diffMs}, TIMEOUT_MS=${TIMEOUT_MS}`);
+      console.log(
+        `[STATE DIAGNOSTIC] Grace period expired or invalid timestamp: diffMs=${diffMs}, TIMEOUT_MS=${TIMEOUT_MS}`,
+      );
     }
   }
 
@@ -278,17 +300,15 @@ function getAgentStateForDevice(
       isOnline && (lastSeen === 0 || now - lastSeen <= HEARTBEAT_FRESHNESS_MS);
 
     const targetStatus = isHeartbeatFresh ? "running" : "none";
-    console.log(`[STATE DIAGNOSTIC] Fell through to registeredClient check -> returning agent_status: ${targetStatus}`, {
-      isOnline,
-      lastSeen,
-      now,
-      isHeartbeatFresh
-    });
 
     const isRunning = targetStatus === "running";
     return {
       agent_status: targetStatus,
-      deployment_action: isRunning ? "update" : (deployEligible ? "deploy" : "not_eligible"),
+      deployment_action: isRunning
+        ? "update"
+        : deployEligible
+          ? "deploy"
+          : "not_eligible",
       registered_client_id: registeredClient.id,
       last_agent_seen_at: lastSeen || null,
       deploy_eligible: true,
@@ -411,7 +431,7 @@ export async function scanLocalNetwork(targetSubnet = null) {
     for (let i = 0; i < ipAddresses.length; i += batchSize) {
       const batch = ipAddresses.slice(i, i + batchSize);
       const results = await Promise.all(
-        batch.map(async (ip) => ({ ip, alive: await pingHost(ip) }))
+        batch.map(async (ip) => ({ ip, alive: await pingHost(ip) })),
       );
       results.forEach((r) => {
         if (r.alive) pingResults.add(r.ip);
@@ -439,9 +459,8 @@ export async function scanLocalNetwork(targetSubnet = null) {
     () => [],
   );
   const dbDeviceMap = new Map(dbScanResults.map((d) => [d.ip, d]));
-  const deploymentRecords = await DiscoveryRepository.findDeploymentRecords().catch(
-    () => [],
-  );
+  const deploymentRecords =
+    await DiscoveryRepository.findDeploymentRecords().catch(() => []);
   const deploymentMap = new Map(deploymentRecords.map((r) => [r.ip, r]));
 
   const registeredByIp = new Map(
@@ -463,9 +482,7 @@ export async function scanLocalNetwork(targetSubnet = null) {
       const clientByIp = registeredByIp.get(ip);
 
       const isAlive = Boolean(
-        nmapDevice ||
-        isPingAlive ||
-        (arpMac && arpMac !== "Unknown")
+        nmapDevice || isPingAlive || (arpMac && arpMac !== "Unknown"),
       );
       if (!isAlive) {
         return null;
@@ -489,14 +506,12 @@ export async function scanLocalNetwork(targetSubnet = null) {
       const isOnlineRegisteredClient = Boolean(
         registeredClient &&
         (registeredClient.status === "online" ||
-         (registeredClient.lastSeenAt && Date.now() - registeredClient.lastSeenAt < 60000))
+          (registeredClient.lastSeenAt &&
+            Date.now() - registeredClient.lastSeenAt < 60000)),
       );
 
       const reallyAlive = Boolean(
-        nmapDevice ||
-        isPingAlive ||
-        hasOpenPorts ||
-        isOnlineRegisteredClient
+        nmapDevice || isPingAlive || hasOpenPorts || isOnlineRegisteredClient,
       );
       if (!reallyAlive) return null;
 
@@ -510,7 +525,8 @@ export async function scanLocalNetwork(targetSubnet = null) {
 
       if (
         ip === serverPrimaryIp ||
-        (normalizeMac(effectiveMac) !== "UNKNOWN" && normalizeMac(effectiveMac) === serverMacNorm)
+        (normalizeMac(effectiveMac) !== "UNKNOWN" &&
+          normalizeMac(effectiveMac) === serverMacNorm)
       ) {
         return null;
       }
@@ -686,7 +702,8 @@ export function startDiscoveryScheduler(io) {
     await runDiscoveryScan(preferredSubnet);
     emitSnapshot();
     try {
-      const { getClientSummary } = await import("../clients/clients.service.js");
+      const { getClientSummary } =
+        await import("../clients/clients.service.js");
       io.to("dashboards").emit("devices:update", await getClientSummary());
     } catch {}
   };

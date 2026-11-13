@@ -76,7 +76,6 @@ export const DiscoveryRepository = {
   },
 
   async upsertScanResults(devices, now) {
-    console.log(`[DiscoveryRepository] upsertScanResults called with ${devices?.length || 0} devices.`);
     try {
       for (const device of devices) {
         const ip = String(device.ip || "").slice(0, 45);
@@ -131,10 +130,6 @@ export const DiscoveryRepository = {
           ],
         );
       }
-      const [serverInfo] = await pool.query("SELECT @@port as port, @@hostname as host, DATABASE() as db");
-      console.log(`[DB Diagnostic] Server Port: ${serverInfo[0].port}, Hostname: ${serverInfo[0].host}, DB: ${serverInfo[0].db}`);
-      const [dbInfo] = await pool.query("SELECT COUNT(*) as cnt FROM discovery_scan_results");
-      console.log(`[DB Diagnostic] Total rows in discovery_scan_results: ${dbInfo[0].cnt}`);
     } catch (err) {
       console.error("[DiscoveryRepository] upsertScanResults failed:", err.message, err.stack);
       throw err;

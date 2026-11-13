@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Camera, Maximize2, AlertCircle } from "lucide-react";
 import { io } from "socket.io-client";
+import { getApiUrl, getAuthToken } from "../services/api.js";
 
 export function ScreenMonitorModal({ device, onClose }) {
   const canvasRef = useRef(null);
   const socketRef = useRef(null);
   const [fps, setFps] = useState(2);
-  const [quality, setQuality] = useState(60);
+  const [quality, setQuality] = useState(720);
   const [isStreaming, setIsStreaming] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Connecting to stream...");
   const [frameCount, setFrameCount] = useState(0);
@@ -22,10 +23,11 @@ export function ScreenMonitorModal({ device, onClose }) {
   }, [onClose]);
 
   useEffect(() => {
-    const token = localStorage.getItem("sentrix_token");
-    const socketUrl = window.location.origin;
+    const token = getAuthToken();
+    const socketUrl = getApiUrl();
 
     const socket = io(socketUrl, {
+      withCredentials: true,
       query: { role: "dashboard" },
       auth: { token },
     });
@@ -185,7 +187,7 @@ export function ScreenMonitorModal({ device, onClose }) {
             <div className="flex items-center gap-2">
               <span className="text-slate-400 font-bold uppercase text-[10px]">FPS:</span>
               <div className="flex rounded-lg bg-slate-800 p-0.5 border border-slate-700">
-                {[1, 2, 5].map((f) => (
+                {[1, 2, 5, 10].map((f) => (
                   <button
                     key={f}
                     onClick={() => handleUpdateSettings(f, quality)}
@@ -198,15 +200,19 @@ export function ScreenMonitorModal({ device, onClose }) {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-slate-400 font-bold uppercase text-[10px]">Quality:</span>
+              <span className="text-slate-400 font-bold uppercase text-[10px]">Resolution:</span>
               <div className="flex rounded-lg bg-slate-800 p-0.5 border border-slate-700">
-                {[40, 60, 80].map((q) => (
+                {[
+                  { label: "480p", value: 480 },
+                  { label: "720p", value: 720 },
+                  { label: "1080p", value: 1080 }
+                ].map((res) => (
                   <button
-                    key={q}
-                    onClick={() => handleUpdateSettings(fps, q)}
-                    className={`px-2.5 py-1 rounded text-xs font-semibold transition ${quality === q ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                    key={res.value}
+                    onClick={() => handleUpdateSettings(fps, res.value)}
+                    className={`px-2.5 py-1 rounded text-xs font-semibold transition ${quality === res.value ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
                   >
-                    {q}%
+                    {res.label}
                   </button>
                 ))}
               </div>

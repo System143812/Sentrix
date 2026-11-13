@@ -5,6 +5,7 @@ import os from "os";
 import { fileURLToPath } from "url";
 import { exec, execFile } from "child_process";
 import { listenForMessages } from "./utils/ipc.js";
+import screenshot from "screenshot-desktop";
 
 // Robust way to get __dirname in both ESM and CJS/bundled environments
 const __filename_robust = typeof __filename !== "undefined"
@@ -223,6 +224,28 @@ try {
 
       log(`[Helper] Shutdown complete. Exiting.`);
       process.exit(0);
+    }
+
+    if (type === "get_screen_frame") {
+      const qInput = Number(payload.quality) || 720;
+      let quality = 70;
+      if (qInput <= 480 || qInput === 50) quality = 50;
+      else if (qInput <= 720 || qInput === 60 || qInput === 70) quality = 70;
+      else quality = 85;
+
+      try {
+        const imgBuffer = await screenshot({ format: 'jpeg', quality });
+        if (imgBuffer) {
+          return {
+            success: true,
+            frame: imgBuffer.toString("base64")
+          };
+        }
+        return { success: false, error: "Empty screenshot buffer" };
+      } catch (err) {
+        log(`[Helper] ERROR capturing screen: ${err.message}`);
+        return { success: false, error: err.message };
+      }
     }
 
     if (type === "lock") {
