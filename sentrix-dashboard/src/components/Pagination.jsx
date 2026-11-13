@@ -97,7 +97,7 @@ export function Pagination({
               <select
                 value={safePageSize}
                 onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                className="appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-700 transition-all hover:border-slate-300 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 cursor-pointer"
+                className="appearance-none rounded-md border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-700 transition-all hover:border-slate-300 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 cursor-pointer"
               >
                 {pageSizeOptions.map((option) => (
                   <option key={option} value={option}>
@@ -130,7 +130,7 @@ export function Pagination({
         <button
           onClick={() => onPageChange(safeCurrentPage - 1)}
           disabled={safeCurrentPage === 1}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:opacity-30 disabled:hover:border-slate-200"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:opacity-30 disabled:hover:border-slate-200"
           title="Previous"
         >
           <ChevronLeft size={16} strokeWidth={1.5} />
@@ -139,9 +139,9 @@ export function Pagination({
         <div className="flex items-center gap-1">
           {getPageNumbers().map((page, index) => {
             const isEllipsis = page === '...';
-            const isMobileHidden = !isEllipsis && 
-                                   page !== 1 && 
-                                   page !== totalPages && 
+            const isMobileHidden = !isEllipsis &&
+                                   page !== 1 &&
+                                   page !== totalPages &&
                                    Math.abs(page - safeCurrentPage) > 1;
 
             return (
@@ -154,7 +154,7 @@ export function Pagination({
                   <button
                     onClick={() => onPageChange(page)}
                     aria-current={safeCurrentPage === page ? 'page' : undefined}
-                    className={`flex h-9 min-w-[36px] items-center justify-center rounded-lg px-2 text-xs font-semibold transition-all ${
+                    className={`flex h-9 min-w-[36px] items-center justify-center rounded-md px-2 text-xs font-semibold transition-all ${
                       isMobileHidden ? 'hidden md:flex' : 'flex'
                     } ${
                       safeCurrentPage === page
@@ -173,7 +173,7 @@ export function Pagination({
         <button
           onClick={() => onPageChange(safeCurrentPage + 1)}
           disabled={safeCurrentPage === totalPages}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:opacity-30 disabled:hover:border-slate-200"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:opacity-30 disabled:hover:border-slate-200"
           title="Next"
         >
           <ChevronRight size={16} strokeWidth={1.5} />

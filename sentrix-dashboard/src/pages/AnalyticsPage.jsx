@@ -774,28 +774,16 @@ function TimeRangeToolbar({
   setSelectedGroup,
   dark = false,
 }) {
-  const activeIndex = timeRanges.findIndex(r => r.key === rangeKey);
-  const totalRanges = timeRanges.length;
-
   return (
     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-      <div className={`relative flex items-center p-1 rounded-lg border overflow-hidden w-full max-w-lg ${dark ? "bg-white/5 border-white/10 shadow-lg shadow-black/20" : "bg-transparent border-slate-200"}`}>
-        {/* Animated Active Pill Indicator */}
-        <div 
-          className={`absolute h-[calc(100%-8px)] rounded-md transition-all duration-300 ease-in-out shadow-sm ${dark ? "bg-white/20" : "bg-slate-900"}`}
-          style={{
-            left: `calc(8px + ${activeIndex} * (100% - 8px) / ${totalRanges})`,
-            width: `calc((100% - 8px) / ${totalRanges} - 8px)`,
-          }}
-        />
-
+      <div className={`flex rounded-md border p-0.5 shadow-sm w-full max-w-lg ${dark ? "bg-white/5 border-white/10" : "bg-white border-slate-200"}`}>
         {timeRanges.map((range) => {
           const selected = rangeKey === range.key;
           return (
             <button
-              className={`relative z-10 flex flex-1 h-9 items-center justify-center gap-2 px-3 transition-all duration-200 ${
+              className={`flex-1 rounded-md px-3 py-2 text-xs font-bold transition flex items-center justify-center gap-2 ${
                 selected
-                  ? "text-white"
+                  ? "bg-teal-600 text-white shadow-sm"
                   : dark ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-900"
               }`}
               key={range.key}
@@ -814,7 +802,7 @@ function TimeRangeToolbar({
 
       <div className="flex flex-wrap items-center gap-2 font-ui">
        <label
-         className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-xs font-semibold shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25" : "border-slate-200/60 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200"}`}
+         className={`inline-flex h-10 items-center gap-2 rounded-md border px-4 text-xs font-semibold shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25" : "border-slate-200/60 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200"}`}
        >
           <Filter size={14} strokeWidth={2.5} />
           <select
@@ -2253,22 +2241,6 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
           title="Lab health and device performance"
           subtitle="Live analytics for metrics, warning trends, device comparison, and export-ready summaries."
           backgroundImage="/analytics_header.jpg"
-          action={
-            <div className="hidden sm:flex items-center gap-3 font-ui">
-              <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-400 shadow-sm shadow-black/20 backdrop-blur-md">
-                <Wifi size={14} />
-                {analytics.online} online
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-bold text-red-400 shadow-sm shadow-black/20 backdrop-blur-md">
-                <BadgeAlert size={14} />
-                {analytics.criticalAlerts} critical
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-[10px] font-bold text-blue-400 shadow-sm shadow-black/20 backdrop-blur-md">
-                <Boxes size={14} />
-                {pageLoading ? "Refreshing" : `${analytics.total} devices`}
-              </span>
-            </div>
-          }
         >
           <div className="pt-2">
             <TimeRangeToolbar

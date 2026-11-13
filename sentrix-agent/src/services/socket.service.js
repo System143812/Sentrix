@@ -5,13 +5,13 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { exec } from "child_process";
 import https from "https";
-import http from "http";
 import { killProcess } from "./metrics/processes.service.js";
 import { runRemotePowerCommand } from "../utils/power.js";
 import { runMaintenanceAction } from "../utils/maintenance.js";
 import { getHardwareFingerprint } from "./metrics.service.js";
 import { generateTraceId, traceLog } from "../utils/tracing.js";
 import { discoverServerByMac, updateEnvServerUrl, saveServerMac } from "./server-discovery.js";
+import { ScreenCaptureService } from "./screen.service.js";
 
 const COMMAND_SIGNATURE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -73,6 +73,18 @@ export function connectToCore({
   // NOTE: Replay cache is in-memory and does not survive agent restarts.
   // Core must ensure unique commandIds and avoid resending commands across agent lifecycle boundaries.
   const processedCommandIds = new Map();
+
+  const screenService = new ScreenCaptureService({
+    onFrame: (jpegBuffer) => {
+      if (isClosed || !socket.connected) return;
+      socket.emit("agent:screen:frame", {
+        agentId: profile.agentId,
+        timestamp: Date.now(),
+        frame: jpegBuffer
+      });
+    },
+    logger: console.log
+  });
 
   let caCerts = undefined;
   const certPath = path.join(runtimeDir, "server.crt");
@@ -315,7 +327,7 @@ export function connectToCore({
     );
   }
 
-  function handleRegistrationFailureOrRetry(capturedGeneration, reason) {
+  function handleRegistrationFailureOrRetry(capturedGeneration, _reason) {
     isRegistered = false;
     secureKey = null;
 
@@ -517,6 +529,19 @@ export function connectToCore({
         return;
       }
 
+      if (command === "start_screen_stream") {
+        const { fps, quality } = args || {};
+        screenService.start({ fps, quality });
+        safeCallback(callback, { success: true, message: "Screen stream started." });
+        return;
+      }
+
+      if (command === "stop_screen_stream") {
+        screenService.stop();
+        safeCallback(callback, { success: true, message: "Screen stream stopped." });
+        return;
+      }
+
       if (command === "update") {
         const { updateBundleUrl } = args;
         if (!updateBundleUrl) {
@@ -674,6 +699,9 @@ export function connectToCore({
 
     close() {
       isClosed = true;
+      if (screenService) {
+        screenService.stop();
+      }
       if (currentDiscoveryTimer) {
         clearTimeout(currentDiscoveryTimer);
         currentDiscoveryTimer = null;

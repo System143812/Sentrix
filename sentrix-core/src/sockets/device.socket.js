@@ -23,6 +23,7 @@ import {
   isRequestRateLimited,
   isRequestAuthorized,
   verifyHardwareSignature,
+  signAgentCommand,
 } from "../modules/security/security.service.js";
 import { grantRegistrationGrace } from "../system/heartbeat/heartbeat.service.js";
 import { serverTraceLog } from "../utils/tracing.js";
@@ -311,6 +312,76 @@ export function registerDeviceSocket(io) {
       setPreferredSubnet(subnet);
       // Immediately broadcast the updated snapshot (which now includes the new subnet) to all dashboards
       io.to("dashboards").emit("discovery:update", getDiscoverySnapshot());
+    });
+
+    socket.on("dashboard:screen:start", async ({ agentId: targetAgentId, fps, quality }, callback) => {
+      const user = socket.request.user;
+      if (!user || !["admin", "network_admin"].includes(user.role)) {
+        callback?.({ success: false, message: "Unauthorized screen monitoring access." });
+        return;
+      }
+
+      if (!targetAgentId) {
+        callback?.({ success: false, message: "Target agentId required." });
+        return;
+      }
+
+      socket.join(`dashboard:view:${targetAgentId}`);
+
+      const agentRoom = `agent:${targetAgentId}`;
+      try {
+        const sockets = await io.in(agentRoom).fetchSockets();
+        if (!sockets || sockets.length === 0) {
+          callback?.({ success: false, message: "Agent is offline." });
+          return;
+        }
+
+        const signedCommand = await signAgentCommand(targetAgentId, "start_screen_stream", { fps, quality });
+        sockets[0].emit("agent:command", signedCommand);
+
+        console.log(`[SOCKET] Screen streaming started for agent ${targetAgentId} by user ${user.email || user.id}`);
+        callback?.({ success: true });
+      } catch (err) {
+        console.error(`[SOCKET] Failed to start screen stream for ${targetAgentId}:`, err.message);
+        callback?.({ success: false, message: err.message });
+      }
+    });
+
+    socket.on("dashboard:screen:stop", async ({ agentId: targetAgentId }, callback) => {
+      if (!targetAgentId) {
+        callback?.({ success: false, message: "Target agentId required." });
+        return;
+      }
+
+      socket.leave(`dashboard:view:${targetAgentId}`);
+
+      const viewingSockets = await io.in(`dashboard:view:${targetAgentId}`).fetchSockets();
+      if (!viewingSockets || viewingSockets.length === 0) {
+        const agentRoom = `agent:${targetAgentId}`;
+        try {
+          const sockets = await io.in(agentRoom).fetchSockets();
+          if (sockets && sockets.length > 0) {
+            const signedCommand = await signAgentCommand(targetAgentId, "stop_screen_stream", {});
+            sockets[0].emit("agent:command", signedCommand);
+            console.log(`[SOCKET] Screen streaming stopped for agent ${targetAgentId} (no active viewers).`);
+          }
+        } catch (err) {
+          console.error(`[SOCKET] Failed to stop screen stream for ${targetAgentId}:`, err.message);
+        }
+      }
+
+      callback?.({ success: true });
+    });
+
+    socket.on("agent:screen:frame", (payload = {}) => {
+      const id = payload.agentId || agentId;
+      if (!id || !payload.frame) return;
+
+      io.to(`dashboard:view:${id}`).emit("dashboard:screen:frame", {
+        agentId: id,
+        timestamp: payload.timestamp || Date.now(),
+        frame: payload.frame
+      });
     });
   });
 }

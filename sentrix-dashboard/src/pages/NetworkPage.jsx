@@ -415,7 +415,7 @@ export function NetworkPage({
             <button
               type="button"
               onClick={() => onScan(targetSubnet)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-5 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
               disabled={scanLoading}
             >
               {scanLoading ? (
@@ -426,7 +426,7 @@ export function NetworkPage({
               <span>{scanLoading ? "Scanning" : "Rescan"}</span>
             </button>
           ) : (
-            <span className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 text-xs font-bold text-white/50 backdrop-blur-md">
+            <span className="inline-flex h-11 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-4 text-xs font-bold text-white/50 backdrop-blur-md">
               <ShieldAlert size={14} />
               View Only Mode
             </span>
@@ -445,7 +445,7 @@ export function NetworkPage({
                 setTargetSubnet(newSubnet);
                 onSetSubnet?.(newSubnet);
               }}
-              className={`h-10 w-48 appearance-none rounded-lg border border-white/10 bg-white/5 pl-4 pr-10 text-white shadow-sm outline-none backdrop-blur-md transition ${
+              className={`h-10 w-48 appearance-none rounded-md border border-white/10 bg-white/5 pl-4 pr-10 text-white shadow-sm outline-none backdrop-blur-md transition ${
                 canDeploy ? "hover:bg-white/10 focus:border-white/30" : "cursor-not-allowed opacity-60"
               }`}
               disabled={scanLoading || !canDeploy}
@@ -459,10 +459,10 @@ export function NetworkPage({
             </select>
             {canDeploy && <ChevronDown size={14} className="pointer-events-none absolute right-3 top-3.5 text-white/50" />}
           </div>
-          <span className="cursor-default rounded-lg border border-white/5 bg-white/5 px-4 py-2.5 text-white/40 shadow-none backdrop-blur-md transition-opacity">
+          <span className="cursor-default rounded-md border border-white/5 bg-white/5 px-4 py-2.5 text-white/40 shadow-none backdrop-blur-md transition-opacity">
             Last scan: {formatTime(snapshot?.lastScanAt)}
           </span>
-          <span className="cursor-default rounded-lg border border-white/5 bg-white/5 px-4 py-2.5 text-white/40 shadow-none backdrop-blur-md transition-opacity">
+          <span className="cursor-default rounded-md border border-white/5 bg-white/5 px-4 py-2.5 text-white/40 shadow-none backdrop-blur-md transition-opacity">
             Next auto scan: {formatTime(snapshot?.nextScanAt)}
           </span>
         </div>
@@ -484,14 +484,14 @@ export function NetworkPage({
                 placeholder="Search IP, MAC, hostname..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400"
+                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400"
               />
             </div>
             <div className="relative">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400"
+                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400"
               >
                 <option value="all">All Agent Statuses</option>
                 <option value="running">Running</option>
@@ -508,7 +508,7 @@ export function NetworkPage({
                 <button
                   type="button"
                   onClick={() => setShowDeployModal(true)}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
                 >
                   <Package size={14} />
                   <span>Deploy ({eligibleCount})</span>
@@ -516,7 +516,7 @@ export function NetworkPage({
                 <button
                   type="button"
                   onClick={() => setShowUpdateModal(true)}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
                 >
                   <ArrowUp size={14} />
                   <span>Update ({updateableCount})</span>
@@ -534,7 +534,7 @@ export function NetworkPage({
               trusted identity source.
             </p>
           </div>
-          <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+          <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
             <ServerCog size={16} />
             <span className="font-bold tabular-nums">{scanResults.length}</span>
             <span>found</span>
@@ -542,12 +542,12 @@ export function NetworkPage({
         </div>
 
         {scanResults.length === 0 ? (
-          <div className="mt-6 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+          <div className="mt-6 rounded-md border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
             No hosts discovered yet. Sentrix will scan automatically, or you can
             run a rescan now.
           </div>
         ) : (
-          <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200">
+          <div className="mt-6 overflow-x-auto rounded-md border border-slate-200">
             <div className="hidden min-w-[900px] gap-4 bg-slate-50/50 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 xl:grid xl:grid-cols-[minmax(180px,1.2fr)_minmax(120px,0.8fr)_minmax(150px,1.0fr)_minmax(140px,0.9fr)_80px_130px] border-b border-slate-100">
               <div>Host</div>
               <div>IP</div>

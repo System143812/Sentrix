@@ -703,7 +703,7 @@ export function AuditPage({ user }) {
             <button
               type="button"
               onClick={activeTab === "logs" ? loadLogs : loadAuthority}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white shadow-sm backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white shadow-sm backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
               disabled={loading}
             >
               {loading ? (

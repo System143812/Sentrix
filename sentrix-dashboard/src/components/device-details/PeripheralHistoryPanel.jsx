@@ -111,16 +111,7 @@ export function PeripheralHistoryPanel({ deviceId, history, canControl }) {
 
       <div className="grid gap-6 lg:grid-cols-2 min-w-0 items-stretch">
         <div className="flex flex-col min-w-0">
-          <div className="relative mb-4 flex items-center p-1 rounded-lg border border-slate-200 overflow-hidden w-fit shadow-sm">
-            {/* Animated Active Pill Indicator */}
-            <div
-              className="absolute h-[calc(100%-8px)] rounded-md bg-slate-900 transition-all duration-300 ease-in-out shadow-sm"
-              style={{
-                left: statusView === "active" ? "8px" : "calc(50% + 4px)",
-                width: "calc(50% - 12px)",
-              }}
-            />
-
+          <div className="mb-4 flex rounded-md border border-slate-200 bg-white p-0.5 shadow-sm w-fit">
             {[
               { id: "active", label: "Active", count: activeInventory.length },
               {
@@ -130,21 +121,17 @@ export function PeripheralHistoryPanel({ deviceId, history, canControl }) {
               },
             ].map((item) => (
               <button
-                className={`relative z-10 flex h-9 min-w-[120px] items-center justify-center gap-1.5 px-5 text-xs font-bold uppercase tracking-widest transition-all duration-200 ${
+                className={`rounded-md px-3 py-2 text-xs font-bold transition flex items-center gap-1.5 ${
                   statusView === item.id
-                    ? "text-white"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-900"
                 }`}
                 key={item.id}
                 onClick={() => setStatusView(item.id)}
                 type="button"
               >
-                {item.label}
-                <span
-                  className={`tabular-nums transition-opacity ${statusView === item.id ? "text-white opacity-100" : "opacity-60"}`}
-                >
-                  ({item.count})
-                </span>
+                <span>{item.label}</span>
+                <span className="tabular-nums opacity-80">({item.count})</span>
               </button>
             ))}
           </div>

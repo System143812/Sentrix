@@ -2,7 +2,7 @@ import { CalendarDays, Filter, Loader2 } from "lucide-react";
 
 /**
  * A professional date range filter bar following the Sentrix brand identity (Slate-900).
- * 
+ *
  * @param {string} startDate - YYYY-MM-DD format
  * @param {string} endDate - YYYY-MM-DD format
  * @param {function} onStartDateChange
@@ -24,7 +24,7 @@ export function DateFilterBar({
     <div
       className={`relative flex flex-col sm:flex-row items-stretch sm:items-center gap-3 ${className}`}
     >
-      <div className="flex flex-1 items-center rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+      <div className="flex flex-1 items-center rounded-md border border-slate-200 bg-white overflow-hidden shadow-sm">
         <label className="flex flex-1 items-center h-10 px-2.5 group min-w-0">
           <span className="flex items-center gap-1.5 text-[10px] sm:text-xs font-semibold tracking-tight text-slate-400 whitespace-nowrap">
             <CalendarDays
@@ -65,7 +65,7 @@ export function DateFilterBar({
       </div>
 
       <button
-        className={`group relative flex h-10 sm:min-w-[120px] items-center justify-center gap-2 rounded-lg px-5 text-xs font-semibold tracking-tight transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 shadow-sm ${
+        className={`group relative flex h-10 sm:min-w-[120px] items-center justify-center gap-2 rounded-md px-5 text-xs font-semibold tracking-tight transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 shadow-sm ${
           loading
             ? "bg-slate-100 text-slate-400 border border-slate-200"
             : "bg-slate-900 text-white hover:bg-black"

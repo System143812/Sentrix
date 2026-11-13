@@ -112,6 +112,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig }) {
 
   return (
     <div className="grid gap-6">
+
       {showBroadcast && (
         <BroadcastDialog
           device={device}
