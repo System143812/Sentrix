@@ -1,4 +1,4 @@
-import { Filter, Search, X, ChevronDown } from "lucide-react";
+import { Search, X, ChevronDown } from "lucide-react";
 
 /**
  * A professional, high-end search and filter bar.
@@ -19,12 +19,6 @@ export function SearchFilterBar({
     return "text-emerald-600 bg-emerald-50/50";
   };
 
-  const getIndicatorStyles = (val) => {
-    if (val === 0) return "bg-slate-300";
-    if (val < 10) return "bg-blue-500";
-    return "bg-emerald-500";
-  };
-
   return (
     <div className={`flex min-w-0 flex-wrap items-center gap-3 ${className}`}>
       {/* Search Input - Full width on mobile, flexible on desktop */}
@@ -35,7 +29,7 @@ export function SearchFilterBar({
           strokeWidth={1.5}
         />
         <input
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-10 text-sm font-medium text-slate-700 outline-none transition-all duration-200 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 placeholder:text-slate-400 shadow-sm"
+          className="h-10 w-full rounded-md border border-slate-200 bg-white pl-10 pr-10 text-sm font-medium text-slate-700 outline-none transition-all duration-200 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 placeholder:text-slate-400 shadow-sm"
           onChange={(event) => onQueryChange?.(event.target.value)}
           placeholder={placeholder}
           value={query}
@@ -59,7 +53,7 @@ export function SearchFilterBar({
             {filters.map((filter) => (
               <div className="relative group w-32 sm:w-40 min-w-0" key={filter.id}>
                 <select
-                  className="h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-8 text-xs font-semibold text-slate-600 outline-none transition-all duration-200 hover:border-slate-300 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 cursor-pointer shadow-sm"
+                  className="h-10 w-full appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-8 text-xs font-semibold text-slate-600 outline-none transition-all duration-200 hover:border-slate-300 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 cursor-pointer shadow-sm"
                   onChange={(event) => filter.onChange?.(event.target.value)}
                   value={filter.value}
                   title={filter.label}
@@ -77,12 +71,11 @@ export function SearchFilterBar({
             ))}
           </div>
         )}
-        
+
         {count != null ? (
           <div
-            className={`flex h-10 flex-1 sm:flex-none shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-[10px] font-semibold shadow-sm min-w-fit ${getCountStyles(count)}`}
+            className={`flex h-10 flex-1 sm:flex-none shrink-0 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-[10px] font-semibold shadow-sm min-w-fit ${getCountStyles(count)}`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${getIndicatorStyles(count)}`} />
             <span className="tabular-nums">{count}</span>
             <span className="opacity-60">Results</span>
           </div>

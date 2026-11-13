@@ -33,6 +33,7 @@ vi.mock("../modules/security/security.service.js", () => ({
   isRequestRateLimited: vi.fn(),
   isRequestAuthorized: vi.fn(),
   verifyHardwareSignature: vi.fn(),
+  signAgentCommand: vi.fn().mockResolvedValue({ command: 'start_screen_stream', data: {}, hmac: 'mock', timestamp: Date.now() }),
 }));
 
 vi.mock("../system/heartbeat/heartbeat.service.js", () => ({
@@ -135,5 +136,48 @@ describe("Device Socket authorization", () => {
     // Verify registration listener is registered
     const registerListenerCall = socketMock.on.mock.calls.find(call => call[0] === "agent:register");
     expect(registerListenerCall).toBeDefined();
+  });
+
+  it("handles dashboard screen stream start and frame relay", async () => {
+    const fetchSocketsMock = vi.fn().mockResolvedValue([{ emit: vi.fn() }]);
+    const io = {
+      use: vi.fn(),
+      on: vi.fn(),
+      to: vi.fn().mockReturnThis(),
+      emit: vi.fn(),
+      in: vi.fn().mockReturnValue({ fetchSockets: fetchSocketsMock }),
+    };
+
+    registerDeviceSocket(io);
+    const connectionHandler = io.on.mock.calls.find(call => call[0] === "connection")?.[1];
+
+    const token = jwt.sign(
+      { id: "admin-1", email: "admin@example.com", role: "admin" },
+      process.env.JWT_SECRET || "sentrix-secret",
+    );
+
+    const socketMock = {
+      handshake: {
+        query: { role: "dashboard" },
+        headers: { cookie: `sentrix_token=${token}` },
+        address: "127.0.0.1",
+      },
+      request: { user: { id: "admin-1", role: "admin" } },
+      join: vi.fn(),
+      leave: vi.fn(),
+      emit: vi.fn(),
+      on: vi.fn(),
+    };
+
+    await connectionHandler(socketMock);
+
+    const startListener = socketMock.on.mock.calls.find(call => call[0] === "dashboard:screen:start")?.[1];
+    expect(startListener).toBeDefined();
+
+    const callback = vi.fn();
+    await startListener({ agentId: "agent-1", fps: 2, quality: 60 }, callback);
+
+    expect(socketMock.join).toHaveBeenCalledWith("dashboard:view:agent-1");
+    expect(callback).toHaveBeenCalledWith({ success: true });
   });
 });

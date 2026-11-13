@@ -310,7 +310,9 @@ async function deployAgentViaSMB(ip, arg2, arg3, arg4, arg5, arg6) {
           }
 
           Write-Host "[DEPLOY] Copying deployment files recursively to remote path..."
-          Copy-Item -Path "\$localBuildDirSrc\\*" -Destination \$remotePath -Recurse -Force -ErrorAction Stop
+          Get-ChildItem -Path \$localBuildDirSrc | ForEach-Object {
+              Copy-Item -Path \$_.FullName -Destination \$remotePath -Recurse -Force -ErrorAction Stop
+          }
 
           \$markerPayload = @{
               deploymentId = \$deploymentId

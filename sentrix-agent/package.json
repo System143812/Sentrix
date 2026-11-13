@@ -33,6 +33,7 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "esbuild": "^0.28.0",
+    "screenshot-desktop": "^1.15.8",
     "socket.io-client": "^4.8.3",
     "systeminformation": "^5.27.13"
   },
