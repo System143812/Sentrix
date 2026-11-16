@@ -195,10 +195,25 @@ export function BatchActionModal({
                         </p>
                         <p className="font-data text-[11px] text-slate-500">{host.ip}</p>
                       </div>
-                      <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-blue-700">
-                        <LoaderCircle className="animate-spin" size={12} />
-                        {mode === "update" ? "Updating..." : "Deploying..."}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-blue-700">
+                          <LoaderCircle className="animate-spin" size={12} />
+                          {mode === "update" ? "Updating..." : "Deploying..."}
+                        </span>
+                        <button
+                          type="button"
+                          title="Cancel deployment"
+                          onClick={async () => {
+                            try {
+                              const { cancelDeployment } = await import("../services/discoveryApi.js");
+                              await cancelDeployment(host.ip, host.mac);
+                            } catch (err) {}
+                          }}
+                          className="grid h-7 w-7 place-items-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                        >
+                          <X size={14} strokeWidth={2.5} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -25,3 +25,11 @@ export async function deployAgent(ip, device_type, action = "deploy") {
   });
   return result.data;
 }
+
+export async function cancelDeployment(ip, mac = null) {
+  const result = await fetchJson("/api/discovery/cancel", {
+    method: "POST",
+    body: JSON.stringify({ ip, mac }),
+  });
+  return result.data;
+}

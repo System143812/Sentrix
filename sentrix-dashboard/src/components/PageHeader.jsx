@@ -30,14 +30,7 @@ export function PageHeader({
       <div className={`relative z-10 p-6 ${isDark ? "text-white" : ""}`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3">
-              {Icon ? (
-                <Icon
-                  size={20}
-                  strokeWidth={2}
-                  className={isDark ? "text-blue-300" : "text-blue-600"}
-                />
-              ) : null}
+            <div>
               <h2
                 className={`text-xl font-semibold tracking-tight ${
                   isDark ? "text-white" : "text-slate-900"

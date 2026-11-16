@@ -108,7 +108,6 @@ describe("NetworkPage", () => {
     expect(onDeploy).toHaveBeenCalledWith(
       "192.168.1.10",
       "PC",
-      null,
       "deploy",
     );
   });
