@@ -42,6 +42,9 @@ export class ScreenCaptureService {
       const imgBuffer = await screenshot({ format: 'jpeg', quality: mappedQ });
       return imgBuffer;
     } catch (err) {
+      if (err.message && (err.message.includes("EPERM") || err.message.includes("EBUSY") || err.message.includes("unlink"))) {
+        return null; // Gracefully skip frame tick on temporary temp-file lock
+      }
       throw err;
     }
   }
@@ -57,6 +60,19 @@ export class ScreenCaptureService {
 
     const intervalMs = Math.max(Math.floor(1000 / this.fps), 80); // Min 80ms interval for stability
     this.logger(`[ScreenService] Starting screen capture stream at ${this.fps} FPS (~${intervalMs}ms interval, resolution: ${this.quality})`);
+
+    // Immediate initial capture trigger after 150ms settling delay
+    setTimeout(async () => {
+      if (!this.isCapturing) return;
+      try {
+        const imgBuffer = await this.captureFrame();
+        if (this.isCapturing && imgBuffer) {
+          this.onFrame(imgBuffer);
+        }
+      } catch (err) {
+        this.logger(`[ScreenService] Initial capture error: ${err.message}`);
+      }
+    }, 150);
 
     this.intervalId = setInterval(async () => {
       if (!this.isCapturing) return;

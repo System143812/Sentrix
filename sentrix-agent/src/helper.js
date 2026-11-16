@@ -226,6 +226,48 @@ try {
       process.exit(0);
     }
 
+    if (type === "get_active_apps") {
+      log(`[Helper] Received get_active_apps command in user session.`);
+      return new Promise((resolve) => {
+        try {
+          const script = `
+            $ignored = @('textinputhost', 'searchhost', 'startmenuexperiencehost', 'shellexperiencehost', 'lockapp', 'applicationframehost', 'systemsettings', 'cortana');
+            Get-Process | Where-Object { $_.MainWindowTitle -ne '' -and $ignored -notcontains $_.ProcessName.ToLower() } | Select-Object ProcessName, Id, MainWindowTitle | ConvertTo-Json -Compress
+          `;
+          const encoded = Buffer.from(script, "utf16le").toString("base64");
+          execFile("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded], { timeout: 5000, windowsHide: true }, (error, stdout, stderr) => {
+            if (error) {
+              log(`[Helper] ERROR executing get_active_apps: ${error.message}`);
+              resolve({ success: false, error: error.message, activeApps: [] });
+              return;
+            }
+            if (!stdout || stdout.trim() === "") {
+              resolve({ success: true, activeApps: [] });
+              return;
+            }
+            try {
+              const parsed = JSON.parse(stdout);
+              const list = Array.isArray(parsed) ? parsed : [parsed];
+              const ignoredSet = new Set(['textinputhost', 'searchhost', 'startmenuexperiencehost', 'shellexperiencehost', 'lockapp', 'applicationframehost', 'systemsettings', 'cortana']);
+              const activeApps = list
+                .filter(p => !ignoredSet.has((p.ProcessName || "").toLowerCase()))
+                .map(p => ({
+                  name: p.ProcessName || "",
+                  pid: Number(p.Id),
+                  windowTitle: p.MainWindowTitle || ""
+                }));
+              resolve({ success: true, activeApps });
+            } catch (err) {
+              log(`[Helper] ERROR parsing get_active_apps json: ${err.message}`);
+              resolve({ success: false, error: err.message, activeApps: [] });
+            }
+          });
+        } catch (err) {
+          resolve({ success: false, error: err.message, activeApps: [] });
+        }
+      });
+    }
+
     if (type === "get_screen_frame") {
       const qInput = Number(payload.quality) || 720;
       let quality = 70;

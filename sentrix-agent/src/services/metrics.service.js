@@ -28,7 +28,7 @@ import { collectDiskMetrics } from "./metrics/disk.service.js";
 import { collectMemoryMetrics } from "./metrics/memory.service.js";
 import { collectNetworkMetrics } from "./metrics/network.service.js";
 import { collectTemperatureMetrics } from "./metrics/temperature.service.js";
-import { collectProcessMetrics } from "./metrics/processes.service.js";
+import { collectProcessMetrics, collectActiveApps } from "./metrics/processes.service.js";
 import { collectNetworkActivity } from "./metrics/network-activity.service.js";
 import { collectUsbDevices, collectSolidUsbDevices, collectSolidDisplays } from "./metrics/peripherals.service.js";
 import { safeString, toNumber } from "./metrics/helpers.js";
@@ -51,6 +51,7 @@ const cachedMetricSections = {
   temperature: createCachedSection({ cpu: { temperatureCelsius: null }, gpu: { model: "Unknown", temperatureCelsius: null } }),
   processes: createCachedSection([]),
   activity: createCachedSection({ activeConnections: [], dnsCache: [] }),
+  activeApps: createCachedSection([]),
 };
 
 function createCachedSection(initialData) {
@@ -128,6 +129,7 @@ async function refreshMetricsCache() {
     refreshMetricSection("temperature", collectTemperatureMetrics, temperatureIntervalMs),
     refreshMetricSection("processes", collectProcessMetrics, globalMetricIntervalMs),
     refreshMetricSection("activity", collectNetworkActivity, activityIntervalMs),
+    refreshMetricSection("activeApps", collectActiveApps, globalMetricIntervalMs),
   ]);
 }
 
@@ -156,6 +158,7 @@ function buildMetricsPayload(agentId, hostname) {
     temperature: cachedMetricSections.temperature.data,
     processes: cachedMetricSections.processes.data,
     networkActivity: cachedMetricSections.activity.data,
+    activeApps: cachedMetricSections.activeApps.data,
   };
 }
 

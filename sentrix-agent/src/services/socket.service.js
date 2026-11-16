@@ -10,8 +10,9 @@ import { runRemotePowerCommand } from "../utils/power.js";
 import { runMaintenanceAction } from "../utils/maintenance.js";
 import { getHardwareFingerprint } from "./metrics.service.js";
 import { generateTraceId, traceLog } from "../utils/tracing.js";
-import { discoverServerByMac, updateEnvServerUrl, saveServerMac } from "./server-discovery.js";
+import { discoverServerByMac, updateEnvServerUrl, saveServerMac, fetchAndSaveServerCertificate } from "./server-discovery.js";
 import { ScreenCaptureService } from "./screen.service.js";
+import { collectSoftwareInventory } from "./software-inventory.service.js";
 
 const COMMAND_SIGNATURE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -314,6 +315,24 @@ export function connectToCore({
           if (lastMetricsPacket) emitSigned("agent:metrics", lastMetricsPacket);
           if (lastHeartbeatPacket) emitSigned("agent:heartbeat", lastHeartbeatPacket);
 
+          // Emit software inventory to core (non-blocking, skipped in test environments)
+          if (!process.env.VITEST && process.env.NODE_ENV !== "test") {
+            collectSoftwareInventory()
+              .then((inventory) => {
+                if (inventory && inventory.length > 0) {
+                  socket.emit("agent:software", {
+                    agentId: profile.agentId,
+                    software: inventory,
+                    timestamp: Date.now()
+                  });
+                  console.log(`[Socket] Emitted software inventory (${inventory.length} apps) to core.`);
+                }
+              })
+              .catch((invErr) => {
+                console.warn(`[Socket] Failed to emit software inventory: ${invErr.message}`);
+              });
+          }
+
           onStatus?.({ connection: "online", profile, serverUrl });
           isOffline = false;
         } else {
@@ -389,6 +408,11 @@ export function connectToCore({
     if (isClosed) return;
     if (newServerUrl && newServerUrl !== serverUrl) {
       console.log(`[Socket] Received server IP change push: -> ${newServerUrl}`);
+      try {
+        await fetchAndSaveServerCertificate(newServerUrl, runtimeDir);
+      } catch (certErr) {
+        console.warn(`[Socket] Failed to fetch server certificate on ip-changed push: ${certErr.message}`);
+      }
       updateEnvServerUrl(runtimeEnvPath, newServerUrl);
       serverUrl = newServerUrl;
       socket.io.uri = newServerUrl;
@@ -461,6 +485,11 @@ export function connectToCore({
       if (isClosed) return;
       if (discoveredUrl && discoveredUrl !== serverUrl) {
         console.log(`[Socket] Found server at new IP: ${discoveredUrl}`);
+        try {
+          await fetchAndSaveServerCertificate(discoveredUrl, runtimeDir);
+        } catch (certErr) {
+          console.warn(`[Socket] Failed to fetch server certificate from discovered IP: ${certErr.message}`);
+        }
         updateEnvServerUrl(runtimeEnvPath, discoveredUrl);
         serverUrl = discoveredUrl;
         consecutiveErrors = 0;

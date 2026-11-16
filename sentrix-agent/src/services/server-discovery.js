@@ -3,6 +3,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import https from "https";
 import fs from "fs";
+import path from "path";
 
 const execFileAsync = promisify(execFile);
 
@@ -278,4 +279,58 @@ export function saveServerMac(runtimeEnvPath, serverMac) {
   } catch (err) {
     console.error(`[Discovery] Failed to save server MAC:`, err.message);
   }
+}
+
+/**
+ * Fetches the active server certificate from the server's discovery endpoint.
+ * Saves it locally as server.crt in runtimeDir.
+ */
+export async function fetchAndSaveServerCertificate(serverUrl, runtimeDir) {
+  return new Promise((resolve, reject) => {
+    try {
+      const urlObj = new URL(`${serverUrl}/api/v1/discovery/certificate`);
+      const options = {
+        hostname: urlObj.hostname,
+        port: urlObj.port || (urlObj.protocol === "https:" ? 443 : 80),
+        path: urlObj.pathname,
+        method: "GET",
+        rejectUnauthorized: false,
+        timeout: 5000,
+      };
+
+      const req = https.request(options, (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          if (res.statusCode === 200) {
+            try {
+              const json = JSON.parse(data);
+              if (json.success && json.certificate) {
+                const certPath = path.join(runtimeDir, "server.crt");
+                fs.writeFileSync(certPath, json.certificate, "utf8");
+                console.log(`[Discovery] Successfully fetched and updated server.crt at ${certPath}`);
+                resolve(true);
+              } else {
+                reject(new Error("Invalid certificate response format"));
+              }
+            } catch (err) {
+              reject(new Error(`Failed to parse certificate response: ${err.message}`));
+            }
+          } else {
+            reject(new Error(`Certificate fetch failed with status code ${res.statusCode}`));
+          }
+        });
+      });
+
+      req.on("error", (err) => reject(err));
+      req.on("timeout", () => {
+        req.destroy();
+        reject(new Error("Certificate fetch timed out"));
+      });
+
+      req.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
