@@ -314,6 +314,16 @@ export async function getClientProcesses(req, res, next) {
   }
 }
 
+export async function getClientActiveApps(req, res, next) {
+  try {
+    const { id } = req.params;
+    const activeApps = await clientService.getClientActiveApps(id);
+    res.json({ success: true, data: activeApps });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getClientNetworkActivity(req, res, next) {
   try {
     const { id } = req.params;

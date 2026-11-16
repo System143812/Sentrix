@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS client_processes (
   cpu_percent DECIMAL(6,2),
   memory_mb DECIMAL(10,2),
   command TEXT,
+  window_title VARCHAR(512) DEFAULT NULL,
   recorded_at BIGINT NOT NULL,
   INDEX idx_processes_client_time (client_id, recorded_at),
   CONSTRAINT fk_processes_client

@@ -133,9 +133,10 @@ export async function recordAgentDeployment({
   userId = null,
   action = "deploy",
 }) {
-  // console.log(
-  //   `[STATE DIAGNOSTIC] recordAgentDeployment called for IP: ${ip}, status: ${status}, action: ${action}`,
-  // );
+  // Clear any active scan lock to prevent race conditions
+  activeScanPromise = null;
+  activeScanSubnet = null;
+
   try {
     const isUpdate = action === "update" || status === "updating";
     const targetStatus = isUpdate ? "updating" : "deploying";
@@ -219,6 +220,38 @@ export async function clearDeploymentCacheState(ip, mac) {
         await saveScanResultsToDb([device]);
       }
     }
+  }
+}
+
+export async function cancelOrResetDeployment(ip, mac = null) {
+  activeScanPromise = null;
+  activeScanSubnet = null;
+
+  try {
+    await DiscoveryRepository.clearProcessingByIpOrMac(ip, mac, "cancelled", Date.now());
+    const normMac = normalizeMac(mac);
+    for (const [deviceIp, device] of lastScanResults.entries()) {
+      const matchIp = ip && deviceIp === ip;
+      const matchMac = normMac && normMac !== "UNKNOWN" && normalizeMac(device.mac) === normMac;
+      if (matchIp || matchMac) {
+        device.agent_status = device.registered_client_id ? "running" : "none";
+        device.deployment_action = canDeployAgent(device.device_type) ? "deploy" : "not_eligible";
+        await saveScanResultsToDb([device]);
+      }
+    }
+    if (latestSnapshot.devices) {
+      for (const device of latestSnapshot.devices) {
+        const matchIp = ip && device.ip === ip;
+        const matchMac = normMac && normMac !== "UNKNOWN" && normalizeMac(device.mac) === normMac;
+        if (matchIp || matchMac) {
+          device.agent_status = device.registered_client_id ? "running" : "none";
+          device.deployment_action = canDeployAgent(device.device_type) ? "deploy" : "not_eligible";
+          await saveScanResultsToDb([device]);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[Discovery] Failed to cancel/reset deployment state:", err.message);
   }
 }
 
@@ -599,6 +632,24 @@ export async function scanLocalNetwork(targetSubnet = null) {
   );
 
   const discoveredDevices = devices.filter((device) => device !== null);
+
+  // Post-scan protection: Ensure any deployment initiated during the scan is not overwritten by stale pre-scan results
+  try {
+    const freshDeployments = await DiscoveryRepository.findDeploymentRecords();
+    const freshMap = new Map(freshDeployments.map(r => [r.ip, r]));
+    const now = Date.now();
+    const TIMEOUT_MS = 300000;
+    for (const d of discoveredDevices) {
+      const dep = freshMap.get(d.ip);
+      if (dep && dep.status === "requested" && (now - Number(dep.updated_at || dep.requested_at || now) < TIMEOUT_MS)) {
+        const isUpdate = dep.action === "update" || dep.agent_status === "updating" || d.registered_client_id;
+        d.agent_status = isUpdate ? "updating" : "deploying";
+        d.deployment_action = d.agent_status;
+      }
+    }
+  } catch (err) {
+    console.warn("[Discovery] Post-scan deployment re-injection failed:", err.message);
+  }
 
   lastScanResults.clear();
   discoveredDevices.forEach((device) => lastScanResults.set(device.ip, device));

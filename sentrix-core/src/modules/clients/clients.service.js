@@ -276,6 +276,12 @@ export async function getClientProcesses(id) {
   return await getLatestClientProcesses(id);
 }
 
+export async function getClientActiveApps(id) {
+  const client = await getClientById(id);
+  if (!client || client.archived) return [];
+  return client.metrics?.activeApps || [];
+}
+
 export async function getClientNetworkActivity(id) {
   return await getLatestClientNetworkActivity(id);
 }
