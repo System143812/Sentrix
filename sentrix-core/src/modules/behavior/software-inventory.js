@@ -161,15 +161,17 @@ export async function saveSoftwareInventory(clientId, software = [], timestamp =
             ],
           );
 
-          await insertEvent(connection, {
-            clientId,
-            eventType: `software_${eventType}`,
-            severity: riskLevel === "normal" ? "info" : "warning",
-            title: `${name} ${eventType}`,
-            description: item.version ? `Version ${item.version}` : "",
-            metadata: { publisher: item.publisher || null, riskLevel },
-            createdAt: timestamp,
-          });
+          if (eventType !== "installed" || riskLevel !== "normal") {
+            await insertEvent(connection, {
+              clientId,
+              eventType: `software_${eventType}`,
+              severity: riskLevel === "normal" ? "info" : "warning",
+              title: `${name} ${eventType}`,
+              description: item.version ? `Version ${item.version}` : "",
+              metadata: { publisher: item.publisher || null, riskLevel },
+              createdAt: timestamp,
+            });
+          }
         }
       }
 

@@ -22,7 +22,7 @@ export async function getLatestMetricSampleRecordedAt(clientId) {
 }
 
 export async function saveProcesses(clientId, processes = [], recordedAt) {
-  if (!Array.isArray(processes) || processes.length === 0) return;
+  if (!Array.isArray(processes)) return;
 
   return withDeadlockRetry(async () => {
     const connection = await pool.getConnection();
@@ -30,27 +30,48 @@ export async function saveProcesses(clientId, processes = [], recordedAt) {
     try {
       await connection.beginTransaction();
 
-      // WRITE-ONLY INGESTION: We perform a bulk insert of the new snapshot.
-      // Immediate DELETEs are removed to prevent Next-Key and Gap locks (the source of deadlocks).
-      const values = processes.map((p) => [
-        clientId,
-        toNumber(p.pid),
-        p.name || null,
-        p.user || null,
-        toNumber(p.cpu, 0),
-        toNumber(p.memoryMb, 0),
-        p.command || null,
-        recordedAt,
-      ]);
+      // Clean out previous process snapshot so stale/background processes do not accumulate
+      await connection.query(`DELETE FROM client_processes WHERE client_id = ?`, [clientId]);
 
-      await connection.query(
-        `
-        INSERT INTO client_processes
-          (client_id, pid, name, user, cpu_percent, memory_mb, command, recorded_at)
-        VALUES ?
-        `,
-        [values],
-      );
+      if (processes.length > 0) {
+        const values = processes.map((p) => [
+          clientId,
+          toNumber(p.pid),
+          p.name || null,
+          p.user || null,
+          toNumber(p.cpu, 0),
+          toNumber(p.memoryMb, 0),
+          p.command || null,
+          p.windowTitle || null,
+          recordedAt,
+        ]);
+
+        try {
+          await connection.query(
+            `
+            INSERT INTO client_processes
+              (client_id, pid, name, user, cpu_percent, memory_mb, command, window_title, recorded_at)
+            VALUES ?
+            `,
+            [values],
+          );
+        } catch (err) {
+          if (err.code === 'ER_BAD_FIELD_ERROR' || err.message?.includes('Unknown column')) {
+            // Self-heal table schema if window_title column is missing
+            await connection.query(`ALTER TABLE client_processes ADD COLUMN window_title VARCHAR(512) DEFAULT NULL`);
+            await connection.query(
+              `
+              INSERT INTO client_processes
+                (client_id, pid, name, user, cpu_percent, memory_mb, command, window_title, recorded_at)
+              VALUES ?
+              `,
+              [values],
+            );
+          } else {
+            throw err;
+          }
+        }
+      }
 
       await connection.commit();
     } catch (error) {
@@ -294,6 +315,7 @@ export async function getLatestClientProcesses(clientId) {
     cpu: r.cpu_percent,
     memoryMb: r.memory_mb,
     command: r.command,
+    windowTitle: r.window_title || "",
     recordedAt: r.recorded_at,
   }));
 }

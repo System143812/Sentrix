@@ -6,6 +6,7 @@ import { spawn } from "child_process";
 import { getPrimaryInterfaceAddress } from "./scanner.js";
 import { generateProvisioningToken } from "../security/security.service.js";
 import { ClientRepository } from "../clients/clients.repository.js";
+import { DiscoveryRepository } from "./discovery.repository.js";
 import crypto from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -294,12 +295,17 @@ async function deployAgentViaSMB(ip, arg2, arg3, arg4, arg5, arg6) {
           \$tcp.Close()
       }
 
+      Write-Host "[DEPLOY] Cleaning up any existing SMB connections..."
+      try { net use "\\\\$ip\\IPC$" /delete /y 2>&1 | Out-Null } catch {}
+      try { net use "\\\\$ip\\C$" /delete /y 2>&1 | Out-Null } catch {}
+
       Write-Host "[DEPLOY] Mapping administrative share (C\$)..."
       if (Get-PSDrive \$driveName -ErrorAction SilentlyContinue) { Remove-PSDrive \$driveName -Force }
       try {
           New-PSDrive -Name \$driveName -PSProvider FileSystem -Root "\\\\\$ip\\C\$" -Credential \$cred
       } catch {
-          throw "SMB Auth Failed: Could not map administrative share."
+          \$errDetails = \$_.Exception.Message
+          throw "SMB Auth Failed: Could not map administrative share. Details: \$errDetails"
       }
 
       try {
@@ -415,6 +421,17 @@ async function deployAgentViaSMB(ip, arg2, arg3, arg4, arg5, arg6) {
 
   } catch (error) {
     console.error(`[DEPLOY] SMB Deployment failed for ${ip}:`, error);
+    try {
+      await DiscoveryRepository.clearProcessingByIpOrMac(ip, scanRecord?.mac, "failed", Date.now());
+      const rows = await DiscoveryRepository.findScanResults();
+      const dbDev = rows.find(d => d.ip === ip || (scanRecord?.mac && d.mac && normalizeMac(d.mac) === normalizeMac(scanRecord.mac)));
+      if (dbDev) {
+        dbDev.agent_status = dbDev.registered_client_id ? "running" : "none";
+        await DiscoveryRepository.upsertScanResults([dbDev], Date.now());
+      }
+    } catch (resetErr) {
+      console.warn(`[DEPLOY] Failed to reset deployment status on error:`, resetErr.message);
+    }
     return {
       success: false,
       error: error.message || "Unknown deployment error",

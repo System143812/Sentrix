@@ -8,6 +8,7 @@ clientRouter.get("/", clientControllers.getAllClients);
 clientRouter.get("/:id/metrics", clientControllers.getClientMetrics);
 clientRouter.get("/:id/hardware", clientControllers.getClientHardware);
 clientRouter.get("/:id/processes", clientControllers.getClientProcesses);
+clientRouter.get("/:id/active-apps", clientControllers.getClientActiveApps);
 clientRouter.get("/:id/network-activity", clientControllers.getClientNetworkActivity);
 clientRouter.get("/:id/activity-history", clientControllers.getClientActivityHistory);
 clientRouter.get("/:id/peripherals/history", clientControllers.getClientPeripheralHistory);

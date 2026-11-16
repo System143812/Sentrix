@@ -3,6 +3,7 @@ import {
   runDiscoveryScan,
   deployAgentToHost,
   recordAgentDeployment,
+  cancelOrResetDeployment,
   getInterfaces as getInterfacesService,
 } from "./discovery.service.js";
 import { DiscoveryRepository } from "./discovery.repository.js";
@@ -320,5 +321,43 @@ export async function downloadUpdateBundle(req, res) {
   } catch (error) {
     console.error("[Discovery] Error serving update bundle:", error);
     return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getServerCertificate(req, res, next) {
+  try {
+    const certPath = path.resolve(__dirname, "../../../.certs/server.crt");
+    if (!fs.existsSync(certPath)) {
+      return res.status(404).json({ success: false, message: "Server certificate not found." });
+    }
+    const certificate = fs.readFileSync(certPath, "utf8");
+    res.json({ success: true, certificate });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function cancelDeployment(req, res, next) {
+  try {
+    const { ip, mac } = req.body;
+    if (!ip) {
+      return res.status(400).json({ success: false, message: "IP address is required." });
+    }
+    await cancelOrResetDeployment(ip, mac);
+    const io = req.app.get("io");
+    io?.to("dashboards").emit("discovery:update", getDiscoverySnapshot());
+
+    await logAuditEvent({
+      req,
+      action: "agent_deployment_cancelled",
+      targetType: "host",
+      targetId: ip,
+      targetLabel: ip,
+      details: { success: true, message: "Deployment cancelled/reset." },
+    });
+
+    res.json({ success: true, data: getDiscoverySnapshot() });
+  } catch (error) {
+    next(error);
   }
 }

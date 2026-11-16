@@ -47,6 +47,7 @@ export function normalizeMetrics(metrics = {}) {
     },
     processes: Array.isArray(metrics.processes) ? metrics.processes : [],
     networkActivity: metrics.networkActivity || { activeConnections: [], dnsCache: [] },
+    activeApps: Array.isArray(metrics.activeApps) ? metrics.activeApps : [],
   };
 }
 
