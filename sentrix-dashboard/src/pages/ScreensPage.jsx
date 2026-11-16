@@ -8,6 +8,7 @@ import { PageHeader } from "../components/PageHeader.jsx";
 import { Card } from "../components/Card.jsx";
 import { SearchFilterBar } from "../components/SearchFilterBar.jsx";
 import { ScreenMonitorModal } from "../components/ScreenMonitorModal.jsx";
+import { DeviceGridCard } from "../components/DeviceGridCard.jsx";
 import { matchesSearch } from "../shared/utils.js";
 
 export function ScreensPage({ dashboardData }) {
@@ -15,6 +16,8 @@ export function ScreensPage({ dashboardData }) {
   const [selectedGroup, setSelectedGroup] = useState("all");
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [viewMode, setViewMode] = useState("grid"); // grid | table
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
 
   const devices = dashboardData?.clients || [
     {
@@ -87,11 +90,29 @@ export function ScreensPage({ dashboardData }) {
     [devices, query, selectedGroup],
   );
 
+  const totalPages = Math.ceil(filteredDevices.length / pageSize) || 1;
+  const paginatedDevices = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredDevices.slice(start, start + pageSize);
+  }, [filteredDevices, currentPage]);
+
+  const handleGroupChange = (group) => {
+    setSelectedGroup(group);
+    setCurrentPage(1);
+  };
+
+  const handleQueryChange = (q) => {
+    setQuery(q);
+    setCurrentPage(1);
+  };
+
   return (
     <div className="page-reveal space-y-6">
       {selectedDevice && (
         <ScreenMonitorModal
           device={selectedDevice}
+          devices={filteredDevices}
+          onSelectDevice={setSelectedDevice}
           onClose={() => setSelectedDevice(null)}
         />
       )}
@@ -114,26 +135,34 @@ export function ScreensPage({ dashboardData }) {
                 id: "group",
                 label: "Group",
                 value: selectedGroup,
-                onChange: setSelectedGroup,
+                onChange: handleGroupChange,
                 options: groupOptions.map((group) => ({
                   value: group,
                   label: group === "all" ? "All groups" : group,
                 })),
               },
             ]}
-            onQueryChange={setQuery}
+            onQueryChange={handleQueryChange}
             placeholder="Search by hostname or IP..."
             query={query}
           />
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex rounded-md border border-slate-200 bg-white p-0.5 shadow-sm">
+          <div className="relative flex rounded-md border border-slate-200 bg-white p-0.5 shadow-sm overflow-hidden">
+            {/* Animated Active Pill Indicator */}
+            <div
+              className="absolute top-0.5 bottom-0.5 rounded-md bg-slate-900 transition-all duration-300 ease-in-out shadow-sm"
+              style={{
+                left: `calc(2px + ${viewMode === "grid" ? 0 : 1} * (100% - 4px) / 2)`,
+                width: `calc((100% - 4px) / 2)`,
+              }}
+            />
             <button
               onClick={() => setViewMode("grid")}
-              className={`rounded-md px-3 py-2 text-xs font-bold transition ${
+              className={`relative z-10 rounded-md px-4 py-2 text-xs font-bold transition-colors ${
                 viewMode === "grid"
-                  ? "bg-slate-900 text-white shadow-sm"
+                  ? "text-white"
                   : "text-slate-500 hover:text-slate-900"
               }`}
             >
@@ -141,9 +170,9 @@ export function ScreensPage({ dashboardData }) {
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={`rounded-md px-3 py-2 text-xs font-bold transition ${
+              className={`relative z-10 rounded-md px-4 py-2 text-xs font-bold transition-colors ${
                 viewMode === "table"
-                  ? "bg-slate-900 text-white shadow-sm"
+                  ? "text-white"
                   : "text-slate-500 hover:text-slate-900"
               }`}
             >
@@ -155,84 +184,56 @@ export function ScreensPage({ dashboardData }) {
 
       {/* Main Content: Grid vs Table */}
       {viewMode === "grid" ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredDevices.map((device) => {
-            const isOnline = device.status !== "offline";
-            return (
-              <Card
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {paginatedDevices.map((device) => (
+              <DeviceGridCard
                 key={device.id}
-                padding="0"
-                className="group overflow-hidden border-slate-200/60 bg-white transition hover:border-slate-400 hover:shadow-md cursor-pointer"
-                onClick={() => setSelectedDevice(device)}
-              >
-                {/* Thumbnail Header */}
-                <div className="relative aspect-video bg-slate-900 flex items-center justify-center overflow-hidden border-b border-slate-100">
-                  <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-4 flex flex-col justify-between">
-                    <div className="flex items-center justify-between">
-                      <span className="rounded bg-black/40 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
-                        {device.activeApp || "Live Desktop"}
-                      </span>
-                      <span className="flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 backdrop-blur">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        {device.fps || 2} FPS
-                      </span>
-                    </div>
+                device={device}
+                onOpenModal={setSelectedDevice}
+              />
+            ))}
+          </div>
 
-                    <div className="text-center">
-                      <Monitor
-                        size={36}
-                        className="mx-auto text-slate-600 group-hover:text-slate-400 transition"
-                        strokeWidth={1.5}
-                      />
-                      <p className="mt-1 text-[11px] font-medium text-slate-400">
-                        Live WebSocket Stream
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[10px] text-slate-400">
-                      <span>{device.ip || "Unknown IP"}</span>
-                      <span className="flex items-center gap-1 text-emerald-400 font-bold">
-                        <CheckCircle2 size={12} /> Ready
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Hover Action Overlay */}
-                  <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 backdrop-blur-[2px]">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedDevice(device);
-                      }}
-                      className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow transition hover:bg-slate-100 active:scale-95"
-                    >
-                      <Eye size={14} strokeWidth={2.5} /> Open Live View
-                    </button>
-                  </div>
-                </div>
-
-                {/* Card Footer Info */}
-                <div className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                        <span>{device.hostname}</span>
-                        <span
-                          className={`inline-block h-2 w-2 rounded-full shrink-0 ${
-                            isOnline ? "bg-emerald-500" : "bg-rose-500"
-                          }`}
-                          title={isOnline ? "Online" : "Offline"}
-                        />
-                      </p>
-                      <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                        {device.group || "Unassigned"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+          {/* Pagination Footer */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 rounded-lg shadow-sm">
+              <div className="text-xs text-slate-500">
+                Showing <span className="font-bold text-slate-700">{(currentPage - 1) * pageSize + 1}</span> to{" "}
+                <span className="font-bold text-slate-700">
+                  {Math.min(currentPage * pageSize, filteredDevices.length)}
+                </span>{" "}
+                of <span className="font-bold text-slate-700">{filteredDevices.length}</span> devices
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold transition ${
+                    currentPage === 1
+                      ? "bg-slate-50 text-slate-400 cursor-not-allowed"
+                      : "bg-white text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  Previous
+                </button>
+                <span className="text-xs font-bold text-slate-700 px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold transition ${
+                    currentPage === totalPages
+                      ? "bg-slate-50 text-slate-400 cursor-not-allowed"
+                      : "bg-white text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <Card

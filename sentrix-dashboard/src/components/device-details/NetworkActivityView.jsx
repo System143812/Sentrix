@@ -4,6 +4,7 @@ import {
   History,
   CircleStop,
   Cpu,
+  Power,
   ShieldAlert,
   Cloud,
   Terminal,
@@ -12,6 +13,9 @@ import {
   ShieldCheck,
   Search,
   RadioTower,
+  Layers,
+  TriangleAlert,
+  ChevronRight,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useEffect, useMemo, useState } from "react";
 import { SearchFilterBar } from "../SearchFilterBar.jsx";
@@ -48,7 +52,7 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
         {title} ({list.length})
       </h5>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200/60 bg-white shadow-sm">
-        <div className="hidden grid-cols-[44px_1fr_80px_100px_100px] gap-4 border-b border-slate-100 bg-slate-50/50 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-ui lg:grid">
+        <div className="hidden grid-cols-[44px_1fr_80px_100px_100px] gap-4 border-b border-slate-100 bg-slate-50/50 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 font-ui 2xl:grid">
           <div />
           <div>Process Name</div>
           <div className="text-right">CPU Load</div>
@@ -56,8 +60,8 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
           <div className="text-center">Status</div>
         </div>
 
-        <div 
-          className="max-h-96 divide-y divide-slate-100 overflow-auto custom-scrollbar xl:min-h-0 xl:flex-1"
+        <div
+          className="max-h-[300px] h-full flex-1 divide-y divide-slate-100 overflow-auto custom-scrollbar"
           onScroll={handleScroll}
           ref={listRef}
         >
@@ -67,12 +71,12 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
 
             return (
               <label
-                className={`flex flex-col gap-3 px-4 py-3.5 transition lg:grid lg:grid-cols-[44px_1fr_80px_100px_100px] lg:items-center lg:gap-4 ${
+                className={`flex flex-col gap-3 px-4 py-3.5 transition 2xl:grid 2xl:grid-cols-[44px_1fr_80px_100px_100px] 2xl:items-center 2xl:gap-4 ${
                   ended ? "bg-slate-50/50 text-slate-400" : "text-slate-700 hover:bg-slate-50/50"
                 } cursor-pointer`}
                 key={uniqueId}
               >
-                <div className="flex items-center gap-3 lg:justify-center lg:gap-0">
+                <div className="flex items-center gap-3 2xl:justify-center 2xl:gap-0">
                   <input
                     checked={selectedProcesses.includes(uniqueId)}
                     className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
@@ -80,7 +84,7 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
                     onChange={() => onToggle(uniqueId)}
                     type="checkbox"
                   />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">Select Process</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 2xl:hidden">Select Process</span>
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -88,26 +92,26 @@ const ProcessList = ({ list, title, icon: Icon, actionLoading, selectedProcesses
                     {process.name}
                   </p>
                   <p className="truncate text-[10px] text-slate-500 mt-1 font-data">
-                    {process.windowTitle || `PID ${process.pid} - ${process.user}`}
+                    {process.windowTitle ? `${process.windowTitle} • ` : ""}PID {process.pid} {process.user ? `• ${process.user}` : ""}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between lg:block lg:text-right">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">CPU Usage</span>
+                <div className="flex items-center justify-between 2xl:block 2xl:text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 2xl:hidden">CPU Usage</span>
                   <span className="text-xs font-bold font-data tabular-nums text-slate-700">
                     {process.cpu}%
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between lg:block lg:text-right">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">Memory</span>
+                <div className="flex items-center justify-between 2xl:block 2xl:text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 2xl:hidden">Memory</span>
                   <span className="text-xs font-bold font-data tabular-nums text-slate-700">
                     {process.memoryMb} MB
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between lg:justify-center">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 lg:hidden">Status</span>
+                <div className="flex items-center justify-between 2xl:justify-center">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 2xl:hidden">Status</span>
                   <span
                     className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight border ${
                       ended
@@ -145,29 +149,16 @@ export function ProcessMonitor({ processes, actionLoading, actionMessage, select
   }, [processes, query, sortBy]);
 
   return (
-    <section className="flex h-full max-h-[640px] min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200/60 bg-white p-4 sm:p-6 shadow-sm">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4 border-b border-slate-50 pb-5">
+    <section className="flex flex-col rounded-lg border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm overflow-hidden h-[580px] min-w-[340px] flex-1">
+      <div className="mb-5 flex items-center justify-between border-b border-slate-50 pb-5">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 shadow-sm">
-            <CircleStop size={18} strokeWidth={2.5} />
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700 shadow-sm">
+            <Cpu size={18} strokeWidth={2.5} />
           </span>
           <h4 className="text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">
             Process Monitor
           </h4>
         </div>
-        <button
-          className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-xs font-bold uppercase tracking-wider transition disabled:cursor-not-allowed disabled:opacity-50 ${
-            actionLoading 
-              ? "bg-slate-100 text-slate-500 border-slate-200" 
-              : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 active:scale-95"
-          }`}
-          disabled={selectedProcesses.length === 0 || actionLoading}
-          onClick={onEnd}
-          type="button"
-        >
-          <CircleStop className={actionLoading ? "animate-spin" : ""} size={16} strokeWidth={2.5} />
-          {actionLoading ? "Ending..." : `End ${selectedProcesses.length || ""} selected`}
-        </button>
       </div>
 
       {actionMessage.text && (
@@ -204,6 +195,21 @@ export function ProcessMonitor({ processes, actionLoading, actionMessage, select
         onQueryChange={setQuery}
         placeholder="Search active processes"
         query={query}
+        actionButton={
+          <button
+            className={`inline-flex h-10 items-center gap-2 rounded-md border px-4 text-xs font-bold uppercase tracking-wider transition disabled:cursor-not-allowed disabled:opacity-50 shrink-0 ${
+              actionLoading
+                ? "bg-slate-100 text-slate-500 border-slate-200"
+                : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 active:scale-95 shadow-sm"
+            }`}
+            disabled={selectedProcesses.length === 0 || actionLoading}
+            onClick={onEnd}
+            type="button"
+          >
+            <Power className={actionLoading ? "animate-spin" : ""} size={16} strokeWidth={2.5} />
+            {actionLoading ? "Ending..." : `End ${selectedProcesses.length || ""} selected`}
+          </button>
+        }
       />
 
       <div className="grid min-h-0 flex-1 gap-6">
@@ -279,7 +285,7 @@ export function ActivityMonitor({ connections, history, error }) {
           <button
             onClick={() => setShowHistory(false)}
             className={`relative z-10 flex flex-1 h-9 items-center justify-center rounded-md transition-colors duration-300 ${!showHistory ? "text-white" : "text-slate-400 hover:text-slate-800"}`}
-            title="Show active sites and connections"
+            title="Show Active Connections"
             type="button"
           >
             <Globe2 size={16} strokeWidth={1.5} />
@@ -287,7 +293,7 @@ export function ActivityMonitor({ connections, history, error }) {
           <button
             onClick={() => setShowHistory(true)}
             className={`relative z-10 flex flex-1 h-9 items-center justify-center rounded-md transition-colors duration-300 ${showHistory ? "text-white" : "text-slate-400 hover:text-slate-800"}`}
-            title="Show recent activity history"
+            title="Show Traffic History"
             type="button"
           >
             <History size={16} strokeWidth={1.5} />
@@ -299,7 +305,7 @@ export function ActivityMonitor({ connections, history, error }) {
         className="mb-5 !border-slate-200 !bg-slate-50/50"
         count={visibleItems.length}
         onQueryChange={setQuery}
-        placeholder={showHistory ? "Search recent activity" : "Search active sites"}
+        placeholder={showHistory ? "Search network history or domains..." : "Search active connections, domains, or processes..."}
         query={query}
       />
 
@@ -311,7 +317,7 @@ export function ActivityMonitor({ connections, history, error }) {
 
       <div className="flex flex-1 flex-col min-h-0">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 font-ui px-1">
-          {showHistory ? "Recent Activity History" : "Active Sites & Connections"}
+          {showHistory ? "Traffic History" : "Active Connections"}
         </p>
         <div 
           className={`custom-scrollbar grid gap-3 overflow-auto pr-1 flex-1 transition-opacity duration-300 ${visibleItems.length === 0 ? "opacity-50" : "opacity-100"}`}
@@ -423,15 +429,129 @@ export function ActivityMonitor({ connections, history, error }) {
   );
 }
 
+export function ActiveAppsPanel({ activeApps = [] }) {
+  return (
+    <section className="flex flex-col rounded-lg border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm overflow-hidden h-[580px] min-w-[340px] flex-1">
+      <div className="mb-5 flex items-center justify-between border-b border-slate-50 pb-4">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+            <Box size={16} sm:size={18} strokeWidth={2.5} />
+          </span>
+          <h4 className="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">Active Apps</h4>
+        </div>
+        <span className="rounded-full bg-slate-50 px-2.5 py-1 text-[9px] sm:text-[10px] font-bold text-slate-500 border border-slate-100 uppercase tracking-widest">
+          {activeApps.length} RUNNING
+        </span>
+      </div>
+
+      <div className="custom-scrollbar grid max-h-[460px] gap-2.5 sm:gap-3 overflow-auto pr-1 min-w-0">
+        {activeApps.length ? (
+          activeApps.map((app, idx) => (
+            <div className="group rounded-lg border border-slate-50 bg-slate-50/50 p-3 sm:p-3.5 transition hover:border-slate-200 hover:bg-white hover:shadow-sm min-w-0" key={app.pid || idx}>
+              <div className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs sm:text-sm font-bold text-slate-800 font-ui break-words leading-tight">
+                    {app.windowTitle || app.name}
+                  </p>
+                  <p className="mt-1 truncate text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-slate-400 break-all leading-tight">
+                    Process: {app.name} {app.pid ? `• PID ${app.pid}` : ""}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded bg-blue-50 border border-blue-100 px-2 py-0.5 text-[8px] font-bold uppercase text-blue-600">Active</span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 flex h-12 w-14 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-200">
+              <Box size={24} strokeWidth={2} />
+            </div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">No active window apps</p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function InventoryPanel({ software, riskySoftware }) {
+  return (
+    <section className="flex flex-col rounded-lg border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm overflow-hidden h-[580px] min-w-[340px] flex-1">
+      <div className="mb-5 flex items-center justify-between border-b border-slate-50 pb-4">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm">
+            <Layers size={16} sm:size={18} strokeWidth={2.5} />
+          </span>
+          <h4 className="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-800 font-ui">Software Inventory</h4>
+        </div>
+        <span className="rounded-full bg-slate-50 px-2.5 py-1 text-[9px] sm:text-[10px] font-bold text-slate-500 border border-slate-100 uppercase tracking-widest">
+          {(software.inventory || []).length} APPS
+        </span>
+      </div>
+
+      <div className="custom-scrollbar grid max-h-[460px] gap-2.5 sm:gap-3 overflow-auto pr-1 min-w-0">
+        {riskySoftware.length > 0 && (
+          <div className="mb-3 space-y-2 min-w-0">
+            <p className="px-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-rose-500 flex items-center gap-1.5">
+              <TriangleAlert size={12} /> Priority Review
+            </p>
+            {riskySoftware.map((item) => (
+              <div className="rounded-lg border border-rose-100 bg-rose-50/50 p-3 sm:p-3.5 shadow-sm min-w-0" key={item.key}>
+                <div className="flex items-start justify-between gap-2 sm:gap-3 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-bold text-rose-900 font-ui break-words leading-tight">{item.name}</p>
+                    <p className="mt-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-rose-600/70 break-all leading-tight">
+                      {item.publisher || "Unknown Vendor"} {item.version ? `• v${item.version}` : ""}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-[7px] sm:text-[8px] font-bold uppercase text-white shadow-sm self-start">RISKY</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="grid gap-2.5 sm:gap-3 min-w-0">
+          {(software.inventory || []).length ? (software.inventory || []).map((item) => {
+            if (item.riskLevel !== "normal") return null;
+            return (
+              <div className="group rounded-lg border border-slate-50 bg-slate-50/50 p-3 sm:p-3.5 transition hover:border-slate-200 hover:bg-white hover:shadow-sm min-w-0" key={item.key}>
+                <div className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs sm:text-sm font-bold text-slate-800 font-ui break-words leading-tight">{item.name}</p>
+                    <p className="mt-1 truncate text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-slate-400 break-all leading-tight">
+                      {item.publisher || "Unknown Vendor"} {item.version ? `• v${item.version}` : ""}
+                    </p>
+                  </div>
+                  <ChevronRight size={12} sm:size={14} className="shrink-0 text-slate-200 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-400" />
+                </div>
+              </div>
+            );
+          }) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-4 flex h-12 w-14 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-200">
+                <Box size={24} strokeWidth={2} />
+              </div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Empty</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function NetworkActivityView({ device }) {
   const [processes, setProcesses] = useState([]);
+  const [activeApps, setActiveApps] = useState([]);
   const [history, setHistory] = useState([]);
   const [connections, setConnections] = useState([]);
+  const [software, setSoftware] = useState({ inventory: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState({ text: "", type: "" });
-  
+
   const [selectedProcesses, setSelectedProcesses] = useState([]);
   const [endedProcesses, setEndedProcesses] = useState([]);
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -443,22 +563,26 @@ export function NetworkActivityView({ device }) {
 
     async function fetchData() {
       try {
-        const [procData, activityData, historyData] = await Promise.all([
+        const [procData, activeAppsData, activityData, historyData, softwareData] = await Promise.all([
           clientApi.getClientProcesses(device.id),
+          clientApi.getClientActiveApps(device.id).catch(() => []),
           clientApi.getClientNetworkActivity(device.id),
           clientApi.getClientActivityHistory(device.id),
+          clientApi.getClientSoftware(device.id).catch(() => ({ inventory: [] })),
         ]);
 
         if (!active) return;
 
         setProcesses(procData || []);
+        setActiveApps(activeAppsData || []);
         setHistory(historyData || []);
         setConnections(activityData?.activeConnections || activityData?.connections || []);
+        setSoftware(softwareData || { inventory: [] });
         setLoading(false);
         setError("");
       } catch (err) {
         if (!active) return;
-        setError("Failed to load real-time network activity.");
+        setError("Failed to load real-time processes and inventory.");
         setLoading(false);
       }
     }
@@ -481,6 +605,11 @@ export function NetworkActivityView({ device }) {
     windowTitle: p.windowTitle,
     status: endedProcesses.includes(p.pid) ? "Ended" : "Running",
   }));
+
+  const riskySoftware = useMemo(() =>
+    (software.inventory || []).filter((item) => item.riskLevel !== "normal"),
+    [software.inventory]
+  );
 
   function toggleProcess(processId) {
     setSelectedProcesses((current) =>
@@ -539,12 +668,12 @@ export function NetworkActivityView({ device }) {
   }
 
   return (
-    <div className="relative grid min-w-0 items-start gap-6 lg:grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+    <div className="relative grid min-w-0 items-start gap-6 grid-cols-1 xl:grid-cols-3">
       {/* Loading Overlay for refreshes */}
       {loading && processes.length > 0 && (
-        <DetailRefreshOverlay 
+        <DetailRefreshOverlay
           title="Refreshing Stream"
-          subtitle="Syncing active process & network data..."
+          subtitle="Syncing active process & inventory data..."
         />
       )}
 
@@ -557,19 +686,25 @@ export function NetworkActivityView({ device }) {
           setConfirmEnd(false);
         }}
       />
-      <ActivityMonitor 
-        connections={connections}
-        error={error}
-        history={history}
-      />
-      <ProcessMonitor 
-        actionLoading={actionLoading}
-        actionMessage={actionMessage}
-        onEnd={() => setConfirmEnd(true)}
-        onToggle={toggleProcess}
-        processes={displayedProcesses}
-        selectedProcesses={selectedProcesses}
-      />
+
+      <div className="min-w-0">
+        <ProcessMonitor
+          actionLoading={actionLoading}
+          actionMessage={actionMessage}
+          onEnd={() => setConfirmEnd(true)}
+          onToggle={toggleProcess}
+          processes={displayedProcesses}
+          selectedProcesses={selectedProcesses}
+        />
+      </div>
+
+      <div className="min-w-0">
+        <ActiveAppsPanel activeApps={activeApps} />
+      </div>
+
+      <div className="min-w-0">
+        <InventoryPanel software={software} riskySoftware={riskySoftware} />
+      </div>
     </div>
   );
 }

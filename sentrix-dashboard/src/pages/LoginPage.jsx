@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import {
-  Activity,
-  CheckCircle2,
   ShieldCheck,
+  Zap,
+  Network,
+  Activity,
   Mail,
   Lock,
   AlertCircle,
@@ -143,6 +144,46 @@ export function LoginPage({ onLogin, error: externalError }) {
   const [legalType, setLegalType] = useState(null); // 'TERMS' | 'PRIVACY' | null
   const [backendUnreachable, setBackendUnreachable] = useState(false);
   const [checkingBackend, setCheckingBackend] = useState(true); // true while the initial probe is in-flight
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  // Auto-cycle through features every 3.5s unless paused
+  useEffect(() => {
+    if (isPaused) return;
+
+    const interval = setInterval(() => {
+      setActiveIndex((prev) => (prev === null ? 0 : (prev + 1) % 4));
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [isPaused]);
+
+  const features = [
+    {
+      title: "Secure Pairing",
+      description: "Encrypted TLS communication & hardware-bound authentication.",
+      icon: ShieldCheck,
+      color: "border-emerald-500/40 bg-emerald-500/25 text-emerald-300",
+    },
+    {
+      title: "Power Control",
+      description: "Remote power actions (reboot, shutdown, sleep) on client machines.",
+      icon: Zap,
+      color: "border-orange-500/40 bg-orange-500/25 text-orange-300",
+    },
+    {
+      title: "Subnet Discovery",
+      description: "ARP network scanning & automated zero-touch deployment.",
+      icon: Network,
+      color: "border-indigo-500/40 bg-indigo-500/25 text-indigo-300",
+    },
+    {
+      title: "Live Monitoring",
+      description: "Real-time health metrics, screen streaming, and telemetry.",
+      icon: Activity,
+      color: "border-purple-500/40 bg-purple-500/25 text-purple-300",
+    },
+  ];
 
   // --- Proactive backend health check ---
   // Fires immediately on page load, not only after a failed submit.
@@ -224,12 +265,11 @@ export function LoginPage({ onLogin, error: externalError }) {
               "linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.82)), url('/login_header.jpg')",
           }}
         >
-          <SentrixLogo inverse />
+          <div>
+            <SentrixLogo inverse />
+          </div>
 
-          <div className="my-10">
-            <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/15 sm:h-14 sm:w-14">
-              <ShieldCheck size={24} />
-            </div>
+          <div className="my-auto py-6">
             <h1 className="max-w-md text-3xl font-bold leading-tight tracking-normal sm:text-4xl">
               Secure lab monitoring starts here.
             </h1>
@@ -237,17 +277,66 @@ export function LoginPage({ onLogin, error: externalError }) {
               Sign in to manage registered devices, live health metrics, and
               network discovery from one focused console.
             </p>
+
+            {/* Interactive Feature Icons & Dynamic Info Box */}
+            <div
+              className="mt-8 max-w-md"
+              onMouseLeave={() => setIsPaused(false)}
+            >
+              <div className="flex items-center gap-3">
+                {features.map((feat, idx) => {
+                  const Icon = feat.icon;
+                  const isActive = activeIndex === idx;
+                  return (
+                    <button
+                      key={feat.title}
+                      type="button"
+                      onMouseEnter={() => {
+                        setActiveIndex(idx);
+                        setIsPaused(true);
+                      }}
+                      onClick={() => {
+                        setActiveIndex(idx);
+                        setIsPaused(true);
+                      }}
+                      className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl border transition-colors duration-200 ${
+                        isActive
+                          ? `${feat.color}`
+                          : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+                      }`}
+                      title={feat.title}
+                    >
+                      <Icon size={20} />
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Dynamic Info Box with Butter-Smooth Fade & Slide per Feature */}
+              <div className="mt-3 min-h-[72px]">
+                <div className="rounded-2xl rounded-tl-sm border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm">
+                  <div
+                    key={activeIndex}
+                    className="min-h-[44px] animate-in fade-in slide-in-from-bottom-1 duration-300"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white">
+                        {features[activeIndex]?.title || ""}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-slate-300">
+                      {features[activeIndex]?.description || ""}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="grid gap-3 text-sm text-slate-200 sm:grid-cols-2">
-            <div className="rounded-lg border border-white/10 bg-white/10 p-3">
-              <CheckCircle2 className="mb-2 text-emerald-300" size={18} />
-              <p className="font-semibold">Realtime agent status</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/10 p-3">
-              <Activity className="mb-2 text-cyan-300" size={18} />
-              <p className="font-semibold">Live lab performance</p>
-            </div>
+          <div className="pt-6">
+            <p className="text-[11px] font-medium tracking-wide text-slate-400">
+              © 2026 Sentrix Labs
+            </p>
           </div>
         </section>
 

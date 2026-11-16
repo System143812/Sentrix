@@ -60,7 +60,7 @@ import { PeripheralHistoryPanel } from "./device-details/PeripheralHistoryPanel.
 function DetailViewSwitch({ activeView, onChange, canControl }) {
   const buttons = [
     { id: "specification", label: "Specs", icon: Monitor },
-    { id: "networkActivity", label: "Network", icon: RadioTower },
+    { id: "networkActivity", label: "Processes", icon: Cpu },
     { id: "behavior", label: "History", icon: History },
     { id: "peripherals", label: "Peripherals", icon: Usb },
     ...(canControl ? [{ id: "remoteControl", label: "Remote", icon: Terminal }] : []),
@@ -384,28 +384,33 @@ export function DeviceTable({
                     <span className="mb-2 block text-[9px] font-semibold uppercase tracking-wider text-slate-400 xl:hidden">
                       Assigned Group
                     </span>
-                    <select
-                      className="h-11 w-full min-w-0 cursor-pointer rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 outline-none shadow-sm transition hover:border-slate-300 focus:border-slate-900 focus:ring-4 focus:ring-slate-100/50 xl:h-10 xl:w-44 xl:px-3 uppercase tracking-wider"
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={async (event) => {
-                        try {
-                          await onUpdateGroup(device.id, event.target.value);
-                        } catch (error) {}
-                      }}
-                      value={groupValue}
-                    >
-                      {[
-                        ...new Set([
-                          "Unassigned",
-                          ...groups.map((group) => group.name),
-                          groupValue,
-                        ]),
-                      ].map((group) => (
-                        <option key={group} value={group}>
-                          {group}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative w-full xl:w-44">
+                      <select
+                        className="h-10 w-full appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-8 text-xs font-semibold text-slate-600 outline-none transition-all duration-200 hover:border-slate-300 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 cursor-pointer shadow-sm"
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={async (event) => {
+                          try {
+                            await onUpdateGroup(device.id, event.target.value);
+                          } catch (error) {}
+                        }}
+                        value={groupValue}
+                      >
+                        {[
+                          ...new Set([
+                            "Unassigned",
+                            ...groups.map((group) => group.name),
+                            groupValue,
+                          ]),
+                        ].map((group) => (
+                          <option key={group} value={group}>
+                            {group}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                        <ChevronDown size={14} strokeWidth={1.5} />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="hidden items-center xl:flex">

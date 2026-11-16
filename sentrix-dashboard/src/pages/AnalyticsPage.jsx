@@ -776,14 +776,23 @@ function TimeRangeToolbar({
 }) {
   return (
     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-      <div className={`flex rounded-md border p-0.5 shadow-sm w-full max-w-lg ${dark ? "bg-white/5 border-white/10" : "bg-white border-slate-200"}`}>
+      <div className={`relative flex items-center p-1 rounded-lg border shadow-sm w-full max-w-lg overflow-hidden ${dark ? "bg-white/5 border-white/10" : "bg-white border-slate-200"}`}>
+        {/* Animated Active Pill Indicator */}
+        <div
+          className={`absolute h-[calc(100%-8px)] rounded-md transition-all duration-300 ease-in-out shadow-sm ${dark ? "bg-white/25 border border-white/30 backdrop-blur-md" : "bg-slate-900"}`}
+          style={{
+            left: `calc(4px + ${timeRanges.findIndex((r) => r.key === rangeKey)} * (100% - 8px) / ${timeRanges.length})`,
+            width: `calc((100% - 8px) / ${timeRanges.length})`,
+          }}
+        />
+
         {timeRanges.map((range) => {
           const selected = rangeKey === range.key;
           return (
             <button
-              className={`flex-1 rounded-md px-3 py-2 text-xs font-bold transition flex items-center justify-center gap-2 ${
+              className={`relative z-10 flex-1 rounded-md px-3 py-2 text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
                 selected
-                  ? "bg-teal-600 text-white shadow-sm"
+                  ? "text-white"
                   : dark ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-900"
               }`}
               key={range.key}
@@ -801,12 +810,13 @@ function TimeRangeToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 font-ui">
-       <label
-         className={`inline-flex h-10 items-center gap-2 rounded-md border px-4 text-xs font-semibold shadow-sm ${dark ? "border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25" : "border-slate-200/60 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-200"}`}
-       >
-          <Filter size={14} strokeWidth={2.5} />
+        <div className="relative">
           <select
-            className="bg-transparent outline-none cursor-pointer"
+            className={`h-10 w-full appearance-none rounded-md border pl-9 pr-8 text-xs font-semibold outline-none transition-all duration-200 cursor-pointer shadow-sm ${
+              dark
+                ? "border-white/25 bg-white/10 text-white hover:bg-white/20 focus:border-white focus:ring-1 focus:ring-white"
+                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+            }`}
             onChange={(event) => setSelectedGroup(event.target.value)}
             title="Filter analytics by group"
             value={selectedGroup}
@@ -820,7 +830,13 @@ function TimeRangeToolbar({
               </option>
             ))}
           </select>
-        </label>
+          <div className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${dark ? "text-white/70" : "text-slate-400"}`}>
+            <Filter size={14} strokeWidth={2.5} />
+          </div>
+          <div className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 ${dark ? "text-white/70" : "text-slate-400"}`}>
+            <ChevronDown size={14} strokeWidth={1.5} />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1398,217 +1414,6 @@ function HeatmapPanel({ devices, loading }) {
   );
 }
 
-function DistributionPanel({ analytics, loading }) {
-  const bars = [
-    { label: "CPU Usage", value: analytics.cpu, icon: Cpu, color: "rose" },
-    {
-      label: "Memory Load",
-      value: analytics.ram,
-      icon: MemoryStick,
-      color: "blue",
-    },
-    {
-      label: "Disk I/O",
-      value: analytics.disk,
-      icon: HardDrive,
-      color: "amber",
-    },
-  ];
-
-  return (
-    <Panel
-      icon={LineChart}
-      loading={loading}
-      title="Resource Distribution"
-      subtitle="Resource use across active devices"
-      tone="amber"
-    >
-      <div className="space-y-6 flex flex-col justify-center flex-1">
-        {bars.map((bar) => {
-          const Icon = bar.icon;
-          return (
-            <div key={bar.label} className="group font-ui">
-              <div className="mb-3 flex items-center justify-between gap-4">
-                <span className="inline-flex min-w-0 items-center gap-3">
-                  <span
-                    className={`p-1.5 rounded-lg border shadow-sm transition-transform group-hover:scale-110 ${ICON_TONES[bar.color] || ICON_TONES.blue}`}
-                  >
-                    <Icon size={14} strokeWidth={2.5} />
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tight">
-                    {bar.label}
-                  </span>
-                </span>
-                <span className="shrink-0 text-[10px] font-bold text-slate-900 font-data tabular-nums">
-                  {bar.value}%{" "}
-                  <span className="text-[10px] text-slate-400 uppercase ml-1">
-                    avg
-                  </span>
-                </span>
-              </div>
-              <ProgressBar value={bar.value} color={bar.color} height="h-1.5" />
-            </div>
-          );
-        })}
-      </div>
-    </Panel>
-  );
-}
-
-function EventTimelinePanel({ analytics, loading }) {
-  const events = [
-    ...analytics.topIssues.map((item) => ({
-      title: item.issue,
-      detail: item.device.hostname,
-      time: formatTimeAgo(getLastSeenAt(item.device)),
-      warning: true,
-      offline: false,
-    })),
-    ...analytics.recentDevices.slice(0, 3).map((device) => ({
-      title:
-        device.status === "online" ? "Device checked in" : "Device offline",
-      detail: device.hostname,
-      time: formatTimeAgo(getLastSeenAt(device)),
-      warning: false,
-      offline: device.status !== "online",
-    })),
-  ].slice(0, 6);
-
-  return (
-    <Panel
-      icon={Activity}
-      loading={loading}
-      title="Incident History"
-      subtitle="Chronological log of device alerts"
-      tone="blue"
-    >
-      <div className="space-y-4 flex max-h-[380px] flex-col overflow-auto pr-1 custom-scrollbar">
-        {events.length ? (
-          events.map((event, index) => (
-            <div
-              className="flex gap-4 rounded-lg bg-white border border-slate-200/60 p-4 transition hover:bg-slate-50/50 hover:shadow-sm"
-              key={`${event.title}-${index}`}
-            >
-              <span
-                className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg border ${
-                  event.warning
-                    ? "bg-rose-50 border-rose-100 text-rose-500"
-                    : event.offline
-                      ? "bg-rose-50 border-rose-100 text-rose-500"
-                      : "bg-emerald-50 border-emerald-100 text-emerald-500"
-                }`}
-              >
-                {event.warning ? (
-                  <AlertTriangle size={16} />
-                ) : event.offline ? (
-                  <WifiOff size={16} />
-                ) : (
-                  <CheckCircle2 size={16} />
-                )}
-              </span>
-              <div className="min-w-0 flex-1 font-ui">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-bold text-slate-800 leading-tight truncate">
-                    {event.title}
-                  </p>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter whitespace-nowrap pt-0.5 font-data">
-                    {event.time}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs font-medium text-slate-500 tracking-tight truncate">
-                  {event.detail}
-                </p>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="flex-1 grid place-items-center rounded-lg bg-slate-50/50 border border-dashed border-slate-200">
-            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest font-ui">
-              No Recorded Events
-            </p>
-          </div>
-        )}
-      </div>
-    </Panel>
-  );
-}
-
-function TopIssuesPanel({ analytics, loading }) {
-  return (
-    <Panel
-      icon={AlertTriangle}
-      loading={loading}
-      title="Issue Summary"
-      subtitle="Consolidated failure and warning metrics"
-      tone="rose"
-    >
-      <div className="grid max-h-[380px] grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 overflow-auto pr-1 custom-scrollbar">
-        {(analytics.topAlerts.length
-          ? analytics.topAlerts
-          : [{ name: "Standard", count: 0 }]
-        ).map((issue) => (
-          <button
-            className="group flex items-center justify-between gap-4 rounded-lg border border-slate-200/60 bg-white p-4 text-left transition hover:border-slate-300 hover:shadow-sm ring-1 ring-slate-100"
-            key={issue.name}
-            title={`Drill-down: ${issue.name}`}
-            type="button"
-          >
-            <div className="flex items-center gap-3 font-ui">
-              <div className="p-2 rounded-lg bg-slate-50 text-slate-400 border border-slate-200/60 transition group-hover:bg-rose-500 group-hover:text-white group-hover:border-rose-500 shadow-sm">
-                <AlertTriangle size={14} />
-              </div>
-              <span className="text-sm font-bold text-slate-700 tracking-tight truncate">
-                {issue.name}
-              </span>
-            </div>
-            <span className="shrink-0 text-[10px] font-bold text-slate-400 font-data tabular-nums">
-              {issue.count}
-            </span>
-          </button>
-        ))}
-      </div>
-    </Panel>
-  );
-}
-
-function StatusTransitionsPanel({ analytics, loading }) {
-  return (
-    <Panel
-      icon={Radio}
-      loading={loading}
-      title="Device Activity"
-      subtitle="Recent heartbeat and connection deltas"
-      tone="emerald"
-    >
-      <div className="space-y-3 flex flex-col flex-1">
-        {analytics.statusChanges.length ? (
-          analytics.statusChanges.map((device) => (
-            <div
-              className="flex items-center justify-between gap-4 rounded-lg bg-white border border-slate-200/60 p-4 shadow-sm transition hover:bg-slate-50/50 hover:border-slate-200"
-              key={device.id}
-            >
-              <div className="min-w-0 font-ui">
-                <span className="block text-sm font-bold text-slate-800 tracking-tight truncate">
-                  {device.hostname}
-                </span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-data">
-                  {formatTimeAgo(getLastSeenAt(device))}
-                </span>
-              </div>
-              <StatusBadge status={device.status} />
-            </div>
-          ))
-        ) : (
-          <div className="flex-1 grid place-items-center rounded-lg bg-slate-50/50 border border-dashed border-slate-200 font-ui">
-            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-              Awaiting Transition Logs
-            </p>
-          </div>
-        )}
-      </div>
-    </Panel>
-  );
-}
 
 function GroupPerformancePanel({ analytics, loading }) {
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
@@ -2315,13 +2120,6 @@ export function AnalyticsPage({ dashboardData = {}, loading = false }) {
         </div>
 
         <div className="page-reveal grid min-w-0 gap-6 xl:grid-cols-3">
-          <DistributionPanel analytics={analytics} loading={pageLoading} />
-          <EventTimelinePanel analytics={analytics} loading={pageLoading} />
-          <TopIssuesPanel analytics={analytics} loading={pageLoading} />
-        </div>
-
-        <div className="page-reveal grid min-w-0 gap-6 xl:grid-cols-3 2xl:grid-cols-4">
-          <StatusTransitionsPanel analytics={analytics} loading={pageLoading} />
           <GroupPerformancePanel analytics={analytics} loading={pageLoading} />
           <PeripheralSummaryPanel analytics={analytics} loading={pageLoading} />
           <ExportPanel

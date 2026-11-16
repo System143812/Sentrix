@@ -29,6 +29,11 @@ export async function getClientProcesses(id) {
   return result.data;
 }
 
+export async function getClientActiveApps(id) {
+  const result = await fetchJson(`/api/clients/${id}/active-apps`);
+  return result.data;
+}
+
 export async function getClientNetworkActivity(id) {
   const result = await fetchJson(`/api/clients/${id}/network-activity`);
   return result.data;

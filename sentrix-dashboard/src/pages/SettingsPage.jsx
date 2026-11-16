@@ -6,7 +6,6 @@ import {
   ChevronUp,
   Clock,
   EyeOff,
-  Fingerprint,
   Globe,
   Info,
   Layers,
@@ -412,12 +411,6 @@ export function SettingsPage({
         title="Settings"
         subtitle="Role-based controls for account access and lab grouping."
         backgroundImage="/settings_header.jpg"
-        action={
-          <span className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-sm font-semibold text-white shadow-sm backdrop-blur">
-            <ShieldCheck size={16} />
-            {isNetworkAdmin ? "Network admin" : "Admin"}
-          </span>
-        }
       />
 
       {!isNetworkAdmin ? (
@@ -613,33 +606,8 @@ export function SettingsPage({
         </Card>
       </div>
 
-      <div className="grid min-w-0 gap-5 lg:grid-cols-3">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-2">
         <CredentialCard />
-
-        <SettingsSection
-          icon={Lock}
-          title="Account Security"
-          subtitle="Security options for dashboard access."
-          tone="amber"
-        >
-          <div className="grid gap-3 opacity-70">
-            <div className="relative overflow-hidden rounded-lg border border-slate-200/50 bg-slate-50/30">
-              <ActionButton
-                label="Multi-factor sign-in"
-                icon={Fingerprint}
-                description="Prepare multi-factor authentication controls."
-                tone="blue"
-                showChevron={false}
-                disabled={true}
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <span className="rounded-full bg-slate-200/50 px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-widest text-slate-500 border border-slate-300/50 backdrop-blur-sm">
-                  Soon
-                </span>
-              </div>
-            </div>
-          </div>
-        </SettingsSection>
 
         <SettingsSection
           icon={Shield}

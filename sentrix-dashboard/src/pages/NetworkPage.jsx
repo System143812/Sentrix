@@ -36,7 +36,7 @@ function formatTime(value) {
 }
 
 function getTypeIcon(deviceType = "") {
-  const normalized = deviceType.toLowerCase();
+  const normalized = String(deviceType || "").toLowerCase();
 
   if (normalized.includes("laptop")) return Laptop;
   if (normalized.includes("mobile")) return Smartphone;
@@ -210,6 +210,20 @@ export function NetworkPage({
   const [targetSubnet, setTargetSubnet] = useState(() => {
     return localStorage.getItem("sentrix_preferred_subnet") || snapshot?.subnet || "";
   });
+  const [activeScanningSubnet, setActiveScanningSubnet] = useState(null);
+
+  useEffect(() => {
+    if (snapshot?.status === "scanning" && !activeScanningSubnet) {
+      setActiveScanningSubnet(snapshot.subnet || targetSubnet);
+    } else if (snapshot?.status !== "scanning") {
+      setActiveScanningSubnet(null);
+    }
+  }, [snapshot?.status, snapshot?.subnet]);
+
+  const handleStartScan = () => {
+    setActiveScanningSubnet(targetSubnet);
+    onScan(targetSubnet);
+  };
 
   const { notify } = useToast();
   const { currentPage, pageSize, setCurrentPage, setPageSize } = usePaginationState("network", 5);
@@ -414,7 +428,7 @@ export function NetworkPage({
           canDeploy ? (
             <button
               type="button"
-              onClick={() => onScan(targetSubnet)}
+              onClick={handleStartScan}
               className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-5 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
               disabled={scanLoading}
             >
@@ -423,7 +437,11 @@ export function NetworkPage({
               ) : (
                 <RefreshCcw size={16} />
               )}
-              <span>{scanLoading ? "Scanning" : "Rescan"}</span>
+              <span>
+                {scanLoading
+                  ? `Scanning ${activeScanningSubnet || targetSubnet}.0`
+                  : "Rescan"}
+              </span>
             </button>
           ) : (
             <span className="inline-flex h-11 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-4 text-xs font-bold text-white/50 backdrop-blur-md">
@@ -448,7 +466,7 @@ export function NetworkPage({
               className={`h-10 w-48 appearance-none rounded-md border border-white/10 bg-white/5 pl-4 pr-10 text-white shadow-sm outline-none backdrop-blur-md transition ${
                 canDeploy ? "hover:bg-white/10 focus:border-white/30" : "cursor-not-allowed opacity-60"
               }`}
-              disabled={scanLoading || !canDeploy}
+              disabled={!canDeploy}
             >
               <option value="" disabled className="text-slate-900">Select Interface</option>
               {interfaces.map((iface) => (
@@ -459,12 +477,6 @@ export function NetworkPage({
             </select>
             {canDeploy && <ChevronDown size={14} className="pointer-events-none absolute right-3 top-3.5 text-white/50" />}
           </div>
-          <span className="cursor-default rounded-md border border-white/5 bg-white/5 px-4 py-2.5 text-white/40 shadow-none backdrop-blur-md transition-opacity">
-            Last scan: {formatTime(snapshot?.lastScanAt)}
-          </span>
-          <span className="cursor-default rounded-md border border-white/5 bg-white/5 px-4 py-2.5 text-white/40 shadow-none backdrop-blur-md transition-opacity">
-            Next auto scan: {formatTime(snapshot?.nextScanAt)}
-          </span>
         </div>
 
         <div className="mt-5">
@@ -491,7 +503,7 @@ export function NetworkPage({
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400"
+                className="h-10 w-full appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-8 text-xs font-semibold text-slate-600 outline-none transition-all duration-200 hover:border-slate-300 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 cursor-pointer shadow-sm"
               >
                 <option value="all">All Agent Statuses</option>
                 <option value="running">Running</option>
@@ -499,6 +511,9 @@ export function NetworkPage({
                 <option value="deploying">Deploying</option>
                 <option value="updating">Updating</option>
               </select>
+              <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                <ChevronDown size={14} strokeWidth={1.5} />
+              </div>
             </div>
           </div>
 
