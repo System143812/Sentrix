@@ -22,7 +22,7 @@ async function collectWindowsRegistrySoftware() {
     )
     $items = foreach ($path in $paths) {
       Get-ItemProperty $path -ErrorAction SilentlyContinue |
-        Where-Object { $_.DisplayName } |
+        Where-Object { $_.DisplayName -and (-not $_.SystemComponent) -and (-not $_.ParentKeyName) } |
         Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation
     }
     $items | ConvertTo-Json -Compress

@@ -22,7 +22,7 @@ describe('ScreenCaptureService', () => {
 
     expect(status.isCapturing).toBe(false);
     expect(status.fps).toBe(2);
-    expect(status.quality).toBe(60);
+    expect(status.quality).toBe(720);
   });
 
   it('should start capturing and emit frames at the specified interval', async () => {
@@ -32,10 +32,10 @@ describe('ScreenCaptureService', () => {
     const onFrame = vi.fn();
     const service = new ScreenCaptureService({ onFrame });
 
-    service.start({ fps: 2, quality: 70 });
+    service.start({ fps: 2, quality: 720 });
     expect(service.status().isCapturing).toBe(true);
     expect(service.status().fps).toBe(2);
-    expect(service.status().quality).toBe(70);
+    expect(service.status().quality).toBe(720);
 
     // Fast-forward time to trigger interval (1000ms / 2 = 500ms)
     await vi.advanceTimersByTimeAsync(500);

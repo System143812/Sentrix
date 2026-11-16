@@ -150,14 +150,16 @@ async function getWindowsUsbDevices() {
         continue;
       }
 
-      // 2. Identity Extraction
+      // 2. Identity Extraction & Smart Input Deduplication
       const vidPidMatch = instanceId.match(/VID_([0-9A-F]+)&PID_([0-9A-F]+)/i);
       const vidPid = vidPidMatch ? vidPidMatch[0] : null;
 
-      // The identityKey now includes the ClassName.
-      // This ensures that composite devices (like a combined WiFi/BT dongle)
-      // report both functions instead of deduplicating them into one.
-      const identityKey = vidPid ? `${vidPid}_${className}` : instanceId;
+      // Normalize identityKey for keyboards/mice sharing the same VID/PID across different HID interfaces
+      let baseIdentity = vidPid || instanceId;
+      if (vidPid && (className === "keyboard" || className === "hidclass" || className === "mouse")) {
+        baseIdentity = `${vidPid}_input`;
+      }
+      const identityKey = baseIdentity;
 
       const isGenericName = name.includes("usb input device") || name.includes("hid-compliant") || name.includes("standard");
 
