@@ -312,22 +312,20 @@ export function LoginPage({ onLogin, error: externalError }) {
                 })}
               </div>
 
-              {/* Dynamic Info Box with Butter-Smooth Fade & Slide per Feature */}
-              <div className="mt-3 min-h-[72px]">
-                <div className="rounded-2xl rounded-tl-sm border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm">
-                  <div
-                    key={activeIndex}
-                    className="min-h-[44px] animate-in fade-in slide-in-from-bottom-1 duration-300"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-white">
-                        {features[activeIndex]?.title || ""}
-                      </span>
-                    </div>
-                    <p className="mt-1.5 text-[12px] leading-relaxed text-slate-300">
-                      {features[activeIndex]?.description || ""}
-                    </p>
+              {/* Dynamic Info Box without Glass Container */}
+              <div className="mt-6 min-h-[72px] px-0.5">
+                <div
+                  key={activeIndex}
+                  className="min-h-[44px] animate-in fade-in slide-in-from-bottom-1 duration-300"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white">
+                      {features[activeIndex]?.title || ""}
+                    </span>
                   </div>
+                  <p className="mt-1.5 text-[12px] leading-relaxed text-slate-300">
+                    {features[activeIndex]?.description || ""}
+                  </p>
                 </div>
               </div>
             </div>
