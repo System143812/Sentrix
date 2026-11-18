@@ -42,6 +42,7 @@
     <EmbeddedResource Include="Resources\provisioner.ps1" />
     <EmbeddedResource Include="Resources\provisioner-config.json" />
     <EmbeddedResource Include="Resources\remove-sentrix.ps1" />
+    <EmbeddedResource Include="Resources\uninstall.exe" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.manifest" />
