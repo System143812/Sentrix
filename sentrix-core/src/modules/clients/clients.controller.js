@@ -1,10 +1,12 @@
 import * as clientService from "./clients.service.js";
+import * as filesService from "../files/files.service.js";
 import { AppError } from "../../utils/appError.utils.js";
 import { logAuditEvent } from "../audit/audit.service.js";
 import {
   generateProvisioningToken,
   signAgentCommand,
 } from "../security/security.service.js";
+import { getStagingSettings } from "../settings/settings.service.js";
 
 const ALLOWED_DEVICE_COMMANDS = new Set([
   "shutdown",
@@ -12,6 +14,7 @@ const ALLOWED_DEVICE_COMMANDS = new Set([
   "sleep",
   "lock",
   "update",
+  "download-file",
 ]);
 
 async function emitAgentCommand(req, clientId, command, args = {}) {
@@ -108,6 +111,13 @@ export async function sendClientCommand(req, res, next) {
       throw new AppError(400, "Unsupported remote command.");
     }
 
+    const stagingSettings = await getStagingSettings();
+    const maxBytes = (stagingSettings.maxStagedFileSizeMb || 200) * 1024 * 1024;
+    const payloadSize = Buffer.byteLength(JSON.stringify(payload || {}));
+    if (payloadSize > maxBytes) {
+      throw new AppError(413, `Command payload size exceeds maximum allowed staged size of ${stagingSettings.maxStagedFileSizeMb}MB.`);
+    }
+
     if (command === "utility:broadcast-message") {
       const text = payload.text;
       if (typeof text !== "string" || text.trim().length === 0) {
@@ -139,6 +149,25 @@ export async function sendClientCommand(req, res, next) {
       throw new AppError(400, result?.message || "Remote command failed.");
     }
 
+    let finalResultData = result;
+    if (command === "utility:file-download" && result.fileData) {
+      const buffer = Buffer.from(result.fileData, "base64");
+      const rawFileName = result.fileName || "download.bin";
+      const cleanFileName = rawFileName.includes('\\') || rawFileName.includes('/')
+        ? rawFileName.split(/[/\\]/).pop()
+        : rawFileName;
+
+      const stagedRecord = filesService.stageBuffer(buffer, cleanFileName);
+      const downloadUrl = `${req.protocol}://${req.get("host")}/api/files/staged/${stagedRecord.token}`;
+
+      finalResultData = {
+        success: true,
+        fileName: cleanFileName,
+        fileSize: stagedRecord.fileSize,
+        downloadUrl,
+      };
+    }
+
     let auditAction = `remote_${command}`;
     if (isUtility) {
       const actionKey = command.replace("utility:", "");
@@ -158,7 +187,7 @@ export async function sendClientCommand(req, res, next) {
     return res.status(200).json({
       success: true,
       message: result.message || "Remote command accepted.",
-      data: result,
+      data: finalResultData,
     });
   } catch (error) {
     next(error);

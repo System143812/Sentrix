@@ -24,20 +24,17 @@ export const ClientRepository = {
         c.client_group AS \`group\`, c.status, c.metrics, c.details,
         c.archived, c.hardware_fingerprint, c.provisioning_token,
         c.token_expires_at, c.agent_version, c.last_seen_at, c.created_at, c.updated_at,
-        COALESCE(p.missing_count, 0) AS missing_peripherals
+        (SELECT COUNT(*) FROM client_peripheral_inventory p WHERE p.client_id = c.id AND p.status = 'missing') AS missing_peripherals
       FROM clients c
-      LEFT JOIN (
-        SELECT client_id, COUNT(*) AS missing_count
-        FROM client_peripheral_inventory
-        WHERE status = 'missing'
-        GROUP BY client_id
-      ) p ON p.client_id = c.id
       WHERE c.archived = 0
-      ORDER BY c.status ASC, c.hostname ASC
     `.trim();
 
     const [rows] = await pool.query(sql);
-    return rows.map(normalizeClient);
+    return rows.map(normalizeClient).sort((a, b) => {
+      const statusCmp = (a.status || "").localeCompare(b.status || "");
+      if (statusCmp !== 0) return statusCmp;
+      return (a.hostname || "").localeCompare(b.hostname || "");
+    });
   },
 
   async findAllIncludingArchived() {
@@ -47,19 +44,16 @@ export const ClientRepository = {
         c.client_group AS \`group\`, c.status, c.metrics, c.details,
         c.archived, c.hardware_fingerprint, c.provisioning_token,
         c.token_expires_at, c.agent_version, c.last_seen_at, c.created_at, c.updated_at,
-        COALESCE(p.missing_count, 0) AS missing_peripherals
+        (SELECT COUNT(*) FROM client_peripheral_inventory p WHERE p.client_id = c.id AND p.status = 'missing') AS missing_peripherals
       FROM clients c
-      LEFT JOIN (
-        SELECT client_id, COUNT(*) AS missing_count
-        FROM client_peripheral_inventory
-        WHERE status = 'missing'
-        GROUP BY client_id
-      ) p ON p.client_id = c.id
-      ORDER BY c.status ASC, c.hostname ASC
     `.trim();
 
     const [rows] = await pool.query(sql);
-    return rows.map(normalizeClient);
+    return rows.map(normalizeClient).sort((a, b) => {
+      const statusCmp = (a.status || "").localeCompare(b.status || "");
+      if (statusCmp !== 0) return statusCmp;
+      return (a.hostname || "").localeCompare(b.hostname || "");
+    });
   },
 
   async findById(id) {
@@ -69,14 +63,8 @@ export const ClientRepository = {
         c.client_group AS \`group\`, c.status, c.metrics, c.details,
         c.archived, c.hardware_fingerprint, c.provisioning_token,
         c.token_expires_at, c.agent_version, c.last_seen_at, c.created_at, c.updated_at,
-        COALESCE(p.missing_count, 0) AS missing_peripherals
+        (SELECT COUNT(*) FROM client_peripheral_inventory p WHERE p.client_id = c.id AND p.status = 'missing') AS missing_peripherals
       FROM clients c
-      LEFT JOIN (
-        SELECT client_id, COUNT(*) AS missing_count
-        FROM client_peripheral_inventory
-        WHERE status = 'missing'
-        GROUP BY client_id
-      ) p ON p.client_id = c.id
       WHERE c.id = ? LIMIT 1
     `.trim();
     const [rows] = await pool.query(sql, [id]);
