@@ -8,6 +8,7 @@ export function DeviceGridCard({ device, onOpenModal }) {
   const canvasRef = useRef(null);
   const socketRef = useRef(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [frameCount, setFrameCount] = useState(0);
   const [statusMessage, setStatusMessage] = useState("Connecting...");
 
   const isOnline = device.status !== "offline";
@@ -79,6 +80,7 @@ export function DeviceGridCard({ device, onOpenModal }) {
         ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);
         setIsStreaming(true);
+        setFrameCount((c) => c + 1);
         setStatusMessage("Live 1 FPS");
       };
       img.src = url;
@@ -104,7 +106,7 @@ export function DeviceGridCard({ device, onOpenModal }) {
           className="absolute inset-0 w-full h-full object-cover bg-black"
         />
 
-        {!isStreaming && (
+        {!isStreaming && frameCount === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 text-center p-4 z-10">
             <Monitor size={28} className="mx-auto text-slate-500 mb-1" strokeWidth={1.5} />
             <p className="text-[11px] font-medium text-slate-400">{statusMessage}</p>
@@ -127,16 +129,14 @@ export function DeviceGridCard({ device, onOpenModal }) {
         </div>
 
         {/* Hover Action Overlay */}
-        <div className="absolute inset-0 bg-slate-950/70 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 backdrop-blur-[2px] z-30">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenModal(device);
-            }}
-            className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-lg transition hover:bg-slate-100 active:scale-95"
-          >
-            <Eye size={14} strokeWidth={2.5} /> Open Live View
-          </button>
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenModal(device);
+          }}
+          className="absolute inset-0 bg-slate-950/70 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 backdrop-blur-[2px] z-30 cursor-pointer text-white text-xs font-semibold"
+        >
+          <Eye size={16} strokeWidth={2} className="text-white" /> Open Live View
         </div>
       </div>
 

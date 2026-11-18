@@ -126,6 +126,15 @@ export async function updateClientGroup(id, group) {
   return result.data;
 }
 
+export async function updateClientActivePath(id, path) {
+  const result = await fetchJson(`/api/clients/${id}/active-path`, {
+    method: "PATCH",
+    body: JSON.stringify({ path }),
+  });
+
+  return result.data;
+}
+
 export async function archiveClient(id) {
   const result = await fetchJson(`/api/clients/${id}`, {
     method: "DELETE",

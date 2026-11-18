@@ -101,13 +101,11 @@ function DetailViewSwitch({ activeView, onChange, canControl }) {
   );
 }
 
-function DeviceDetails({ allDevices, device, hardware, metricHistory, peripheralHistory, loading, error, canControl, canManagePeripherals, utilityConfig }) {
-  const [activeView, setActiveView] = useState("specification");
-
+function DeviceDetails({ allDevices, device, hardware, metricHistory, peripheralHistory, loading, error, canControl, canManagePeripherals, utilityConfig, refresh, activeView, setActiveView }) {
   if (loading && !hardware && !metricHistory) {
     return (
       <div className="border-t border-line bg-slate-50 px-4 sm:px-5">
-        <DetailLoader 
+        <DetailLoader
           title="Fetching Device Specifications"
           subtitle={`Retrieving hardware profile and historical metrics for ${device.hostname}...`}
         />
@@ -144,7 +142,7 @@ function DeviceDetails({ allDevices, device, hardware, metricHistory, peripheral
           canControl={canControl}
         />
       ) : (
-        <RemoteControlView device={device} allDevices={allDevices} utilityConfig={utilityConfig} />
+        <RemoteControlView device={device} allDevices={allDevices} utilityConfig={utilityConfig} refresh={refresh} />
       )}
     </div>
   );
@@ -163,12 +161,14 @@ export function DeviceTable({
   onPageChange,
   onPageSizeChange,
   totalItems,
+  refresh,
 }) {
   const [expandedId, setExpandedId] = useState(null);
   const [pendingArchive, setPendingArchive] = useState(null);
   const [isArchiving, setIsArchiving] = useState(false);
   const [detailCache, setDetailCache] = useState({});
   const [utilityConfig, setUtilityConfig] = useState(null);
+  const [deviceViews, setDeviceViews] = useState({});
 
   useEffect(() => {
     settingsApi.getUtilityConfig().then(setUtilityConfig).catch(() => {});
@@ -465,6 +465,9 @@ export function DeviceTable({
                       canControl={canControl}
                       canManagePeripherals={canManagePeripherals}
                       utilityConfig={utilityConfig}
+                      refresh={refresh}
+                      activeView={deviceViews[device.id] || "specification"}
+                      setActiveView={(view) => setDeviceViews(prev => ({ ...prev, [device.id]: view }))}
                     />
                   </div>
                 </div>

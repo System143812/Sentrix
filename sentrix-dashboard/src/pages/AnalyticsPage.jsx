@@ -251,6 +251,13 @@ function normalizeApiAnalytics(data = EMPTY_ANALYTICS) {
       byDevice: [],
     },
     exportUrls: safeData.exportUrls || {},
+    incidentIntelligence: safeData.incidentIntelligence || {
+      severity: "stable",
+      rootCause: "System Operational",
+      summary: "Fleet operating normally.",
+      recommendedAction: "No action required.",
+      atRiskUnits: []
+    },
     dataQuality,
   };
 }
@@ -1201,52 +1208,96 @@ function HealthScorePanel({ analytics, loading }) {
 }
 
 function AlertTrendsPanel({ analytics, loading }) {
+  const intel = analytics.incidentIntelligence || {
+    severity: "stable",
+    rootCause: "System Operational",
+    summary: "Fleet operating normally.",
+    recommendedAction: "No action required.",
+    atRiskUnits: []
+  };
+
+  const isCritical = intel.severity === "critical";
+  const isWarning = intel.severity === "warning";
+  const toneClass = isCritical ? "border-rose-200 bg-rose-50/50 text-rose-900" : isWarning ? "border-amber-200 bg-amber-50/50 text-amber-900" : "border-emerald-200 bg-emerald-50/50 text-emerald-900";
+
   return (
     <Panel
       icon={BadgeAlert}
       loading={loading}
-      title="Device Warnings"
-      subtitle="Critical alert trends and incident logs"
-      tone="rose"
+      title="Incident Intelligence & Decisions"
+      subtitle="Automated triage and administrative remediation playbooks"
+      tone={isCritical ? "rose" : isWarning ? "amber" : "emerald"}
     >
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <ModernTrendChart
-          color="#f43f5e"
-          label="Alert spikes"
-          points={analytics.alertTrend}
-        />
-        <div className="space-y-3 font-ui">
-          <div className="rounded-lg border border-rose-100/70 bg-rose-50/60 p-4 shadow-sm shadow-rose-900/5 backdrop-blur-md">
-            <div className="flex items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-2 text-[10px] font-bold text-rose-700 uppercase tracking-wider">
-                <AlertTriangle className="text-rose-500" size={15} />
-                Active Alerts
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-4">
+          {/* Decision Playbook Banner */}
+          <div className={`rounded-lg border p-5 shadow-sm backdrop-blur-md font-ui ${toneClass}`}>
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <span className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
+                <AlertTriangle size={15} className={isCritical ? "text-rose-600" : isWarning ? "text-amber-600" : "text-emerald-600"} />
+                Root Cause: {intel.rootCause}
               </span>
-              <strong className="text-xl font-bold text-rose-900 font-data tabular-nums">
-                {analytics.alerts}
+              <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${isCritical ? "bg-rose-100 text-rose-700 border-rose-200" : isWarning ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-emerald-100 text-emerald-700 border-emerald-200"}`}>
+                {intel.severity.toUpperCase()}
+              </span>
+            </div>
+            <p className="text-xs font-semibold leading-relaxed mb-3 text-slate-700">
+              {intel.summary}
+            </p>
+            <div className="rounded-md bg-white/80 p-3 border border-black/5">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                Recommended Decision & Action:
+              </p>
+              <p className="text-xs font-bold text-slate-900">
+                {intel.recommendedAction}
+              </p>
+            </div>
+          </div>
+
+          <ModernTrendChart
+            color={isCritical ? "#f43f5e" : isWarning ? "#f59e0b" : "#10b981"}
+            label="Alert Spikes"
+            points={analytics.alertTrend}
+          />
+        </div>
+
+        <div className="space-y-3 font-ui">
+          <div className="rounded-lg border border-slate-200/70 bg-slate-50/60 p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-2 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                <Laptop size={15} className="text-slate-400" />
+                At-Risk Workstations
+              </span>
+              <strong className="text-xs font-bold text-slate-900 font-data tabular-nums">
+                {intel.atRiskUnits.length} Units
               </strong>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 max-h-[220px] overflow-auto custom-scrollbar pr-1">
-            {analytics.topAlerts.length ? (
-              analytics.topAlerts.map((alert) => (
+          <div className="flex flex-col gap-2 max-h-[280px] overflow-auto custom-scrollbar pr-1">
+            {intel.atRiskUnits.length ? (
+              intel.atRiskUnits.map((unit) => (
                 <div
-                  className="flex items-center justify-between gap-3 rounded-lg border border-rose-100/60 bg-rose-50/35 p-3 shadow-sm shadow-rose-900/5 transition-colors hover:border-rose-200 hover:bg-rose-50/60"
-                  key={alert.name}
+                  className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-white p-3 shadow-sm transition-colors hover:border-slate-300"
+                  key={unit.id}
                 >
-                  <span className="inline-flex min-w-0 items-center gap-2.5 text-[10px] font-bold text-slate-600">
-                    <div className="h-1.5 w-1.5 rounded-full bg-rose-400" />
-                    <span className="truncate">{alert.name}</span>
-                  </span>
-                  <span className="shrink-0 text-[10px] font-bold text-rose-500 font-data tabular-nums">
-                    {alert.count}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 truncate">
+                      {unit.hostname}
+                    </span>
+                    <span className="text-[10px] font-bold text-rose-600 font-data">
+                      {unit.health}% Health
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                    <span>Load: <strong className="text-slate-700">{unit.load}%</strong></span>
+                    <span className="text-rose-500 font-semibold">{unit.bottleneck}</span>
+                  </div>
                 </div>
               ))
             ) : (
               <p className="rounded-lg bg-slate-50 p-6 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                System Operational
+                Zero At-Risk Units Detected
               </p>
             )}
           </div>

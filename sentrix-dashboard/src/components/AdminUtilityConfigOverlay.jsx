@@ -9,13 +9,14 @@ import {
   Settings,
   Loader2,
   CheckCircle2,
-  AlertCircle,
+  FolderOpen,
 } from "lucide-react";
 import * as settingsApi from "../services/settingsApi.js";
 import { useToast } from "./ToastProvider.jsx";
 
 export function AdminUtilityConfigOverlay({ isOpen, onClose, isNetworkAdmin }) {
   const [enabledIds, setEnabledIds] = useState([]);
+  const [maxStagedFileSizeMb, setMaxStagedFileSizeMb] = useState(200);
   const [loading, setLoading] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -36,8 +37,12 @@ export function AdminUtilityConfigOverlay({ isOpen, onClose, isNetworkAdmin }) {
   async function loadConfig() {
     setLoading(true);
     try {
-      const data = await settingsApi.getUtilityConfig();
-      setEnabledIds(data.enabledIds || []);
+      const [utilData, stagingData] = await Promise.all([
+        settingsApi.getUtilityConfig(),
+        settingsApi.getStagingSettings()
+      ]);
+      setEnabledIds(utilData.enabledIds || []);
+      setMaxStagedFileSizeMb(stagingData.maxStagedFileSizeMb || 200);
     } catch (error) {
       notify("Failed to load utility configuration.", "failed");
     } finally {
@@ -52,15 +57,26 @@ export function AdminUtilityConfigOverlay({ isOpen, onClose, isNetworkAdmin }) {
       ? enabledIds.filter((i) => i !== id)
       : [...enabledIds, id];
 
-    // Optimistic update
     setEnabledIds(nextIds);
 
     try {
       await settingsApi.updateUtilityConfig(nextIds);
     } catch (error) {
       notify("Failed to update utility configuration.", "failed");
-      // Rollback on failure
       loadConfig();
+    }
+  }
+
+  async function handleStagingSizeChange(val) {
+    const num = Math.min(Math.max(parseInt(val) || 200, 10), 2000);
+    setMaxStagedFileSizeMb(num);
+    if (!isNetworkAdmin) return;
+
+    try {
+      await settingsApi.updateStagingSettings(num);
+      notify("Max staged file size updated.", "success");
+    } catch (error) {
+      notify("Failed to update max staged file size.", "failed");
     }
   }
 
@@ -139,11 +155,11 @@ export function AdminUtilityConfigOverlay({ isOpen, onClose, isNetworkAdmin }) {
 
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-ink tracking-tight sm:text-xl">
-              Admin Utility Shortcuts
+              Admin Utility & Staging Shortcuts
             </h2>
             <div className="mt-0.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
               <Zap size={10} className="text-emerald-500" />
-              <span>Configure Remote Control Quick Tools</span>
+              <span>Configure Remote Control Quick Tools & Large File Streaming</span>
             </div>
           </div>
         </div>
@@ -156,11 +172,45 @@ export function AdminUtilityConfigOverlay({ isOpen, onClose, isNetworkAdmin }) {
             <div className="flex h-64 flex-col items-center justify-center gap-4">
               <Loader2 className="animate-spin text-signal" size={32} />
               <p className="text-sm font-bold uppercase tracking-widest text-slate-400">
-                Syncing shortcuts...
+                Syncing configuration...
               </p>
             </div>
           ) : (
             <div className="grid gap-8">
+              {/* Staging Limit Config Card */}
+              <div className="rounded-lg border border-line bg-white p-6 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+                    <FolderOpen size={24} />
+                  </span>
+                  <div className="flex-1">
+                    <h3 className="text-base font-bold text-ink tracking-tight">
+                      Large File HTTP Staging Limit
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                      Configure the maximum file size (in MB) allowed for HTTP staged transfers (e.g. massive PPTs and lab video bundles). Files larger than this will be rejected by the server staging endpoint.
+                    </p>
+                    <div className="mt-4 flex items-center gap-3">
+                      <div className="flex items-center gap-2 rounded-lg bg-slate-100 p-1.5 ring-1 ring-slate-200">
+                        <input
+                          type="number"
+                          min="10"
+                          max="2000"
+                          value={maxStagedFileSizeMb}
+                          onChange={(e) => handleStagingSizeChange(e.target.value)}
+                          disabled={!isNetworkAdmin}
+                          className="w-20 bg-transparent px-2 text-center text-sm font-bold text-ink outline-none disabled:cursor-not-allowed"
+                        />
+                        <span className="pr-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">MB</span>
+                      </div>
+                      {!isNetworkAdmin && (
+                        <span className="text-xs font-medium text-amber-600">Requires Network Admin role to modify.</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Intro Card */}
               <div className="rounded-lg border border-line bg-white p-6 shadow-sm">
                 <h3 className="flex items-center gap-2 text-sm font-bold text-ink uppercase tracking-wider">

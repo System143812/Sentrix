@@ -65,6 +65,15 @@ export default function App() {
     }
 
     initialize();
+
+    function handleUnauthorized() {
+      setUser(null);
+      setAuthError(new Error("Session expired. Please log in again."));
+    }
+    window.addEventListener("sentrix:unauthorized", handleUnauthorized);
+    return () => {
+      window.removeEventListener("sentrix:unauthorized", handleUnauthorized);
+    };
   }, []);
 
   async function loadGroups() {
@@ -357,6 +366,7 @@ export function DashboardShell({
             onArchive={handleArchiveDevice}
             canControl={["network_admin", "admin"].includes(user.role)}
             canManagePeripherals={user.role === "network_admin"}
+            refresh={refresh}
           />
         ) : activeTab === "network" ? (
           <NetworkPage
