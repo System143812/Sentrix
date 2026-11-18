@@ -30,4 +30,11 @@ router.patch(
   settingsController.updateUtilities,
 );
 
+router.get("/staging", settingsController.getStaging);
+router.patch(
+  "/staging",
+  requireRole("network_admin"),
+  settingsController.updateStaging,
+);
+
 export default router;

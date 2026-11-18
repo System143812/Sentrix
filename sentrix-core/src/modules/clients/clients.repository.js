@@ -20,13 +20,20 @@ export const ClientRepository = {
   async findAll() {
     const sql = `
       SELECT
-        id, agent_id, hostname, ip, mac, os, device_type,
-        client_group AS \`group\`, status, metrics, details,
-        archived, hardware_fingerprint, provisioning_token,
-        token_expires_at, agent_version, last_seen_at, created_at, updated_at
-      FROM clients
-      WHERE archived = 0
-      ORDER BY status ASC, hostname ASC
+        c.id, c.agent_id, c.hostname, c.ip, c.mac, c.os, c.device_type,
+        c.client_group AS \`group\`, c.status, c.metrics, c.details,
+        c.archived, c.hardware_fingerprint, c.provisioning_token,
+        c.token_expires_at, c.agent_version, c.last_seen_at, c.created_at, c.updated_at,
+        COALESCE(p.missing_count, 0) AS missing_peripherals
+      FROM clients c
+      LEFT JOIN (
+        SELECT client_id, COUNT(*) AS missing_count
+        FROM client_peripheral_inventory
+        WHERE status = 'missing'
+        GROUP BY client_id
+      ) p ON p.client_id = c.id
+      WHERE c.archived = 0
+      ORDER BY c.status ASC, c.hostname ASC
     `.trim();
 
     const [rows] = await pool.query(sql);
@@ -36,12 +43,19 @@ export const ClientRepository = {
   async findAllIncludingArchived() {
     const sql = `
       SELECT
-        id, agent_id, hostname, ip, mac, os, device_type,
-        client_group AS \`group\`, status, metrics, details,
-        archived, hardware_fingerprint, provisioning_token,
-        token_expires_at, agent_version, last_seen_at, created_at, updated_at
-      FROM clients
-      ORDER BY status ASC, hostname ASC
+        c.id, c.agent_id, c.hostname, c.ip, c.mac, c.os, c.device_type,
+        c.client_group AS \`group\`, c.status, c.metrics, c.details,
+        c.archived, c.hardware_fingerprint, c.provisioning_token,
+        c.token_expires_at, c.agent_version, c.last_seen_at, c.created_at, c.updated_at,
+        COALESCE(p.missing_count, 0) AS missing_peripherals
+      FROM clients c
+      LEFT JOIN (
+        SELECT client_id, COUNT(*) AS missing_count
+        FROM client_peripheral_inventory
+        WHERE status = 'missing'
+        GROUP BY client_id
+      ) p ON p.client_id = c.id
+      ORDER BY c.status ASC, c.hostname ASC
     `.trim();
 
     const [rows] = await pool.query(sql);
@@ -49,14 +63,34 @@ export const ClientRepository = {
   },
 
   async findById(id) {
-    const [rows] = await pool.query(
-      `SELECT id, agent_id, hostname, ip, mac, os, device_type, client_group AS \`group\`, status, metrics, details, archived, hardware_fingerprint, provisioning_token, token_expires_at, agent_version, last_seen_at, created_at, updated_at FROM clients WHERE id = ? LIMIT 1`,
-      [id],
-    );
+    const sql = `
+      SELECT
+        c.id, c.agent_id, c.hostname, c.ip, c.mac, c.os, c.device_type,
+        c.client_group AS \`group\`, c.status, c.metrics, c.details,
+        c.archived, c.hardware_fingerprint, c.provisioning_token,
+        c.token_expires_at, c.agent_version, c.last_seen_at, c.created_at, c.updated_at,
+        COALESCE(p.missing_count, 0) AS missing_peripherals
+      FROM clients c
+      LEFT JOIN (
+        SELECT client_id, COUNT(*) AS missing_count
+        FROM client_peripheral_inventory
+        WHERE status = 'missing'
+        GROUP BY client_id
+      ) p ON p.client_id = c.id
+      WHERE c.id = ? LIMIT 1
+    `.trim();
+    const [rows] = await pool.query(sql, [id]);
     return normalizeClient(rows[0] ?? null);
   },
 
   async upsert(id, clientData, now) {
+    const existing = await this.findById(id);
+    const activePath = clientData.details?.activePath || existing?.details?.activePath;
+    const detailsToSave = {
+      ...(clientData.details || {}),
+      ...(activePath ? { activePath } : {})
+    };
+
     await pool.query(
       `
       INSERT INTO clients
@@ -71,7 +105,15 @@ export const ClientRepository = {
         os = VALUES(os),
         device_type = VALUES(device_type),
         metrics = COALESCE(VALUES(metrics), metrics),
-        details = COALESCE(VALUES(details), details),
+        details = JSON_SET(
+          COALESCE(clients.details, '{}'),
+          '$.activePath',
+          COALESCE(
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(VALUES(details), '$.activePath')), 'NULL'),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(clients.details, '$.activePath')), 'NULL'),
+            'C:/Users/Public/Desktop'
+          )
+        ),
         agent_version = COALESCE(VALUES(agent_version), agent_version),
         status = 'online',
         last_seen_at = VALUES(last_seen_at),
@@ -88,7 +130,7 @@ export const ClientRepository = {
         clientData.device_type || "computer",
         clientData.group || "Unassigned",
         JSON.stringify(clientData.metrics || {}),
-        JSON.stringify(clientData.details || {}),
+        JSON.stringify(detailsToSave),
         clientData.version || null,
         now,
         now,
@@ -97,13 +139,34 @@ export const ClientRepository = {
     );
   },
 
+  async updateActivePath(id, path, now) {
+    const client = await this.findById(id);
+    if (!client) return false;
+    const details = client.details || {};
+    details.activePath = path;
+    const [rows] = await pool.query(
+      `UPDATE clients SET details = ?, updated_at = ? WHERE id = ? AND archived = 0`,
+      [JSON.stringify(details), now, id]
+    );
+    return rows.affectedRows > 0;
+  },
+
   async updateMetrics(id, metrics, now, details = null) {
+    let resolvedDetails = details;
+    if (details) {
+      const existing = await this.findById(id);
+      const activePath = details.activePath || existing?.details?.activePath || 'C:/Users/Public/Desktop';
+      resolvedDetails = {
+        ...details,
+        activePath,
+      };
+    }
     const params = [JSON.stringify(metrics), now, now];
     let detailsSql = "";
 
-    if (details) {
+    if (resolvedDetails) {
       detailsSql = ", details = ?";
-      params.push(JSON.stringify(details));
+      params.push(JSON.stringify(resolvedDetails));
     }
 
     params.push(id);

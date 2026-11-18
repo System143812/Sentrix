@@ -498,6 +498,8 @@ export async function getAnalyticsSummary(options = {}) {
     );
   });
 
+  const incidentIntelligence = buildIncidentIntelligence(clients, alerts, deviceRows);
+
   return {
     range: {
       key: rangeKey,
@@ -507,6 +509,7 @@ export async function getAnalyticsSummary(options = {}) {
     filters: {
       group: options.group || "all",
     },
+    incidentIntelligence,
     totals: {
       total: clients.length,
       online: clients.filter((client) => client.status === "online").length,
@@ -1152,6 +1155,60 @@ export async function getAnalyticsPdf(options = {}) {
 
     doc.end();
   });
+}
+
+function buildIncidentIntelligence(clients, alerts, deviceRows) {
+  const criticalCount = alerts?.critical || 0;
+  const totalAlerts = alerts?.total || 0;
+
+  let severity = "stable";
+  if (criticalCount > 0 || totalAlerts >= 5) severity = "critical";
+  else if (totalAlerts > 0) severity = "warning";
+
+  let rootCause = "System Operational - No active bottlenecks detected.";
+  let recommendedAction = "Maintain routine monitoring. No maintenance intervention required.";
+  let summary = "Fleet operating within normal health and performance parameters.";
+
+  if (totalAlerts > 0) {
+    const types = (alerts?.byType || []).map(t => (t.name || "").toLowerCase());
+    if (types.some(t => t.includes('temp') || t.includes('thermal'))) {
+      rootCause = "Thermal Stress & Throttling";
+      summary = `${totalAlerts} warning(s) detected with primary drivers in CPU/GPU thermal sensors.`;
+      recommendedAction = "Inspect physical lab airflow and verify cooling fans on affected units.";
+    } else if (types.some(t => t.includes('ram') || t.includes('cpu') || t.includes('disk') || t.includes('load'))) {
+      rootCause = "Resource Contention & High Load";
+      summary = `${totalAlerts} warning(s) indicating high CPU, RAM, or disk saturation.`;
+      recommendedAction = "Run 'workspace-reset' maintenance action to clear hung background processes.";
+    } else if (types.some(t => t.includes('packet') || t.includes('latency') || t.includes('offline'))) {
+      rootCause = "Network Degradation / Connectivity Drop";
+      summary = `${totalAlerts} warning(s) related to network packet loss, latency spikes, or offline units.`;
+      recommendedAction = "Execute network-reset maintenance action and check switch/router connectivity.";
+    } else {
+      rootCause = "General Device Anomalies";
+      summary = `${totalAlerts} active warning(s) requiring administrative review.`;
+      recommendedAction = "Review at-risk workstations and execute targeted maintenance as needed.";
+    }
+  }
+
+  const atRiskUnits = [...deviceRows]
+    .filter(d => (d.alerts && d.alerts > 0) || d.health < 75 || d.load > 85)
+    .sort((a, b) => a.health - b.health)
+    .slice(0, 3)
+    .map(d => ({
+      id: d.id,
+      hostname: d.hostname,
+      health: d.health,
+      load: d.load,
+      bottleneck: d.load > 85 ? "High Resource Load" : d.health < 65 ? "Low Health Index" : "Active Warning"
+    }));
+
+  return {
+    severity,
+    rootCause,
+    summary,
+    recommendedAction,
+    atRiskUnits
+  };
 }
 
 export async function getAnalyticsDocx(options = {}) {
