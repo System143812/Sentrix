@@ -25,6 +25,10 @@ const DEFAULT_UTILITIES = {
   ],
 };
 
+const DEFAULT_STAGING = {
+  maxStagedFileSizeMb: 200,
+};
+
 function parseSetting(value, fallback) {
   if (!value) return fallback;
   if (typeof value === "object") return value;
@@ -115,6 +119,33 @@ export async function updateUtilitySettings({ enabledIds, userId = null }) {
   const value = { enabledIds: Array.isArray(enabledIds) ? enabledIds : [] };
 
   await SettingsRepository.upsert("utilities", value, userId, now);
+
+  return {
+    ...value,
+    updatedAt: now,
+  };
+}
+
+export async function getStagingSettings() {
+  const row = await SettingsRepository.findByKey("staging");
+  const value = parseSetting(row?.setting_value, DEFAULT_STAGING);
+
+  return {
+    ...DEFAULT_STAGING,
+    ...value,
+    updatedAt: row?.updated_at || null,
+  };
+}
+
+export async function updateStagingSettings({ maxStagedFileSizeMb, userId = null }) {
+  const now = Date.now();
+  const safeSize = Math.min(
+    Math.max(Number(maxStagedFileSizeMb) || 200, 10),
+    2000,
+  );
+  const value = { maxStagedFileSizeMb: safeSize };
+
+  await SettingsRepository.upsert("staging", value, userId, now);
 
   return {
     ...value,

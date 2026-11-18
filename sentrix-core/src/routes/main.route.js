@@ -6,6 +6,7 @@ import userRouter from "../modules/users/users.route.js";
 import groupRouter from "../modules/groups/groups.route.js";
 import auditRouter from "../modules/audit/audit.route.js";
 import settingsRouter from "../modules/settings/settings.route.js";
+import filesRouter from "../modules/files/files.route.js";
 import { authenticate } from "../middlewares/auth.middleware.js";
 import express from "express";
 
@@ -27,6 +28,7 @@ router.use("/api/clients", authenticate, clientRouter);
 router.use("/api/discovery", discoveryRouter);
 router.use("/api/audit", authenticate, auditRouter);
 router.use("/api/settings", authenticate, settingsRouter);
+router.use("/api/files", filesRouter);
 router.use("/api/users", userRouter);
 router.use("/api/groups", groupRouter);
 

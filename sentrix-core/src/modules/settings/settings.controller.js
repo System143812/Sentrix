@@ -113,3 +113,34 @@ export async function updateUtilities(req, res, next) {
     next(error);
   }
 }
+
+export async function getStaging(req, res, next) {
+  try {
+    const settings = await settingsService.getStagingSettings();
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateStaging(req, res, next) {
+  try {
+    const settings = await settingsService.updateStagingSettings({
+      maxStagedFileSizeMb: req.body?.maxStagedFileSizeMb,
+      userId: req.user?.id,
+    });
+
+    await logAuditEvent({
+      req,
+      action: "staging_settings_updated",
+      targetType: "system_settings",
+      targetId: "staging",
+      targetLabel: `${settings.maxStagedFileSizeMb} MB`,
+      details: settings,
+    });
+
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    next(error);
+  }
+}

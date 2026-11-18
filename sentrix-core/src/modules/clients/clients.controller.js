@@ -20,9 +20,14 @@ async function emitAgentCommand(req, clientId, command, args = {}) {
     throw new AppError(500, "Real-time communication engine is not initialized.");
   }
 
+  const client = await clientService.getClientById(clientId);
+  if (client && client.status === "offline") {
+    throw new AppError(400, "Device is offline.");
+  }
+
   const room = `agent:${clientId}`;
   let sockets;
-  
+
   try {
     sockets = await io.in(room).fetchSockets();
   } catch (error) {
@@ -31,7 +36,7 @@ async function emitAgentCommand(req, clientId, command, args = {}) {
   }
 
   if (!sockets || sockets.length === 0) {
-    throw new AppError(400, "Agent is offline or not connected.");
+    throw new AppError(400, "Agent service is offline or not connected on this device.");
   }
 
   try {
@@ -40,9 +45,9 @@ async function emitAgentCommand(req, clientId, command, args = {}) {
     return await sockets[0].timeout(30000).emitWithAck("agent:command", signedPayload);
   } catch (error) {
     console.error(`[Socket] Command emission failed for ${clientId}:`, error.message);
-    
+
     if (error.name === "TimeoutError") {
-      throw new AppError(504, "Agent did not respond in time. The command might still be running.");
+      throw new AppError(504, "Agent did not respond in time (Unresponsive / Timeout).");
     }
 
     throw new AppError(400, `Communication failure: ${error.message}`);
@@ -258,6 +263,44 @@ export async function updateClientGroup(req, res, next) {
 
     const io = req.app.get("io");
     io.to("dashboards").emit(
+      "devices:update",
+      await clientService.getClientSummary(),
+    );
+
+    return res.json({
+      success: true,
+      data: client,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateClientActivePath(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { path } = req.body;
+    const client = await clientService.updateClientActivePath(id, path);
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: "Client not found.",
+      });
+    }
+
+    await logAuditEvent({
+      req,
+      action: "device_active_path_updated",
+      targetType: "client",
+      targetId: id,
+      targetLabel: client.hostname,
+      macAddress: client.mac,
+      details: { activePath: path },
+    });
+
+    const io = req.app.get("io");
+    io?.to("dashboards").emit(
       "devices:update",
       await clientService.getClientSummary(),
     );

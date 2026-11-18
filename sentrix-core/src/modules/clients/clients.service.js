@@ -55,12 +55,14 @@ function formatClient(client) {
     status: client.status,
     metrics: client.metrics,
     details: client.details,
+    activePath: client.details?.activePath || "C:/Users/Public/Desktop",
     archived: client.archived,
     lastSeenAt: client.last_seen_at,
     createdAt: client.created_at,
     updatedAt: client.updated_at,
     agentVersion: client.agent_version,
     hardwareFingerprint: client.hardware_fingerprint,
+    missingPeripherals: Number(client.missing_peripherals || 0),
     security: {
       isHardwareBound: Boolean(client.hardware_fingerprint),
       hasPendingUpdate: Boolean(client.provisioning_token),
@@ -331,6 +333,13 @@ export async function updateClientGroup(id, group) {
   const success = await ClientRepository.updateGroup(id, group, now);
   if (!success) return null;
 
+  return getClientById(id);
+}
+
+export async function updateClientActivePath(id, path) {
+  const now = Date.now();
+  const success = await ClientRepository.updateActivePath(id, path, now);
+  if (!success) return null;
   return getClientById(id);
 }
 

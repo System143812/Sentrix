@@ -23,7 +23,7 @@ function normalizeMac(mac = "") {
  * Deploys agent files to a host via SMB Administrative Share (C$) using direct recursive directory copy
  * and local Watchdog activation.
  */
-async function deployAgentViaSMB(ip, arg2, arg3, arg4, arg5, arg6) {
+async function deployAgentViaSMBInternal(ip, arg2, arg3, arg4, arg5, arg6) {
   let credentials = arg2;
   let serverUrl = arg3;
   let agentId = arg4;
@@ -453,6 +453,42 @@ async function deployAgentViaSMB(ip, arg2, arg3, arg4, arg5, arg6) {
       try { fs.unlinkSync(localPs1Path); } catch {}
     }
   }
+}
+
+const MAX_CONCURRENT_DEPLOYS = Number(process.env.SENTRIX_MAX_CONCURRENT_DEPLOYS || 2);
+let activeDeploymentsCount = 0;
+const deploymentQueue = [];
+
+function processNextDeployment() {
+  if (activeDeploymentsCount >= MAX_CONCURRENT_DEPLOYS || deploymentQueue.length === 0) {
+    return;
+  }
+  const nextTask = deploymentQueue.shift();
+  if (nextTask) {
+    activeDeploymentsCount++;
+    nextTask().finally(() => {
+      activeDeploymentsCount--;
+      processNextDeployment();
+    });
+  }
+}
+
+export async function deployAgentViaSMB(ip, arg2, arg3, arg4, arg5, arg6) {
+  return new Promise((resolve, reject) => {
+    const task = async () => {
+      try {
+        const res = await deployAgentViaSMBInternal(ip, arg2, arg3, arg4, arg5, arg6);
+        resolve(res);
+        return res;
+      } catch (err) {
+        reject(err);
+        throw err;
+      }
+    };
+
+    deploymentQueue.push(task);
+    processNextDeployment();
+  });
 }
 
 export async function deployAgentToHost(...args) {
