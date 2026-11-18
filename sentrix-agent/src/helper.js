@@ -381,7 +381,6 @@ try {
             Start-Sleep -Seconds 3
 
             Get-Process | Where-Object {
-                ($_.MainWindowTitle -ne '' -or $_.ProcessName.ToLower() -in @('systemsettings', 'applicationframehost')) -and
                 $exclude -notcontains $_.ProcessName.ToLower()
             } | Stop-Process -Force -ErrorAction SilentlyContinue
 

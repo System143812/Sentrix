@@ -140,8 +140,8 @@ async function getWindowsUsbDevices() {
         continue;
       }
 
-      // Filter out specific system noise: Radio controls, airplane mode, etc.
-      if (name.includes("radio control") || name.includes("airplane mode") || name.includes("system controller")) {
+      // Filter out specific system noise: Radio controls, airplane mode, consumer control / shortcut keys, etc.
+      if (name.includes("radio control") || name.includes("airplane mode") || name.includes("system controller") || name.includes("consumer control device") || name.includes("shortcut keys") || name.includes("media keys")) {
         if (!isHighPriority) continue;
       }
 
@@ -273,6 +273,9 @@ export async function collectSolidUsbDevices() {
       .filter(d => {
         const service = (d.Service || "").toLowerCase();
         const name = (d.FriendlyName || "").toLowerCase();
+        if (name.includes("consumer control device") || name.includes("shortcut keys") || name.includes("media keys")) {
+          return false;
+        }
         return name && !skipServiceRegex.test(service);
       })
       .map(d => ({
