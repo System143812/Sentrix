@@ -162,10 +162,9 @@ export const MAINTENANCE_COMMANDS = {
 
     Start-Sleep -Seconds 3
 
-    # Force close any remaining user app windows or settings apps gracefully
+    # Force close any remaining user apps that failed to exit normally
     Get-Process | Where-Object {
         $_.SI -ne 0 -and
-        ($_.MainWindowTitle -ne '' -or $_.ProcessName.ToLower() -in @('systemsettings', 'applicationframehost')) -and
         $exclude -notcontains $_.ProcessName.ToLower()
     } | Stop-Process -Force -ErrorAction SilentlyContinue
 
@@ -233,12 +232,288 @@ export const MAINTENANCE_COMMANDS = {
 export async function runMaintenanceAction(action, args = {}) {
   const commandTemplate = MAINTENANCE_COMMANDS[action];
 
-  if (!commandTemplate) {
+  if (!commandTemplate && !["file-validate", "file-list", "file-upload", "file-delete", "file-preview-delete", "file-download", "staged-download"].includes(action)) {
     return { success: false, message: `Unknown maintenance action: ${action}` };
   }
 
   const dataDir = await getAgentDataDir();
   const text = args.text || args.message || "Admin broadcast from Sentrix.";
+
+  if (action === "file-validate") {
+    const rawPath = args.path || "C:\\Users\\Public\\Desktop";
+    try {
+      const trimmed = rawPath.trim();
+      const resolved = path.resolve(trimmed);
+      const exists = fs.existsSync(resolved);
+      let isDir = false;
+      if (exists) {
+        const stats = fs.statSync(resolved);
+        isDir = stats.isDirectory();
+      }
+      return { success: true, valid: isDir, resolvedPath: resolved, message: isDir ? "Path is valid." : "Path does not exist or is not a directory." };
+    } catch (err) {
+      console.warn(`[FileManager] Path validation failed for "${rawPath}":`, err.message);
+      return { success: true, valid: false, message: err.message };
+    }
+  }
+
+  if (action === "file-list") {
+    const targetPath = args.path || "C:\\Users\\Public\\Desktop";
+    try {
+      const resolved = path.resolve(targetPath);
+      if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+        return { success: false, message: "Invalid active path." };
+      }
+      const entries = fs.readdirSync(resolved, { withFileTypes: true });
+      const files = entries.map(entry => {
+        const full = path.join(resolved, entry.name);
+        const stats = fs.statSync(full);
+        return {
+          name: entry.name,
+          isDirectory: entry.isDirectory(),
+          size: stats.size,
+          modified: stats.mtimeMs,
+        };
+      });
+      return { success: true, files };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  }
+
+  if (action === "file-upload") {
+    const targetPath = args.path || "C:\\Users\\Public\\Desktop";
+    const fileName = args.fileName;
+    const fileDataBase64 = args.fileData;
+    const createMissingDirs = Boolean(args.createMissingDirs);
+    if (!fileName || !fileDataBase64) {
+      return { success: false, message: "Missing fileName or fileData." };
+    }
+    try {
+      const resolved = path.resolve(targetPath);
+      if (!fs.existsSync(resolved)) {
+        if (createMissingDirs) {
+          fs.mkdirSync(resolved, { recursive: true });
+        } else {
+          return { success: false, message: `Target path does not exist and auto-creation is disabled: ${resolved}` };
+        }
+      }
+      const targetFilePath = path.join(resolved, fileName);
+      const buffer = Buffer.from(fileDataBase64, "base64");
+      fs.writeFileSync(targetFilePath, buffer);
+      return { success: true, message: `File uploaded successfully to ${targetFilePath}` };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  }
+
+  if (action === "file-preview-delete" || action === "file-delete") {
+    const targetPath = args.path || "C:\\Users\\Public\\Desktop";
+    const newerThanHours = args.newerThanHours;
+    const olderThanHours = args.olderThanHours;
+    const fileTypes = args.fileTypes || [];
+    const excludePatterns = args.excludePatterns || [];
+    const includeSubfolders = Boolean(args.includeSubfolders);
+
+    try {
+      const resolved = path.resolve(targetPath);
+      if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+        return { success: false, message: "Invalid active path for deletion." };
+      }
+
+      const now = Date.now();
+      const items = [];
+
+      function walk(currentDir) {
+        let entries;
+        try {
+          entries = fs.readdirSync(currentDir, { withFileTypes: true });
+        } catch {
+          return;
+        }
+
+        for (const entry of entries) {
+          const name = entry.name;
+          const fullPath = path.join(currentDir, name);
+          const isDir = entry.isDirectory();
+
+          let excluded = false;
+          for (const pattern of excludePatterns) {
+            const regex = new RegExp("^" + pattern.replace(/\*/g, ".*").replace(/\?/g, ".") + "$", "i");
+            if (regex.test(name)) {
+              excluded = true;
+              break;
+            }
+          }
+          if (excluded) continue;
+
+          let stats;
+          try {
+            stats = fs.statSync(fullPath);
+          } catch {
+            continue;
+          }
+
+          if (isDir) {
+            if (includeSubfolders) {
+              walk(fullPath);
+
+              let matchTime = true;
+              const ageHours = (now - stats.mtimeMs) / (1000 * 60 * 60);
+              if (newerThanHours !== null && newerThanHours !== undefined && Number(newerThanHours) > 0) {
+                if (ageHours > Number(newerThanHours)) {
+                  matchTime = false;
+                }
+              }
+              if (olderThanHours !== null && olderThanHours !== undefined && Number(olderThanHours) > 0) {
+                if (ageHours < Number(olderThanHours)) {
+                  matchTime = false;
+                }
+              }
+
+              if (matchTime) {
+                items.push({
+                  path: fullPath,
+                  name: path.relative(resolved, fullPath) || name,
+                  isDirectory: true,
+                  size: 0,
+                  modified: stats.mtimeMs,
+                });
+              }
+            }
+          } else {
+            let matchExt = true;
+            if (fileTypes.length > 0) {
+              const ext = path.extname(name).toLowerCase();
+              const normalizedExts = fileTypes.map(t => t.toLowerCase().startsWith('.') ? t.toLowerCase() : '.' + t.toLowerCase());
+              matchExt = normalizedExts.includes(ext);
+            }
+
+            let matchTime = true;
+            const ageHours = (now - stats.mtimeMs) / (1000 * 60 * 60);
+            if (newerThanHours !== null && newerThanHours !== undefined && Number(newerThanHours) > 0) {
+              if (ageHours > Number(newerThanHours)) {
+                matchTime = false;
+              }
+            }
+            if (olderThanHours !== null && olderThanHours !== undefined && Number(olderThanHours) > 0) {
+              if (ageHours < Number(olderThanHours)) {
+                matchTime = false;
+              }
+            }
+
+            if (matchExt && matchTime) {
+              items.push({
+                path: fullPath,
+                name: path.relative(resolved, fullPath) || name,
+                isDirectory: false,
+                size: stats.size,
+                modified: stats.mtimeMs,
+              });
+            }
+          }
+        }
+      }
+
+      walk(resolved);
+
+      if (action === "file-preview-delete") {
+        const totalFiles = items.filter(i => !i.isDirectory).length;
+        const totalFolders = items.filter(i => i.isDirectory).length;
+        const totalSize = items.reduce((acc, i) => acc + (i.size || 0), 0);
+        return {
+          success: true,
+          items,
+          totalFiles,
+          totalFolders,
+          totalSize,
+        };
+      }
+
+      // Execute deletion (deepest first so files & child folders are deleted before parents)
+      items.sort((a, b) => b.path.length - a.path.length);
+
+      let deletedCount = 0;
+      let deletedFoldersCount = 0;
+
+      for (const item of items) {
+        try {
+          if (item.isDirectory) {
+            if (fs.existsSync(item.path)) {
+              fs.rmdirSync(item.path);
+              deletedFoldersCount++;
+            }
+          } else {
+            if (fs.existsSync(item.path)) {
+              fs.unlinkSync(item.path);
+              deletedCount++;
+            }
+          }
+        } catch (delErr) {
+          console.warn(`[FileManager] Failed to delete ${item.path}:`, delErr.message);
+        }
+      }
+
+      return {
+        success: true,
+        message: `Successfully deleted ${deletedCount} file(s) and ${deletedFoldersCount} folder(s) matching filters.`,
+        deletedCount,
+        deletedFoldersCount,
+      };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  }
+
+  if (action === "staged-download") {
+    const downloadUrl = args.downloadUrl;
+    const targetPath = args.path || "C:\\Users\\Public\\Desktop";
+    const fileName = args.fileName || "downloaded-file";
+
+    if (!downloadUrl) {
+      return { success: false, message: "Missing downloadUrl for staged-download." };
+    }
+
+    try {
+      const resolvedDir = path.resolve(targetPath);
+      if (!fs.existsSync(resolvedDir)) {
+        fs.mkdirSync(resolvedDir, { recursive: true });
+      }
+      const targetFilePath = path.join(resolvedDir, fileName);
+
+      // Stream download using native https/http
+      const httpClient = downloadUrl.startsWith("https") ? await import("https") : await import("http");
+
+      return await new Promise((resolve, reject) => {
+        const fileStream = fs.createWriteStream(targetFilePath);
+
+        const reqOpts = {
+          rejectUnauthorized: false, // For self-signed dev certificates
+        };
+
+        httpClient.get(downloadUrl, reqOpts, (res) => {
+          if (res.statusCode !== 200) {
+            fileStream.close();
+            try { if (fs.existsSync(targetFilePath)) fs.unlinkSync(targetFilePath); } catch {}
+            return resolve({ success: false, message: `Server responded with status code ${res.statusCode}` });
+          }
+
+          res.pipe(fileStream);
+
+          fileStream.on("finish", () => {
+            fileStream.close();
+            resolve({ success: true, message: `Staged file downloaded successfully to ${targetFilePath}` });
+          });
+        }).on("error", (err) => {
+          fileStream.close();
+          try { if (fs.existsSync(targetFilePath)) fs.unlinkSync(targetFilePath); } catch {}
+          resolve({ success: false, message: `Stream download failed: ${err.message}` });
+        });
+      });
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  }
 
   if (action === "broadcast-message") {
     console.log(`[Broadcast] Attempting delivery for: "${text.substring(0, 20)}..."`);

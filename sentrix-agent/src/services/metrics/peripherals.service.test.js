@@ -158,6 +158,33 @@ describe('Peripherals Service (Sanity Check)', async () => {
     }
   });
 
+  it('should filter out consumer control and shortcut keys devices', async () => {
+    const mockDevices = JSON.stringify([
+      {
+        FriendlyName: 'Consumer Control Device',
+        InstanceId: 'USB\\VID_1234&PID_5678\\6',
+        Class: 'HIDClass',
+        Service: 'kbdhid',
+        Manufacturer: 'Microsoft'
+      },
+      {
+        FriendlyName: 'Standard Keyboard',
+        InstanceId: 'USB\\VID_1234&PID_5678\\7',
+        Class: 'Keyboard',
+        Service: 'kbdhid',
+        Manufacturer: 'Microsoft'
+      }
+    ]);
+
+    execFile.mockImplementationOnce((cmd, args, opts, cb) => cb(null, { stdout: mockDevices }));
+
+    const results = await collectUsbDevices();
+
+    // Verification: Consumer Control Device should be filtered out, leaving only Keyboard.
+    expect(results.length).toBe(1);
+    expect(results[0].name).toBe('Keyboard');
+  });
+
   it('should humanize cryptic Windows driver names and fix generic Microsoft manufacturers', async () => {
     const { humanizePeripheralName } = await import('../../utils/peripherals.js');
 

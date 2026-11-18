@@ -115,4 +115,50 @@ describe("Maintenance Utility", () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain("Access Denied");
   });
+
+  it("should preview file and folder deletion successfully with subfolders", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sentrix-test-"));
+    try {
+      fs.writeFileSync(path.join(tempDir, "test.tmp"), "test content");
+      fs.mkdirSync(path.join(tempDir, "subfolder"));
+      fs.writeFileSync(path.join(tempDir, "subfolder", "sub.log"), "log content");
+
+      const res = await runMaintenanceAction("file-preview-delete", {
+        path: tempDir,
+        olderThanHours: 0,
+        fileTypes: [],
+        includeSubfolders: true,
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.items.length).toBeGreaterThanOrEqual(3); // test.tmp, subfolder, sub.log
+      expect(res.totalFiles).toBe(2);
+      expect(res.totalFolders).toBe(1);
+    } finally {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+    }
+  });
+
+  it("should preview deletion using newerThanHours filter", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sentrix-test-"));
+    try {
+      fs.writeFileSync(path.join(tempDir, "recent.tmp"), "recent content");
+
+      const res = await runMaintenanceAction("file-preview-delete", {
+        path: tempDir,
+        newerThanHours: 24,
+        fileTypes: [],
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.items.length).toBe(1);
+      expect(res.items[0].name).toBe("recent.tmp");
+    } finally {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+    }
+  });
 });
