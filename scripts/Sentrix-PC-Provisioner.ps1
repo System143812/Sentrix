@@ -252,6 +252,13 @@ if (($null -eq $service) -and (Test-Path $readyMarker) -and (Test-Path $manifest
 '@
     $watchdogScript | Out-File -FilePath $watchdogFile -Encoding utf8 -Force
 
+    # Copy uninstall.exe to target path
+    $srcUninstall = Join-Path $PSScriptRoot "uninstall.exe"
+    $destUninstall = Join-Path $targetPath "uninstall.exe"
+    if (Test-Path -LiteralPath $srcUninstall -PathType Leaf) {
+        Copy-Item -LiteralPath $srcUninstall -Destination $destUninstall -Force
+    }
+
     # Register Watchdog Scheduled Task (Runs at Startup and every minute as SYSTEM)
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watchdogFile`""
     $startupTrigger = New-ScheduledTaskTrigger -AtStartup

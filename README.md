@@ -43,8 +43,12 @@ The administrative user interface.
 ### Real-Time Hardened Telemetry
 *   **Flow:** Agent -> Signed Handshake -> Socket.io -> Core -> Dashboard.
 *   **Security:** Multi-factor hardware binding and cryptographically signed data packets prevent unauthorized agent cloning or data spoofing.
-*   **Metrics:** CPU (usage/temp), RAM (usage), Disk (usage/health), Network (throughput/latency), Peripherals.
-*   **Purpose:** Provides instant visibility into workstation performance and hardware failures.
+*   **Metrics & Source Technologies:**
+    *   **CPU & Memory / Disk:** Collected via Node.js core OS primitives (`os` module) and the high-performance `systeminformation` library.
+    *   **Thermal Sensors (CPU/GPU Temp):** Queried live via Windows WMI ACPI thermal zones (`MSAcpi_ThermalZoneTemperature`), `nvidia-smi` (for NVIDIA GPUs), and hardware monitoring bridges.
+    *   **Network Throughput & Health (Upload/Download/Latency/Packet Loss):** Measured live from active Windows network interface card counters and continuous network diagnostic probes.
+    *   **Peripherals:** Enumerated via Windows PnP and USB device enumeration (`Get-PnpDevice`).
+*   **Purpose:** Provides instant visibility into workstation performance and hardware failures using genuine system telemetry.
 
 ### Persistence Layer
 *   **Database:** MySQL.

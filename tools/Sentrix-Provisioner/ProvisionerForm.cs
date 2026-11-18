@@ -292,7 +292,8 @@ namespace SentrixProvisioner
                 {
                     { "SentrixProvisioner.Resources.provisioner.ps1", "provisioner.ps1" },
                     { "SentrixProvisioner.Resources.provisioner-config.json", "provisioner-config.json" },
-                    { "SentrixProvisioner.Resources.remove-sentrix.ps1", "remove-sentrix.ps1" }
+                    { "SentrixProvisioner.Resources.remove-sentrix.ps1", "remove-sentrix.ps1" },
+                    { "SentrixProvisioner.Resources.uninstall.exe", "uninstall.exe" }
                 };
 
                 foreach (var kvp in resources)
@@ -308,10 +309,21 @@ namespace SentrixProvisioner
                             throw new FileNotFoundException(string.Format("Embedded resource not found: {0}", resourceName));
                         }
 
-                        using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
+                        if (fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                         {
-                            string content = reader.ReadToEnd();
-                            File.WriteAllText(targetPath, content, Encoding.UTF8);
+                            using (var memoryStream = new MemoryStream())
+                            {
+                                stream.CopyTo(memoryStream);
+                                File.WriteAllBytes(targetPath, memoryStream.ToArray());
+                            }
+                        }
+                        else
+                        {
+                            using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
+                            {
+                                string content = reader.ReadToEnd();
+                                File.WriteAllText(targetPath, content, Encoding.UTF8);
+                            }
                         }
                     }
 

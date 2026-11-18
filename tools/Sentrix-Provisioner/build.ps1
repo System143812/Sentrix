@@ -79,6 +79,28 @@ if (-not (Test-Path -LiteralPath $sourceRemove -PathType Leaf)) {
 Copy-Item -Path $sourceRemove -Destination $targetRemove -Force
 Write-Host " [OK] Synchronized remove-sentrix.ps1" -ForegroundColor Green
 
+$cscPath = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+if (-not (Test-Path $cscPath)) {
+    $cscPath = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
+}
+if (-not (Test-Path $cscPath)) {
+    throw "Required C# compiler (csc.exe) not found."
+}
+
+$uninstallSource = "$PSScriptRoot\Uninstall.cs"
+$uninstallOutput = "$PSScriptRoot\Resources\uninstall.exe"
+
+Write-Host "[BUILD] Compiling uninstall.exe..." -ForegroundColor Yellow
+if (-not (Test-Path -LiteralPath $uninstallSource -PathType Leaf)) {
+    throw "Uninstall source not found: $uninstallSource"
+}
+
+& $cscPath /nologo /target:winexe "/out:$uninstallOutput" $uninstallSource /r:System.Windows.Forms.dll /r:System.Drawing.dll
+if ($LASTEXITCODE -ne 0) {
+    throw "uninstall.exe compilation failed with exit code $LASTEXITCODE."
+}
+Write-Host " [OK] Compiled uninstall.exe" -ForegroundColor Green
+
 Write-Host "[BUILD] Compiling Sentrix Provisioner..." -ForegroundColor Yellow
 
 $projectFile = "$PSScriptRoot\Sentrix-Provisioner.csproj"
