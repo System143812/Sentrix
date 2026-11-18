@@ -233,21 +233,42 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig, refr
   }
 
   // File Manager Handlers
-  async function handleUploadSubmit(file, scope, createMissingDirs) {
+  async function handleUploadSubmit(files, scope, createMissingDirs) {
     setFileModal(null);
     const targetDevices = getTargetDevices(scope);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64Data = reader.result.split(',')[1];
-      await handleCommand(targetDevices, "utility:file-upload", (d) => ({
-        path: d.activePath || (d.id === device.id ? activePath : "C:/Users/Public/Desktop"),
-        fileName: file.name,
-        fileData: base64Data,
-        createMissingDirs,
-      }));
-      await revalidateCurrentPath(targetDevices);
-    };
-    reader.readAsDataURL(file);
+    const totalFiles = files.length;
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const file of files) {
+      await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const base64Data = reader.result.split(',')[1];
+            await handleCommand(targetDevices, "utility:file-upload", (d) => ({
+              path: d.activePath || (d.id === device.id ? activePath : "C:/Users/Public/Desktop"),
+              fileName: file.name,
+              fileData: base64Data,
+              createMissingDirs,
+            }));
+            successCount++;
+          } catch {
+            failCount++;
+          }
+          resolve();
+        };
+        reader.onerror = () => {
+          failCount++;
+          resolve();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    await revalidateCurrentPath(targetDevices);
+    const summaryMsg = `Successfully uploaded ${successCount} of ${totalFiles} file(s).`;
+    notify(summaryMsg, failCount === 0 ? "success" : "failed");
   }
 
   async function handleDeleteSubmit(filters, scope) {
@@ -343,34 +364,65 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig, refr
     }
   }
 
-  async function handleDownloadFile(fileName) {
+  async function handleDownloadFiles(fileNames) {
     setFileModal(null);
-    const fullFilePath = `${activePath}\\${fileName}`;
-    try {
-      const res = await clientApi.sendDeviceCommand(device.id, "utility:file-download", { filePath: fullFilePath });
-      const data = res?.data;
-      if (data && data.fileData) {
-        const byteCharacters = atob(data.fileData);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const fileName of fileNames) {
+      const fullFilePath = `${activePath}\\${fileName}`;
+      try {
+        const res = await clientApi.sendDeviceCommand(device.id, "utility:file-download", { filePath: fullFilePath });
+        const data = res?.data?.data || res?.data;
+
+        if (data && data.downloadUrl) {
+          const rawName = data.fileName || fileName;
+          const cleanFileName = rawName.includes('\\') || rawName.includes('/')
+            ? rawName.split(/[/\\]/).pop()
+            : rawName;
+
+          const a = document.createElement('a');
+          a.href = data.downloadUrl;
+          a.download = cleanFileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          successCount++;
+        } else if (data && data.fileData) {
+          const byteCharacters = atob(data.fileData);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+
+          const rawName = data.fileName || fileName;
+          const cleanFileName = rawName.includes('\\') || rawName.includes('/')
+            ? rawName.split(/[/\\]/).pop()
+            : rawName;
+
+          const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = cleanFileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          successCount++;
+        } else {
+          failCount++;
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: "application/octet-stream" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = data.fileName || fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        notify(`Successfully downloaded ${fileName}`, "success");
-      } else {
-        notify("Failed to retrieve file data.", "failed");
+      } catch (err) {
+        failCount++;
       }
-    } catch (err) {
-      notify(err?.message || "File download failed.", "failed");
+    }
+
+    if (successCount > 0) {
+      notify(`Successfully downloaded ${successCount} file(s).`, failCount === 0 ? "success" : "failed");
+    } else {
+      notify("Failed to download selected file(s).", "failed");
     }
   }
 
@@ -438,7 +490,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig, refr
           files={downloadFiles}
           loadingFiles={loadingFiles}
           onCancel={() => setFileModal(null)}
-          onDownload={handleDownloadFile}
+          onDownload={handleDownloadFiles}
         />
       )}
 

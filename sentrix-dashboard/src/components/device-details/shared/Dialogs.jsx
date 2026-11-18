@@ -316,7 +316,7 @@ export function ProcessEndConfirmDialog({ count, loading, onCancel, onConfirm })
 
 export function FileUploadDialog({ activePath, onCancel, onUpload, device, allDevices = [] }) {
   const [target, setTarget] = useState("single");
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [createMissingDirs, setCreateMissingDirs] = useState(false);
   const [invalidDevices, setInvalidDevices] = useState([]);
   const [validatingPaths, setValidatingPaths] = useState(false);
@@ -385,7 +385,7 @@ export function FileUploadDialog({ activePath, onCancel, onUpload, device, allDe
             <FolderOpen size={22} strokeWidth={2.5} />
           </span>
           <div>
-            <h3 className="text-base font-bold text-slate-900 tracking-tight">Upload File to Active Path</h3>
+            <h3 className="text-base font-bold text-slate-900 tracking-tight">Upload Files to Active Path</h3>
             <p className="text-[11px] font-medium text-slate-500 mt-0.5">Target: <code className="font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{activePath}</code></p>
           </div>
         </div>
@@ -421,19 +421,19 @@ export function FileUploadDialog({ activePath, onCancel, onUpload, device, allDe
 
           <div>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Select File to Upload</p>
-              {selectedFile && (
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Select Files to Upload</p>
+              {selectedFiles.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setSelectedFile(null)}
+                  onClick={() => setSelectedFiles([])}
                   className="text-[11px] font-semibold text-rose-600 hover:underline"
                 >
-                  Change File
+                  Clear All ({selectedFiles.length})
                 </button>
               )}
             </div>
 
-            {!selectedFile ? (
+            {selectedFiles.length === 0 ? (
               <div
                 className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all group ${
                   isDragOver
@@ -446,8 +446,8 @@ export function FileUploadDialog({ activePath, onCancel, onUpload, device, allDe
                   e.preventDefault();
                   e.stopPropagation();
                   setIsDragOver(false);
-                  if (e.dataTransfer.files?.[0]) {
-                    setSelectedFile(e.dataTransfer.files[0]);
+                  if (e.dataTransfer.files?.length > 0) {
+                    setSelectedFiles(Array.from(e.dataTransfer.files));
                   }
                 }}
                 onClick={() => document.getElementById('modern-file-input').click()}
@@ -455,38 +455,69 @@ export function FileUploadDialog({ activePath, onCancel, onUpload, device, allDe
                 <input
                   id="modern-file-input"
                   type="file"
+                  multiple
                   className="hidden"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
                 />
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600 mb-3 group-hover:scale-105 transition-transform shadow-sm">
                   <UploadCloud size={24} strokeWidth={2.2} />
                 </div>
                 <p className="text-xs font-bold text-slate-800">
-                  Drag and drop your file here, or <span className="text-blue-600 underline">browse</span>
+                  Drag and drop files here, or <span className="text-blue-600 underline">browse</span>
                 </p>
-                <p className="text-[11px] text-slate-400 mt-1">Supports any file type and size</p>
+                <p className="text-[11px] text-slate-400 mt-1">Supports multiple files of any type and size</p>
               </div>
             ) : (
-              <div className="flex items-center justify-between p-4 rounded-xl border border-blue-200 bg-blue-50/40 shadow-sm">
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-600">
-                    <FileText size={20} strokeWidth={2.2} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-900 truncate">{selectedFile.name}</p>
-                    <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                      {(selectedFile.size / 1024).toFixed(1)} KB • Ready to upload
-                    </p>
-                  </div>
+              <div className="space-y-2">
+                <div className="max-h-48 overflow-y-auto space-y-2 custom-scrollbar pr-1">
+                  {selectedFiles.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl border border-blue-200 bg-blue-50/40 shadow-sm">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-600">
+                          <FileText size={18} strokeWidth={2.2} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate">{file.name}</p>
+                          <p className="text-[10px] font-medium text-slate-500 mt-0.5">
+                            {(file.size / 1024).toFixed(1)} KB • Ready
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFiles(selectedFiles.filter((_, i) => i !== idx))}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition"
+                        title="Remove file"
+                      >
+                        <X size={15} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedFile(null)}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition"
-                  title="Remove file"
-                >
-                  <X size={16} strokeWidth={2.5} />
-                </button>
+
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('modern-file-input').click()}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline"
+                  >
+                    <span>+ Add more files</span>
+                  </button>
+                  <input
+                    id="modern-file-input"
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.length > 0) {
+                        setSelectedFiles(prev => [...prev, ...Array.from(e.target.files)]);
+                      }
+                    }}
+                  />
+                  <span className="text-[11px] font-bold text-slate-500">
+                    Total: {selectedFiles.length} file(s) ({(selectedFiles.reduce((acc, f) => acc + f.size, 0) / 1024).toFixed(1)} KB)
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -557,11 +588,11 @@ export function FileUploadDialog({ activePath, onCancel, onUpload, device, allDe
           </button>
           <button
             className="h-11 rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-900/10 transition hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50"
-            disabled={!selectedFile}
-            onClick={() => onUpload(selectedFile, target, createMissingDirs)}
+            disabled={selectedFiles.length === 0}
+            onClick={() => onUpload(selectedFiles, target, createMissingDirs)}
             type="button"
           >
-            Upload to {targetCount} {targetCount === 1 ? 'PC' : 'PCs'}
+            Upload {selectedFiles.length} File(s) to {targetCount} {targetCount === 1 ? 'PC' : 'PCs'}
           </button>
         </div>
       </div>
@@ -850,7 +881,7 @@ export function FileDeletePreviewModal({ previewData, loading, onCancel, onConfi
 }
 
 export function FileDownloadDialog({ activePath, files = [], loadingFiles, onCancel, onDownload }) {
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFileNames, setSelectedFileNames] = useState([]);
 
   return (
     <BlurOverlay onClose={onCancel}>
@@ -860,7 +891,7 @@ export function FileDownloadDialog({ activePath, files = [], loadingFiles, onCan
             <Download size={22} strokeWidth={2.5} />
           </span>
           <div>
-            <h3 className="text-base font-bold text-slate-900 tracking-tight">Download File from Active Path</h3>
+            <h3 className="text-base font-bold text-slate-900 tracking-tight">Download Files & Folders</h3>
             <p className="text-[11px] font-medium text-slate-500 mt-0.5">Source: <code className="font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{activePath}</code></p>
           </div>
         </div>
@@ -869,23 +900,43 @@ export function FileDownloadDialog({ activePath, files = [], loadingFiles, onCan
           {loadingFiles ? (
             <div className="py-16 text-center">
               <LoaderCircle className="animate-spin mx-auto text-blue-600 mb-2" size={24} />
-              <p className="text-xs font-semibold text-slate-500">Loading files from active path...</p>
+              <p className="text-xs font-semibold text-slate-500">Loading items from active path...</p>
             </div>
           ) : files.length === 0 ? (
             <div className="py-16 text-center">
               <FolderOpen className="mx-auto text-slate-300 mb-2" size={32} strokeWidth={1.5} />
-              <p className="text-xs font-bold text-slate-700">No files found</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">The active path has no downloadable files.</p>
+              <p className="text-xs font-bold text-slate-700">No items found</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">The active path has no files or folders.</p>
             </div>
           ) : (
             <div className="space-y-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Available Files ({files.filter(f => !f.isDirectory).length})</p>
-              {files.filter(f => !f.isDirectory).map((file) => {
-                const active = selectedFile === file.name;
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Available Items ({files.length})</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedFileNames.length === files.length) {
+                      setSelectedFileNames([]);
+                    } else {
+                      setSelectedFileNames(files.map(f => f.name));
+                    }
+                  }}
+                  className="text-[11px] font-semibold text-blue-600 hover:underline"
+                >
+                  {selectedFileNames.length === files.length ? "Deselect All" : "Select All"}
+                </button>
+              </div>
+
+              {files.map((item) => {
+                const active = selectedFileNames.includes(item.name);
                 return (
                   <div
-                    key={file.name}
-                    onClick={() => setSelectedFile(active ? null : file.name)}
+                    key={item.name}
+                    onClick={() => {
+                      setSelectedFileNames(prev =>
+                        active ? prev.filter(n => n !== item.name) : [...prev, item.name]
+                      );
+                    }}
                     className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${
                       active
                         ? 'border-blue-600 bg-blue-50/50 shadow-sm ring-4 ring-blue-50'
@@ -894,11 +945,13 @@ export function FileDownloadDialog({ activePath, files = [], loadingFiles, onCan
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border transition-colors ${active ? 'border-blue-200 bg-blue-100 text-blue-600' : 'border-slate-200 bg-white text-slate-400'}`}>
-                        <FileText size={18} strokeWidth={2.2} />
+                        {item.isDirectory ? <FolderOpen size={18} strokeWidth={2.2} /> : <FileText size={18} strokeWidth={2.2} />}
                       </span>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold leading-tight text-slate-900 truncate">{file.name}</p>
-                        <p className="text-[10px] font-mono text-slate-400 mt-0.5">{(file.size / 1024).toFixed(1)} KB</p>
+                        <p className="text-xs font-bold leading-tight text-slate-900 truncate">{item.name}</p>
+                        <p className="text-[10px] font-mono text-slate-400 mt-0.5">
+                          {item.isDirectory ? 'Folder' : `${(item.size / 1024).toFixed(1)} KB`}
+                        </p>
                       </div>
                     </div>
                     <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all ${active ? 'border-blue-600 bg-blue-600' : 'border-slate-200 bg-white'}`}>
@@ -911,22 +964,27 @@ export function FileDownloadDialog({ activePath, files = [], loadingFiles, onCan
           )}
         </div>
 
-        <div className="flex justify-end gap-3 p-4 bg-slate-50/50 border-t border-slate-100">
-          <button
-            className="h-11 rounded-xl border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 active:scale-[0.98]"
-            onClick={onCancel}
-            type="button"
-          >
-            Cancel
-          </button>
-          <button
-            className="h-11 rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-900/10 transition hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50"
-            disabled={!selectedFile}
-            onClick={() => onDownload(selectedFile)}
-            type="button"
-          >
-            Download Selected File
-          </button>
+        <div className="flex justify-between items-center p-4 bg-slate-50/50 border-t border-slate-100">
+          <span className="text-xs font-semibold text-slate-500">
+            {selectedFileNames.length} file(s) selected
+          </span>
+          <div className="flex gap-3">
+            <button
+              className="h-11 rounded-xl border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 active:scale-[0.98]"
+              onClick={onCancel}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="h-11 rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-900/10 transition hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50"
+              disabled={selectedFileNames.length === 0}
+              onClick={() => onDownload(selectedFileNames)}
+              type="button"
+            >
+              Download {selectedFileNames.length} Selected File(s)
+            </button>
+          </div>
         </div>
       </div>
     </BlurOverlay>
