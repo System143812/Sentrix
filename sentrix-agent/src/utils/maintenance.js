@@ -265,16 +265,27 @@ export async function runMaintenanceAction(action, args = {}) {
         return { success: false, message: "Invalid active path." };
       }
       const entries = fs.readdirSync(resolved, { withFileTypes: true });
-      const files = entries.map(entry => {
+      const files = [];
+      for (const entry of entries) {
         const full = path.join(resolved, entry.name);
-        const stats = fs.statSync(full);
-        return {
-          name: entry.name,
-          isDirectory: entry.isDirectory(),
-          size: stats.size,
-          modified: stats.mtimeMs,
-        };
-      });
+        try {
+          const stats = fs.statSync(full);
+          files.push({
+            name: entry.name,
+            isDirectory: entry.isDirectory(),
+            size: stats.size,
+            modified: stats.mtimeMs,
+          });
+        } catch {
+          // Handle broken .lnk shortcuts or locked files gracefully
+          files.push({
+            name: entry.name,
+            isDirectory: entry.isDirectory(),
+            size: 0,
+            modified: Date.now(),
+          });
+        }
+      }
       return { success: true, files };
     } catch (err) {
       return { success: false, message: err.message };
@@ -302,6 +313,71 @@ export async function runMaintenanceAction(action, args = {}) {
       const buffer = Buffer.from(fileDataBase64, "base64");
       fs.writeFileSync(targetFilePath, buffer);
       return { success: true, message: `File uploaded successfully to ${targetFilePath}` };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  }
+
+  if (action === "file-download") {
+    const filePath = args.filePath;
+    if (!filePath) {
+      return { success: false, message: "Missing filePath." };
+    }
+    try {
+      const resolved = path.resolve(filePath);
+      if (!fs.existsSync(resolved)) {
+        return { success: false, message: `Path does not exist: ${resolved}` };
+      }
+
+      const stats = fs.statSync(resolved);
+      if (stats.isFile()) {
+        const buffer = fs.readFileSync(resolved);
+        const fileData = buffer.toString("base64");
+        const fileName = path.basename(resolved);
+        return {
+          success: true,
+          fileName,
+          fileSize: stats.size,
+          fileData,
+        };
+      } else if (stats.isDirectory()) {
+        const folderName = path.basename(resolved);
+        const tempZipPath = path.join(os.tmpdir(), `sentrix-${folderName}-${Date.now()}.zip`);
+        if (fs.existsSync(tempZipPath)) {
+          try { fs.unlinkSync(tempZipPath); } catch {}
+        }
+
+        const psCommand = `
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [System.IO.Compression.ZipFile]::CreateFromDirectory('${resolved.replace(/'/g, "''")}', '${tempZipPath.replace(/'/g, "''")}', [System.IO.Compression.CompressionLevel]::Optimal, $false)
+        `;
+        const tempPsPath = path.join(os.tmpdir(), `zip-${Date.now()}.ps1`);
+        fs.writeFileSync(tempPsPath, psCommand, "utf8");
+
+        try {
+          await execAsync(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${tempPsPath}"`);
+        } finally {
+          try { fs.unlinkSync(tempPsPath); } catch {}
+        }
+
+        if (!fs.existsSync(tempZipPath)) {
+          return { success: false, message: "Failed to create zip archive for folder." };
+        }
+
+        const zipStats = fs.statSync(tempZipPath);
+        const zipBuffer = fs.readFileSync(tempZipPath);
+        const fileData = zipBuffer.toString("base64");
+        try { fs.unlinkSync(tempZipPath); } catch {}
+
+        return {
+          success: true,
+          fileName: `${folderName}.zip`,
+          fileSize: zipStats.size,
+          fileData,
+        };
+      } else {
+        return { success: false, message: `Path is neither file nor directory: ${resolved}` };
+      }
     } catch (err) {
       return { success: false, message: err.message };
     }
