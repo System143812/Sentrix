@@ -92,6 +92,27 @@ export function getStagedFileRecord(token) {
   return record;
 }
 
+export function stageBuffer(buffer, rawFileName) {
+  const dir = ensureStagedDir();
+  const fileName = path.basename(rawFileName || "download.bin");
+  const token = uuidv4();
+  const filePath = path.join(dir, `${token}-${fileName}`);
+
+  fs.writeFileSync(filePath, buffer);
+  const fileSize = buffer.length;
+  const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour expiration
+
+  const record = {
+    token,
+    filePath,
+    fileName,
+    fileSize,
+    expiresAt,
+  };
+  activeStagedFiles.set(token, record);
+  return record;
+}
+
 setInterval(() => {
   const now = Date.now();
   for (const [token, record] of activeStagedFiles.entries()) {

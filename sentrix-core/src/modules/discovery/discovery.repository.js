@@ -138,9 +138,9 @@ export const DiscoveryRepository = {
 
   async findScanResults() {
     const [rows] = await pool.query(
-      "SELECT * FROM discovery_scan_results ORDER BY last_scanned_at DESC",
+      "SELECT * FROM discovery_scan_results",
     );
-    return rows;
+    return rows.sort((a, b) => (b.last_scanned_at || 0) - (a.last_scanned_at || 0));
   },
 
   async deleteStaleScanResults(threshold) {

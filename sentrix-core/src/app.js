@@ -70,8 +70,8 @@ function createApp() {
     }),
   );
 
-  app.use(express.json({ limit: "10kb" }));
-  app.use(express.urlencoded({ extended: false, limit: "10kb" }));
+  app.use(express.json({ limit: "500mb" }));
+  app.use(express.urlencoded({ extended: false, limit: "500mb" }));
   app.use(cookieParser());
 
   app.use(async (req, res, next) => {

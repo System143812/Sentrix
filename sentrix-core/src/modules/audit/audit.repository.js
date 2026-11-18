@@ -45,27 +45,18 @@ export const AuditRepository = {
       SELECT
         audit_logs.*,
         users.id AS registered_user_id,
-        users.role AS registered_user_role,
-        MAX(b.category) AS authority_category,
-        MAX(b.block_target) AS authority_target
+        users.role AS registered_user_role
       FROM audit_logs
       LEFT JOIN users ON users.email = audit_logs.actor_email
-      LEFT JOIN security_authority b
-        ON b.active = 1
-        AND (
-          (b.mac_address IS NOT NULL AND b.mac_address = UPPER(REPLACE(REPLACE(audit_logs.mac_address, ':', ''), '-', '')))
-          OR (b.ip_address IS NOT NULL AND b.ip_address = audit_logs.ip_address)
-          OR (b.subject_type = 'user' AND b.identifier IN (users.id, audit_logs.actor_email))
-        )
       ${where}
-      GROUP BY audit_logs.id
-      ORDER BY audit_logs.created_at DESC
-      LIMIT ${limit}
+      LIMIT ${Number(limit) * 5}
       `,
       params,
     );
 
-    return rows;
+    return rows
+      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+      .slice(0, limit);
   },
 
   async findLogById(id) {
