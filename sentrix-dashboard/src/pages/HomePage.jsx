@@ -2,57 +2,15 @@ import {
   Monitor,
   Activity,
   WifiOff,
-  Plug,
   Unplug,
   UserCircle,
+  X,
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { DeviceTable } from "../components/DeviceTable.jsx";
-import { GroupPanel } from "../components/GroupPanel.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
-import { Card } from "../components/Card.jsx";
 import { SearchFilterBar } from "../components/SearchFilterBar.jsx";
 import { matchesSearch } from "../shared/utils.js";
-import { ICON_TONES } from "../styles/tones.js";
-
-function SummaryCard({ label, value, icon: Icon, tone = "blue", subValue }) {
-  return (
-    <Card
-      padding="0"
-      className="relative overflow-hidden border-slate-200/60 bg-white"
-    >
-      <div className="flex items-center min-h-[100px]">
-        <div className="flex flex-1 items-center justify-between p-5">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
-              {label}
-            </p>
-            <div className="flex items-baseline gap-1.5">
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-                {value}
-              </p>
-              {subValue && (
-                <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider">
-                  {subValue}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200/60 bg-slate-50/30 p-3 shadow-sm">
-            <Icon size={24} strokeWidth={2.5} className={
-              tone === 'emerald' ? 'text-emerald-600' :
-              tone === 'rose' ? 'text-rose-600' :
-              tone === 'amber' ? 'text-amber-600' :
-              tone === 'teal' ? 'text-teal-600' :
-              tone === 'indigo' ? 'text-indigo-600' : 'text-blue-600'
-            } />
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
 
 const HOME_TIPS = [
   "Use the Broadcast tool to send urgent notifications to students across the lab.",
@@ -76,10 +34,17 @@ export function HomePage({
   onArchive,
   canControl = false,
   canManagePeripherals = false,
+  refresh,
 }) {
   const [query, setQuery] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("all");
   const [tipIndex, setTipIndex] = useState(0);
+  const [statusFilters, setStatusFilters] = useState({
+    online: false,
+    offline: false,
+    missingPeripherals: false,
+  });
+
   const devices = dashboardData.clients || [];
   const missingCount = dashboardData.missingPeripherals || 0;
 
@@ -94,6 +59,13 @@ export function HomePage({
     return () => clearInterval(interval);
   }, []);
 
+  const toggleStatusFilter = (key) => {
+    setStatusFilters((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
   const groupOptions = useMemo(
     () => [
       "all",
@@ -101,14 +73,35 @@ export function HomePage({
     ],
     [devices],
   );
+
   const filteredDevices = useMemo(
     () =>
       devices.filter((device) => {
         const groupMatch =
           selectedGroup === "all" ||
           (device.group || "Unassigned") === selectedGroup;
+
+        const activeStatusFilters = Object.entries(statusFilters)
+          .filter(([_, active]) => active)
+          .map(([key]) => key);
+
+        const statusMatch =
+          activeStatusFilters.length === 0 ||
+          activeStatusFilters.some((filterKey) => {
+            if (filterKey === "online") return device.status === "online";
+            if (filterKey === "offline") return device.status === "offline";
+            if (filterKey === "missingPeripherals") {
+              return (
+                (device.missingPeripherals || 0) > 0 ||
+                (device.details?.missingPeripherals || 0) > 0
+              );
+            }
+            return false;
+          });
+
         return (
           groupMatch &&
+          statusMatch &&
           matchesSearch(device, query, [
             "hostname",
             "os",
@@ -119,7 +112,7 @@ export function HomePage({
           ])
         );
       }),
-    [devices, query, selectedGroup],
+    [devices, query, selectedGroup, statusFilters],
   );
 
   return (
@@ -135,88 +128,109 @@ export function HomePage({
           </div>
         }
         backgroundImage="/home_header.jpg"
-        // action={
-        //   <span className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-300 backdrop-blur-md border border-white/10 shadow-lg">
-        //     <UserCircle size={14} strokeWidth={2.5} className="text-blue-400" />
-        //     {user?.email}
-        //   </span>
-        // }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard
-          label="Total registered"
-          value={dashboardData.total}
-          icon={Monitor}
-          subValue="units"
-        />
-        <SummaryCard
-          label="Online"
-          value={dashboardData.online}
-          icon={Activity}
-          tone="emerald"
-          subValue="active"
-        />
-        <SummaryCard
-          label="Offline"
-          value={dashboardData.offline}
-          icon={WifiOff}
-          tone="rose"
-          subValue="disconnected"
-        />
-        <SummaryCard
-          label="Peripherals"
-          value={missingCount > 0 ? missingCount : "Secure"}
-          icon={missingCount > 0 ? Unplug : Plug}
-          tone={missingCount > 0 ? "rose" : "emerald"}
-          subValue={missingCount > 0 ? "missing" : "verified"}
-        />
-      </div>
-
-      <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
-        <div className="min-w-0">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-semibold">Registered devices</h2>
-              <p className="text-sm text-slate-500">
-                Expand a device row to review specs, peripherals, and current
-                metrics.
-              </p>
-            </div>
+      <div className="min-w-0">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Registered devices</h2>
+            <p className="text-sm text-slate-500">
+              Expand a device row to review specs, peripherals, and current
+              metrics.
+            </p>
           </div>
 
-          <SearchFilterBar
-            className="mb-4"
-            count={filteredDevices.length}
-            filters={[
-              {
-                id: "group",
-                label: "Group",
-                value: selectedGroup,
-                onChange: setSelectedGroup,
-                options: groupOptions.map((group) => ({
-                  value: group,
-                  label: group === "all" ? "All groups" : group,
-                })),
-              },
-            ]}
-            onQueryChange={setQuery}
-            placeholder="Search devices by name, IP, MAC, group, or status"
-            query={query}
-          />
+          {/* Filter Badges on the very right with increased padding */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={() => toggleStatusFilter("online")}
+              type="button"
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-all shadow-2xs cursor-pointer border ${
+                statusFilters.online
+                  ? "bg-emerald-100/70 text-emerald-900 border-transparent font-bold shadow-2xs"
+                  : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200/70 hover:text-slate-800"
+              }`}
+            >
+              <Activity
+                size={14}
+                className="text-emerald-600"
+              />
+              <span>Online ({dashboardData.online ?? 0})</span>
+              {statusFilters.online && (
+                <X size={14} className="ml-1 text-emerald-800 hover:text-emerald-950" />
+              )}
+            </button>
 
-          <DeviceTable
-            devices={filteredDevices}
-            loading={loading}
-            onUpdateGroup={onUpdateGroup}
-            groups={groups}
-            onArchive={onArchive}
-            canControl={canControl}
-            canManagePeripherals={canManagePeripherals}
-          />
+            <button
+              onClick={() => toggleStatusFilter("offline")}
+              type="button"
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-all shadow-2xs cursor-pointer border ${
+                statusFilters.offline
+                  ? "bg-rose-100/70 text-rose-900 border-transparent font-bold shadow-2xs"
+                  : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200/70 hover:text-slate-800"
+              }`}
+            >
+              <WifiOff
+                size={14}
+                className="text-rose-600"
+              />
+              <span>Offline ({dashboardData.offline ?? 0})</span>
+              {statusFilters.offline && (
+                <X size={14} className="ml-1 text-rose-800 hover:text-rose-950" />
+              )}
+            </button>
+
+            <button
+              onClick={() => toggleStatusFilter("missingPeripherals")}
+              type="button"
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-all shadow-2xs cursor-pointer border ${
+                statusFilters.missingPeripherals
+                  ? "bg-amber-100/70 text-amber-900 border-transparent font-bold shadow-2xs"
+                  : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200/70 hover:text-slate-800"
+              }`}
+            >
+              <Unplug
+                size={14}
+                className="text-amber-600"
+              />
+              <span>Missing Peripherals ({missingCount})</span>
+              {statusFilters.missingPeripherals && (
+                <X size={14} className="ml-1 text-amber-800 hover:text-amber-950" />
+              )}
+            </button>
+          </div>
         </div>
 
-        <GroupPanel devices={devices} />
+        <SearchFilterBar
+          className="mb-4"
+          count={filteredDevices.length}
+          filters={[
+            {
+              id: "group",
+              label: "Group",
+              value: selectedGroup,
+              onChange: setSelectedGroup,
+              options: groupOptions.map((group) => ({
+                value: group,
+                label: group === "all" ? "All groups" : group,
+              })),
+            },
+          ]}
+          onQueryChange={setQuery}
+          placeholder="Search devices by name, IP, MAC, group, or status"
+          query={query}
+        />
+
+        <DeviceTable
+          devices={filteredDevices}
+          loading={loading}
+          onUpdateGroup={onUpdateGroup}
+          groups={groups}
+          onArchive={onArchive}
+          canControl={canControl}
+          canManagePeripherals={canManagePeripherals}
+          refresh={refresh}
+        />
       </div>
     </div>
   );

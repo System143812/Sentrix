@@ -43,19 +43,37 @@ export function getHeaders(additional = {}) {
 }
 
 export async function fetchJson(path, options = {}) {
-  const response = await fetch(`${apiUrl}${path}`, {
-    credentials: "include",
-    ...options,
-    headers: getHeaders(options.headers),
-  });
+  let response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, {
+      credentials: "include",
+      ...options,
+      headers: getHeaders(options.headers),
+    });
+  } catch (netErr) {
+    throw new Error("Cannot reach Sentrix core server. Please check if the core server is running.");
+  }
 
-  const body = await response.json();
+  let body = {};
+  try {
+    body = await response.json();
+  } catch {
+    // Non-JSON response fallback
+  }
+
   if (!response.ok || body?.success === false) {
     if (response.status === 401) {
       setAuthToken(null);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sentrix:unauthorized"));
+      }
+      throw new Error("Session expired. Please log in again.");
+    }
+    if (response.status === 504) {
+      throw new Error("Agent did not respond in time (Unresponsive / Timeout).");
     }
 
-    const error = new Error(body.message || "Request failed.");
+    const error = new Error(body.message || `Request failed with status ${response.status}.`);
     error.data = body;
     throw error;
   }

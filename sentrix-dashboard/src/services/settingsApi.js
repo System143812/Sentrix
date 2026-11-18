@@ -55,3 +55,16 @@ export async function updateUtilityConfig(enabledIds) {
   return result.data;
 }
 
+export async function getStagingSettings() {
+  const result = await fetchJson("/api/settings/staging");
+  return result.data;
+}
+
+export async function updateStagingSettings(maxStagedFileSizeMb) {
+  const result = await fetchJson("/api/settings/staging", {
+    method: "PATCH",
+    body: JSON.stringify({ maxStagedFileSizeMb }),
+  });
+  return result.data;
+}
+

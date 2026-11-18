@@ -58,13 +58,25 @@ export function ScreenMonitorModal({ device, devices = [], onSelectDevice, onClo
     function handleKeyDown(e) {
       if (e.key === "Escape") {
         onClose();
+      } else if (e.key === "ArrowLeft" && hasPrev) {
+        handlePrev();
+      } else if (e.key === "ArrowRight" && hasNext) {
+        handleNext();
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, hasPrev, hasNext]);
 
   useEffect(() => {
+    setFrameCount(0);
+    setStatusMessage("Connecting to stream...");
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
     const token = getAuthToken();
     const socketUrl = getApiUrl();
 
@@ -125,16 +137,38 @@ export function ScreenMonitorModal({ device, devices = [], onSelectDevice, onClo
     };
   }, [device.id]);
 
-  // Watchdog timer: if connected and 0 frames received after 3.5 seconds, auto-retry stream start
+  // Watchdog timer:
+  // 1. If 0 frames received after 2 seconds -> auto-reconnect
+  // 2. If frameCount hasn't changed for 5 seconds while streaming -> auto-reconnect (frozen frame detection)
+  const lastFrameCountRef = useRef(frameCount);
+  const lastFrameTimeRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (frameCount !== lastFrameCountRef.current) {
+      lastFrameCountRef.current = frameCount;
+      lastFrameTimeRef.current = Date.now();
+    }
+  }, [frameCount]);
+
   useEffect(() => {
     if (!isStreaming) return;
-    const timer = setTimeout(() => {
-      if (frameCount === 0 && socketRef.current && socketRef.current.connected) {
-        setStatusMessage("Retrying stream connection...");
-        socketRef.current.emit("dashboard:screen:start", { agentId: device.id, fps, quality });
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const socket = socketRef.current;
+      if (!socket || !socket.connected) return;
+
+      if (frameCount === 0 && now - lastFrameTimeRef.current > 2000) {
+        setStatusMessage("Reconnecting stream...");
+        socket.emit("dashboard:screen:start", { agentId: device.id, fps, quality });
+        lastFrameTimeRef.current = Date.now();
+      } else if (frameCount > 0 && now - lastFrameTimeRef.current > 5000) {
+        setStatusMessage("Stream frozen. Reconnecting...");
+        socket.emit("dashboard:screen:start", { agentId: device.id, fps, quality });
+        lastFrameTimeRef.current = Date.now();
       }
-    }, 3500);
-    return () => clearTimeout(timer);
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, [isStreaming, frameCount, device.id, fps, quality]);
 
   const handleUpdateSettings = (newFps, newQuality) => {
@@ -189,22 +223,33 @@ export function ScreenMonitorModal({ device, devices = [], onSelectDevice, onClo
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={handleSnapshot}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition"
-                title="Save Snapshot"
-              >
-                <Camera size={14} strokeWidth={2} />
-                <span className="hidden xs:inline">Snapshot</span>
-              </button>
-              <button
-                onClick={handleFullscreen}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition"
-                title="Fullscreen"
-              >
-                <Maximize2 size={14} strokeWidth={2} />
-                <span className="hidden xs:inline">Fullscreen</span>
-              </button>
+              {devices && devices.length > 1 && (
+                <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
+                  <button
+                    onClick={handlePrev}
+                    disabled={!hasPrev}
+                    className={`p-1.5 rounded-md transition ${
+                      hasPrev ? "text-slate-200 hover:text-white hover:bg-slate-700" : "text-slate-600 cursor-not-allowed"
+                    }`}
+                    title="Previous Device"
+                  >
+                    <ChevronLeft size={16} strokeWidth={2} />
+                  </button>
+                  <span className="px-2 text-xs font-mono font-bold text-slate-300">
+                    {currentIndex + 1} / {devices.length}
+                  </span>
+                  <button
+                    onClick={handleNext}
+                    disabled={!hasNext}
+                    className={`p-1.5 rounded-md transition ${
+                      hasNext ? "text-slate-200 hover:text-white hover:bg-slate-700" : "text-slate-600 cursor-not-allowed"
+                    }`}
+                    title="Next Device"
+                  >
+                    <ChevronRight size={16} strokeWidth={2} />
+                  </button>
+                </div>
+              )}
               <button
                 onClick={onClose}
                 className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition ml-1"
@@ -225,26 +270,10 @@ export function ScreenMonitorModal({ device, devices = [], onSelectDevice, onClo
             ref={canvasRef}
             className="w-full h-full object-contain bg-black"
           />
-          {(!isStreaming || (isStreaming && frameCount === 0 && !statusMessage.includes("active"))) && (
+          {frameCount === 0 && (!isStreaming || !statusMessage.includes("active")) && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 text-center p-6 z-20">
-              <div className="h-12 w-12 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3">
-                <AlertCircle size={24} strokeWidth={2} />
-              </div>
-              <p className="text-xs font-semibold text-slate-300 mb-3">{statusMessage}</p>
-              <button
-                onClick={() => {
-                  setFrameCount(0);
-                  setStatusMessage("Requesting screen stream...");
-                  setIsStreaming(true);
-                  if (socketRef.current && socketRef.current.connected) {
-                    socketRef.current.emit("dashboard:screen:start", { agentId: device.id, fps, quality });
-                  }
-                }}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 transition shadow-sm"
-                type="button"
-              >
-                Reconnect Stream
-              </button>
+              <div className="h-8 w-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin mb-3"></div>
+              <p className="text-xs font-medium text-slate-400">{statusMessage}</p>
             </div>
           )}
 
@@ -317,36 +346,56 @@ export function ScreenMonitorModal({ device, devices = [], onSelectDevice, onClo
             <div className="flex flex-wrap items-center justify-center gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-slate-400 font-bold uppercase text-[10px]">FPS:</span>
-                <div className="flex rounded-lg bg-slate-800 p-0.5 border border-slate-700">
+                <select
+                  value={fps}
+                  onChange={(e) => handleUpdateSettings(Number(e.target.value), quality)}
+                  className="bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold rounded-md px-2.5 py-1 outline-none focus:border-slate-500 cursor-pointer"
+                >
                   {[1, 2, 5, 10].map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => handleUpdateSettings(f, quality)}
-                      className={`px-2.5 py-1 rounded text-xs font-semibold transition ${fps === f ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      {f}
-                    </button>
+                    <option key={f} value={f}>
+                      {f} FPS
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-slate-400 font-bold uppercase text-[10px]">Resolution:</span>
-                <div className="flex rounded-lg bg-slate-800 p-0.5 border border-slate-700">
+                <select
+                  value={quality}
+                  onChange={(e) => handleUpdateSettings(fps, Number(e.target.value))}
+                  className="bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold rounded-md px-2.5 py-1 outline-none focus:border-slate-500 cursor-pointer"
+                >
                   {[
                     { label: "480p", value: 480 },
                     { label: "720p", value: 720 },
                     { label: "1080p", value: 1080 }
                   ].map((res) => (
-                    <button
-                      key={res.value}
-                      onClick={() => handleUpdateSettings(fps, res.value)}
-                      className={`px-2.5 py-1 rounded text-xs font-semibold transition ${quality === res.value ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
-                    >
+                    <option key={res.value} value={res.value}>
                       {res.label}
-                    </button>
+                    </option>
                   ))}
-                </div>
+                </select>
+              </div>
+
+              {/* Snapshot and Fullscreen buttons to the right of Resolution */}
+              <div className="flex items-center gap-1.5 ml-2 border-l border-slate-800 pl-3">
+                <button
+                  onClick={handleSnapshot}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition"
+                  title="Save Snapshot"
+                >
+                  <Camera size={14} strokeWidth={2} />
+                  <span>Snapshot</span>
+                </button>
+                <button
+                  onClick={handleFullscreen}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition"
+                  title="Fullscreen"
+                >
+                  <Maximize2 size={14} strokeWidth={2} />
+                  <span>Fullscreen</span>
+                </button>
               </div>
             </div>
           </div>
