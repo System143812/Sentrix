@@ -130,10 +130,15 @@ export async function sendClientCommand(req, res, next) {
 
     const client = await clientService.getClientById(id);
     
-    // Enrich payload with the sender's role if available
+    // Enrich payload with the sender's role and username if available
     const enrichedPayload = { ...payload };
-    if (req.user && req.user.role) {
-      enrichedPayload.senderRole = req.user.role;
+    if (req.user) {
+      if (req.user.role) {
+        enrichedPayload.senderRole = req.user.role;
+      }
+      if (req.user.username) {
+        enrichedPayload.senderUsername = req.user.username;
+      }
     }
 
     // Special handling for 'update' command: generate a provisioning token

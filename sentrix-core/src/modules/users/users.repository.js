@@ -1,6 +1,6 @@
 import pool from "../../lib/database.js";
 
-const SAFE_USER_FIELDS = "id, email, role, active, created_at, updated_at";
+const SAFE_USER_FIELDS = "id, email, username, role, active, created_at, updated_at";
 
 export const UsersRepository = {
   async findByEmail(email) {
@@ -47,10 +47,10 @@ export const UsersRepository = {
     return rows[0]?.count ?? 0;
   },
 
-  async insert({ id, email, passwordHash, role, now }) {
+  async insert({ id, email, username, passwordHash, role, now }) {
     await pool.query(
-      "INSERT INTO users (id, email, password_hash, role, active, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)",
-      [id, email, passwordHash, role, now, now],
+      "INSERT INTO users (id, email, username, password_hash, role, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+      [id, email, username || email.split("@")[0], passwordHash, role, now, now],
     );
   },
 
@@ -63,6 +63,13 @@ export const UsersRepository = {
     await pool.query(
       "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
       [passwordHash, now, id],
+    );
+  },
+
+  async updateUsername(id, username, now) {
+    await pool.query(
+      "UPDATE users SET username = ?, updated_at = ? WHERE id = ?",
+      [username, now, id],
     );
   },
 };

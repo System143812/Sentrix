@@ -131,7 +131,7 @@ export function HomePage({
       />
 
       <div className="min-w-0">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-3 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold">Registered devices</h2>
             <p className="text-sm text-slate-500">
@@ -141,7 +141,7 @@ export function HomePage({
           </div>
 
           {/* Filter Badges on the very right with increased padding */}
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap pt-0.5">
             <button
               onClick={() => toggleStatusFilter("online")}
               type="button"

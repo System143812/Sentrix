@@ -165,6 +165,82 @@ function SystemConfigurationCard({ isNetworkAdmin, interval, onIntervalChanged }
   );
 }
 
+function UserProfileCard({ user, onUserUpdated }) {
+  const [username, setUsername] = useState(user?.username || "");
+  const { pending, setPending } = usePendingAction();
+  const { notify } = useToast();
+
+  useEffect(() => {
+    if (user?.username) {
+      setUsername(user.username);
+    }
+  }, [user?.username]);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (!username.trim()) {
+      notify("Username cannot be empty.", "failed");
+      return;
+    }
+
+    try {
+      await setPending("profile", async () => {
+        const updated = await userApi.updateProfile(username.trim());
+        notify("Username updated successfully.", "success");
+        onUserUpdated?.(updated);
+      });
+    } catch (error) {
+      notify(error.message || "Unable to update username.", "failed");
+    }
+  }
+
+  return (
+    <SettingsSection
+      icon={Users}
+      title="User Profile & Personalization"
+      subtitle="Update your display username used across messages and audit logs."
+      tone="teal"
+    >
+      <form className="grid gap-3" onSubmit={handleSubmit}>
+        <div>
+          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Username
+          </label>
+          <FormInput
+            onChange={(event) => setUsername(event.target.value)}
+            placeholder="Enter display username"
+            type="text"
+            value={username}
+            required
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Email (Account ID)
+          </label>
+          <input
+            type="text"
+            value={user?.email || ""}
+            disabled
+            className="h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 cursor-not-allowed"
+          />
+        </div>
+        <button
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0f766e] px-5 text-[10px] font-semibold uppercase tracking-wider text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
+          disabled={pending === "profile"}
+          type="submit"
+        >
+          {pending === "profile" ? (
+            <LoaderCircle className="animate-spin" size={14} />
+          ) : (
+            "Update username"
+          )}
+        </button>
+      </form>
+    </SettingsSection>
+  );
+}
+
 function CredentialCard() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [nextPassword, setNextPassword] = useState("");
@@ -270,10 +346,12 @@ export function SettingsPage({
   onGroupsChanged,
   telemetryInterval,
   onTelemetryIntervalChanged,
+  onUserUpdated,
 }) {
   const isNetworkAdmin = user?.role === "network_admin";
   const [admins, setAdmins] = useState([]);
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
@@ -299,8 +377,9 @@ export function SettingsPage({
 
     try {
       await setPending("create-admin", async () => {
-        await userApi.createAdmin(email, password);
+        await userApi.createAdmin(email, username, password);
         setEmail("");
+        setUsername("");
         setPassword("");
         setMessage("Admin account created.");
         notify("Admin account created.", "success");
@@ -460,6 +539,12 @@ export function SettingsPage({
                 value={email}
                 required
               />
+              <FormInput
+                onChange={(event) => setUsername(event.target.value)}
+                placeholder="Username (e.g. gabby)"
+                type="text"
+                value={username}
+              />
               <div>
                 <FormInput
                   onChange={(event) => setPassword(event.target.value)}
@@ -494,7 +579,7 @@ export function SettingsPage({
                 >
                   <div className="min-w-0">
                     <p className="break-words text-sm font-semibold text-slate-800">
-                      {admin.email}
+                      {admin.username ? `@${admin.username} — ` : ""}{admin.email}
                     </p>
                     <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{admin.role}</p>
                   </div>
@@ -606,9 +691,9 @@ export function SettingsPage({
         </Card>
       </div>
 
-      <div className="grid min-w-0 gap-5 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-3">
+        <UserProfileCard user={user} onUserUpdated={onUserUpdated} />
         <CredentialCard />
-
         <SettingsSection
           icon={Shield}
           title="Security & Admin Tools"

@@ -22,7 +22,7 @@ export async function countUsers() {
   return UsersRepository.count();
 }
 
-export async function createUser({ email, password, role }) {
+export async function createUser({ email, username, password, role }) {
   if (!email || !password) {
     throw new Error("Email and password are required.");
   }
@@ -34,9 +34,24 @@ export async function createUser({ email, password, role }) {
   const id = uuidv4();
   const now = Date.now();
   const passwordHash = await bcrypt.hash(password, 10);
+  const resolvedUsername = username || email.split("@")[0];
 
-  await UsersRepository.insert({ id, email, passwordHash, role, now });
+  await UsersRepository.insert({ id, email, username: resolvedUsername, passwordHash, role, now });
 
+  return getUserById(id);
+}
+
+export async function updateUserUsername(id, username) {
+  if (!username || username.trim() === "") {
+    throw new Error("Username cannot be empty.");
+  }
+  const user = await UsersRepository.findRawById(id);
+  if (!user) {
+    throw new Error("User not found.");
+  }
+
+  const now = Date.now();
+  await UsersRepository.updateUsername(id, username.trim(), now);
   return getUserById(id);
 }
 
