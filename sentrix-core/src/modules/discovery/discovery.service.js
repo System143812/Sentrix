@@ -571,19 +571,6 @@ export async function scanLocalNetwork(targetSubnet = null) {
       const effectiveMac =
         mac !== "Unknown" ? mac : registeredClient?.mac || "Unknown";
 
-      // // Dynamically exclude the Sentrix server itself (IP or MAC match) Balik ko nalang after testing
-      // const serverPrimaryIp = getPrimaryInterfaceAddress();
-      // const serverIface = getPrimaryInterface();
-      // const serverMacNorm = normalizeMac(serverIface.mac);
-
-      // if (
-      //   ip === serverPrimaryIp ||
-      //   (normalizeMac(effectiveMac) !== "UNKNOWN" &&
-      //     normalizeMac(effectiveMac) === serverMacNorm)
-      // ) {
-      //   return null;
-      // }
-
       const [{ hostname, source }] = await Promise.all([getHostnameForIp(ip)]);
 
       const scannedHostname = registeredClient?.hostname
@@ -622,6 +609,18 @@ export async function scanLocalNetwork(targetSubnet = null) {
 
       const gateway =
         gatewayCandidates.has(ip) || ip.endsWith(".1") || ip.endsWith(".254");
+
+      const hasValidMac = effectiveMac !== "Unknown" && effectiveMac.trim() !== "";
+      const isRealDevice = Boolean(
+        registeredClient ||
+        hasValidMac ||
+        hasOpenPorts ||
+        gateway
+      );
+
+      if (!isRealDevice) {
+        return null;
+      }
       const device_kind = getDeviceKind(
         device_type,
         vendor,
