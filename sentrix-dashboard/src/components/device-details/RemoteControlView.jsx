@@ -11,6 +11,8 @@ import {
   MessageSquare,
   Info,
   FolderOpen,
+  Folder,
+  Copy,
   Upload,
   Download,
   CheckCircle2,
@@ -598,7 +600,20 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig, refr
         {/* Active Path Control & Status */}
         <div className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-600">Active Target Path</label>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-600">Active Target Path</label>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(draftPath);
+                  notify("Path copied to clipboard", "success");
+                }}
+                className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-100 transition"
+                title="Copy Path"
+              >
+                <Copy size={12} /> Copy
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               {validatingPath ? (
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500 animate-pulse">
@@ -623,6 +638,32 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig, refr
               )}
             </div>
           </div>
+
+          {/* Quick Preset Chips */}
+          <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mr-1">Presets:</span>
+            {[
+              { label: "Public Desktop", path: "C:/Users/Public/Desktop" },
+              { label: "Public Docs", path: "C:/Users/Public/Documents" },
+              { label: "Temp", path: "C:/Windows/Temp" },
+              { label: "ProgramData", path: "C:/ProgramData" },
+            ].map((preset) => (
+              <button
+                key={preset.path}
+                type="button"
+                onClick={() => setDraftPath(preset.path)}
+                className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
+                  draftPath === preset.path
+                    ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
+                    : "border-slate-200 bg-slate-50/50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                <Folder size={11} className={draftPath === preset.path ? "text-blue-500" : "text-slate-400"} />
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
           <input
             type="text"
             className="w-full rounded-lg border border-slate-200 bg-slate-50/50 p-3 font-mono text-xs font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
@@ -632,28 +673,36 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig, refr
           />
 
           {draftPath !== activePath && (
-            <div className="mt-3 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="h-8 rounded-md border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-                onClick={() => setDraftPath(activePath)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="h-8 rounded-md bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 shadow-sm"
-                onClick={async () => {
-                  try {
-                    await clientApi.updateClientActivePath(device.id, draftPath);
-                    notify("Active target path saved successfully.", "success");
-                  } catch (err) {
-                    notify(err?.message || "Failed to save active path.", "failed");
-                  }
-                }}
-              >
-                Save Path
-              </button>
+            <div className="mt-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-600">
+                  <AlertCircle size={14} className="shrink-0" />
+                  <span>Unsaved path changes. Save path to enable file operations.</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="h-8 rounded-md border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                    onClick={() => setDraftPath(activePath)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="h-8 rounded-md bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 shadow-sm"
+                    onClick={async () => {
+                      try {
+                        await clientApi.updateClientActivePath(device.id, draftPath);
+                        notify("Active target path saved successfully.", "success");
+                      } catch (err) {
+                        notify(err?.message || "Failed to save active path.", "failed");
+                      }
+                    }}
+                  >
+                    Save Path
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -683,7 +732,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig, refr
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button
             className="group flex h-24 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-sm active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={validatingPath || isDeviceOffline || pathStatus === "agent-offline"}
+            disabled={validatingPath || isDeviceOffline || pathStatus === "agent-offline" || draftPath !== activePath}
             onClick={() => setFileModal("upload")}
             type="button"
           >
@@ -695,7 +744,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig, refr
 
           <button
             className="group flex h-24 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-sm active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!pathValid || validatingPath || isDeviceOffline || pathStatus === "agent-offline"}
+            disabled={!pathValid || validatingPath || isDeviceOffline || pathStatus === "agent-offline" || draftPath !== activePath}
             onClick={() => setFileModal("delete")}
             type="button"
           >
@@ -707,7 +756,7 @@ export function RemoteControlView({ device, allDevices = [], utilityConfig, refr
 
           <button
             className="group flex h-24 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200/60 bg-slate-50/30 text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white hover:shadow-sm active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!pathValid || validatingPath || isDeviceOffline || pathStatus === "agent-offline"}
+            disabled={!pathValid || validatingPath || isDeviceOffline || pathStatus === "agent-offline" || draftPath !== activePath}
             onClick={openDownloadModal}
             type="button"
           >

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS client_groups (
 CREATE TABLE IF NOT EXISTS users (
   id CHAR(36) PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,
+  username VARCHAR(255) NULL,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('network_admin', 'admin') NOT NULL DEFAULT 'admin',
   active TINYINT(1) NOT NULL DEFAULT 1,

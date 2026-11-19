@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.use(authenticate);
 router.get("/", userController.listUsers);
+router.put("/profile", userController.updateProfile);
 router.post("/", requireRole("network_admin"), userController.createAdmin);
 router.delete("/:id", requireRole("network_admin"), userController.removeAdmin);
 

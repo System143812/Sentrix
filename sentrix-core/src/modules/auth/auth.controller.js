@@ -91,7 +91,7 @@ export async function login(req, res, next) {
     await clearSecurityIncidents(req);
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, username: user.username, role: user.role },
       secret,
       { expiresIn: "8h" },
     );
@@ -99,7 +99,7 @@ export async function login(req, res, next) {
     res.cookie("sentrix_token", token, getCookieOptions());
 
     await authorizeDevice(req, {
-      label: user.email,
+      label: user.username || user.email,
       type: "user",
       identifier: user.id,
     });
@@ -110,7 +110,7 @@ export async function login(req, res, next) {
       action: "login_success",
       targetType: "user",
       targetId: user.id,
-      targetLabel: user.email,
+      targetLabel: user.username || user.email,
     });
 
     return res.json({
@@ -120,6 +120,7 @@ export async function login(req, res, next) {
         user: {
           id: user.id,
           email: user.email,
+          username: user.username,
           role: user.role,
         },
       },
@@ -208,6 +209,7 @@ export async function me(req, res, next) {
       data: {
         id: req.user.id,
         email: req.user.email,
+        username: req.user.username,
         role: req.user.role,
       },
     });

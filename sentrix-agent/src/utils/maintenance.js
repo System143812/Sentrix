@@ -177,6 +177,7 @@ export const MAINTENANCE_COMMANDS = {
     exit 0
   `.trim()),
   "broadcast-message": (text, dataDir = "C:\\ProgramData\\SentrixAgent", args = {}) => {
+    const username = args.senderUsername;
     const role = args.senderRole || "Administrator";
     const senderRole = role
       .toString()
@@ -185,17 +186,19 @@ export const MAINTENANCE_COMMANDS = {
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(" ");
 
+    const senderDisplay = username ? `@${username}` : senderRole;
+
     const escapedMsg = (text || "").replace(/'/g, "''");
-    const escapedRole = senderRole.replace(/'/g, "''");
+    const escapedSender = senderDisplay.replace(/'/g, "''");
     const escapedDataDir = (dataDir || "C:\\ProgramData\\SentrixAgent").replace(/'/g, "''");
 
     const psCommand = [
       "$ErrorActionPreference = 'Stop'",
-      `$rawRole = '${escapedRole}'`,
+      `$rawSender = '${escapedSender}'`,
       `$rawMsg = '${escapedMsg}'`,
       `$baseDir = '${escapedDataDir}'`,
       "try {",
-      "    $role = $rawRole",
+      "    $sender = $rawSender",
       "    $msg = $rawMsg",
       "    $modulePath = Join-Path $baseDir 'Modules\\BurntToast\\BurntToast.psd1'",
       "    if (-not (Test-Path $modulePath)) {",
@@ -215,7 +218,7 @@ export const MAINTENANCE_COMMANDS = {
       "        $localDevLogo = Join-Path (Get-Location) 'src\\assets\\sentrix-dark.png'",
       "        if (Test-Path $localDevLogo) { $logoPath = $localDevLogo }",
       "    }",
-      "    $params = @{ Text = @(\"Message from $role\", $msg) }",
+      "    $params = @{ Text = @(\"Message from $sender\", $msg) }",
       "    if (Test-Path $logoPath) { $params['AppLogo'] = $logoPath }",
       "    New-BurntToastNotification @params | Out-Null",
       "    Write-Host 'SUCCESS: BurntToast notification displayed.'",

@@ -5,10 +5,10 @@ export async function getUsers() {
   return result.data;
 }
 
-export async function createAdmin(email, password) {
+export async function createAdmin(email, username, password) {
   const result = await fetchJson("/api/users", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, username, password }),
   });
   return result.data;
 }
@@ -18,4 +18,12 @@ export async function deleteAdmin(id) {
     method: "DELETE",
   });
   return result;
+}
+
+export async function updateProfile(username) {
+  const result = await fetchJson("/api/users/profile", {
+    method: "PUT",
+    body: JSON.stringify({ username }),
+  });
+  return result.data;
 }

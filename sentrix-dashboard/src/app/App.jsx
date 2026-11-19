@@ -105,14 +105,12 @@ export default function App() {
   }
 
   async function handleLogout() {
-    try {
-      await authApi.logout();
-    } catch (error) {
-      console.warn("Logout request failed:", error.message);
-    }
-
+    authApi.clearSavedLogin();
     setUser(null);
     setActiveTab("home");
+    try {
+      authApi.logout().catch(() => {});
+    } catch {}
   }
 
   if (!authReady) {
@@ -144,25 +142,49 @@ export default function App() {
         onLogout={handleLogout}
         telemetryInterval={telemetryInterval}
         onTelemetryIntervalChanged={setTelemetryInterval}
+        onUserUpdated={setUser}
       />
     </ToastProvider>
   );
 }
 
-function UserDropdown({ user, dropdownOpen, setDropdownOpen, dropdownRef, loading, refresh, onLogout }) {
+function UserDropdown({ user, loading, refresh, onLogout }) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, []);
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setDropdownOpen(!dropdownOpen)}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDropdownOpen((prev) => !prev);
+        }}
         className={`flex h-9 items-center gap-2 rounded-lg border px-3 shadow-sm transition-all active:scale-95 ${
           dropdownOpen
             ? "border-slate-900 bg-slate-50 text-slate-900"
             : "border-slate-200 bg-white text-slate-500 hover:border-slate-900 hover:text-slate-900"
         }`}
+        type="button"
       >
         <UserCircle size={18} strokeWidth={2.5} />
         <span className="hidden text-[10px] font-bold uppercase tracking-widest sm:inline">
-          {user.role === "network_admin" ? "Network Admin" : "Admin"}
+          {user.username || (user.role === "network_admin" ? "Network Admin" : "Admin")}
         </span>
         <ChevronDown
           size={14}
@@ -175,13 +197,13 @@ function UserDropdown({ user, dropdownOpen, setDropdownOpen, dropdownRef, loadin
         className={`absolute right-0 top-full z-[100] mt-2 w-52 origin-top-right transition-all duration-200 ${
           dropdownOpen
             ? "visible scale-100 opacity-100"
-            : "invisible scale-95 opacity-0"
+            : "invisible scale-95 opacity-0 pointer-events-none"
         }`}
       >
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-900/5">
           <div className="mb-2 border-b border-slate-50 bg-slate-50/30 px-3 py-2">
             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-              Authenticated as
+              {user.username ? `@${user.username}` : "Authenticated as"}
             </p>
             <p className="mt-0.5 truncate text-[10px] font-bold text-slate-700">
               {user.email}
@@ -190,11 +212,14 @@ function UserDropdown({ user, dropdownOpen, setDropdownOpen, dropdownRef, loadin
 
           <button
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[10px] font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               refresh();
               setDropdownOpen(false);
             }}
             disabled={loading}
+            type="button"
           >
             <RefreshCcw
               size={14}
@@ -213,10 +238,13 @@ function UserDropdown({ user, dropdownOpen, setDropdownOpen, dropdownRef, loadin
 
           <button
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[10px] font-bold text-rose-600 transition hover:bg-rose-50"
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               onLogout();
               setDropdownOpen(false);
             }}
+            type="button"
           >
             <LogOut size={14} strokeWidth={2.5} />
             <div className="flex-1">
@@ -241,6 +269,7 @@ export function DashboardShell({
   onLogout,
   telemetryInterval,
   onTelemetryIntervalChanged,
+  onUserUpdated,
 }) {
   const {
     dashboardData,
@@ -251,19 +280,6 @@ export function DashboardShell({
   } = useDevices();
   const discovery = useDiscovery();
   const { notify } = useToast();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   async function handleUpdateGroup(id, group) {
     const device = dashboardData.clients?.find((client) => client.id === id);
@@ -317,9 +333,6 @@ export function DashboardShell({
             <div className="flex shrink-0 items-center gap-2">
               <UserDropdown
                 user={user}
-                dropdownOpen={dropdownOpen}
-                setDropdownOpen={setDropdownOpen}
-                dropdownRef={dropdownRef}
                 loading={loading}
                 refresh={refresh}
                 onLogout={onLogout}
@@ -334,9 +347,6 @@ export function DashboardShell({
               <div className="flex items-center gap-2">
                 <UserDropdown
                   user={user}
-                  dropdownOpen={dropdownOpen}
-                  setDropdownOpen={setDropdownOpen}
-                  dropdownRef={dropdownRef}
                   loading={loading}
                   refresh={refresh}
                   onLogout={onLogout}
@@ -396,6 +406,7 @@ export function DashboardShell({
             onGroupsChanged={onGroupsChanged}
             telemetryInterval={telemetryInterval}
             onTelemetryIntervalChanged={onTelemetryIntervalChanged}
+            onUserUpdated={onUserUpdated}
           />
         )}
 
