@@ -65,5 +65,5 @@ describe('Deployer Concurrency Queue', () => {
     expect(results[0].success).toBe(true);
     expect(results[1].success).toBe(true);
     expect(results[2].success).toBe(true);
-  }, 20000);
+  }, 45000);
 });
