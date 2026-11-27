@@ -148,17 +148,17 @@ vite.config.ts.timestamp-*
 sentrix-dashboard/.vite/
 
 #setup and rulings
-GEMINI.md
-CLAUDE.md
+*MINI.md
+*UDE.md
 
 #Provisioner build files
 tools/Sentrix-Provisioner/obj/
 provisioner-config.json
 tools/Sentrix-Provisioner/Resources/provisioner-config.json
 
-# # SSL Certificates and Private Keys
-# *.pem
-# *.key
-# *.crt
-# .certs/
-# sentrix-core/.certs/
+# SSL Certificates and Private Keys
+*.pem
+*.key
+*.crt
+.certs/
+sentrix-core/.certs/
