@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 import { fileURLToPath } from "url";
-import selfsigned from "selfsigned";
+import { getOrCreateServerCertificate } from "./lib/cert-manager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,63 +43,8 @@ function getLocalIpAddresses() {
   return ips;
 }
 
-/**
- * Gets or generates self-signed certificates for HTTPS with dynamic SANs for local and Tailscale IPs.
- */
-async function getCertificates() {
-  const certDir = path.resolve(__dirname, "../.certs");
-  const keyPath = path.join(certDir, "server.key");
-  const certPath = path.join(certDir, "server.crt");
-
-  if (!fs.existsSync(certDir)) {
-    fs.mkdirSync(certDir, { recursive: true });
-  }
-
-  // Reuse existing certificates instead of regenerating on every startup.
-  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
-    console.log("[HTTPS] Loading existing TLS certificate.");
-
-    return {
-      key: fs.readFileSync(keyPath),
-      cert: fs.readFileSync(certPath),
-    };
-  }
-
-  const localIps = getLocalIpAddresses();
-
-  console.log(
-    `[HTTPS] Generating self-signed certificates with SANs for: ${localIps.join(", ")}...`
-  );
-
-  const attrs = [{ name: "commonName", value: "sentrix.local" }];
-
-  const altNames = [
-    { type: 2, value: "localhost" },
-    { type: 2, value: "sentrix.local" },
-    ...localIps.map(ip => ({ type: 7, ip })),
-  ];
-
-  const pems = await selfsigned.generate(attrs, {
-    days: 365,
-    extensions: [{
-      name: "subjectAltName",
-      altNames,
-    }],
-  });
-
-  fs.writeFileSync(keyPath, pems.private);
-  fs.writeFileSync(certPath, pems.cert);
-
-  console.log("[HTTPS] New TLS certificate generated.");
-
-  return {
-    key: pems.private,
-    cert: pems.cert,
-  };
-}
-
 const app = createApp();
-const sslOptions = await getCertificates();
+const sslOptions = await getOrCreateServerCertificate(getLocalIpAddresses());
 const server = https.createServer(sslOptions, app);
 const port = process.env.PORT || 4000;
 const host = process.env.HOST || "0.0.0.0";
@@ -170,8 +115,19 @@ startDiscoveryScheduler(io);
 startPruningService();
 networkIdentity.startPolling(15000);
 
-networkIdentity.on("ip-changed", ({ oldIp, newIp, serverUrl }) => {
+networkIdentity.on("ip-changed", async ({ oldIp, newIp, serverUrl }) => {
   io.to("agents").emit("server:ip-changed", { serverUrl });
+  try {
+    const localIps = getLocalIpAddresses();
+    const sslOptions = await getOrCreateServerCertificate(localIps);
+    server.setSecureContext({
+      key: sslOptions.key,
+      cert: sslOptions.cert,
+    });
+    console.log(`[HTTPS] Dynamically regenerated and hot-reloaded TLS certificate for new IP SANs: ${localIps.join(", ")}`);
+  } catch (err) {
+    console.error(`[HTTPS] Failed to hot-reload TLS certificate on IP change:`, err);
+  }
 });
 
 server.listen(port, host, () => {

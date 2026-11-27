@@ -236,5 +236,26 @@ export const ClientRepository = {
       "SELECT COUNT(*) as total_missing FROM client_peripheral_inventory WHERE status = 'missing'",
     );
     return total_missing || 0;
+  },
+
+  async deleteStalePendingClients(now) {
+    try {
+      // 24 hours threshold for ghost records created without a token or stuck indefinitely
+      const maxAgeThreshold = now - (24 * 60 * 60 * 1000);
+      const [result] = await pool.query(
+        `DELETE FROM clients
+         WHERE hardware_fingerprint IS NULL
+           AND (
+             (provisioning_token IS NOT NULL AND token_expires_at < ?)
+             OR
+             (created_at < ?)
+           )`,
+        [now, maxAgeThreshold]
+      );
+      return result.affectedRows || 0;
+    } catch (err) {
+      console.error("[ClientRepository] deleteStalePendingClients error:", err.message);
+      return 0;
+    }
   }
 };

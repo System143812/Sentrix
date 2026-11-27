@@ -17,9 +17,9 @@ export function initSecurityService(io) {
 /**
  * Generates a short-lived provisioning token for an agent.
  */
-export async function generateProvisioningToken(clientId) {
+export async function generateProvisioningToken(clientId, expiresInMs = 5 * 60 * 1000) {
   const token = crypto.randomBytes(32).toString("hex");
-  const expiresAt = Date.now() + 30 * 60 * 1000; // 30 minutes
+  const expiresAt = Date.now() + expiresInMs; // Aligned with deployment timeout (5 minutes)
   const now = Date.now();
   const pendingHostname = `Pending Agent ${String(clientId).slice(0, 8)}`;
 
