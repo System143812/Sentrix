@@ -834,12 +834,26 @@ export async function deployAgentToHost(
     action,
   });
 
-  const result = await deployAgentToHostInternal(
-    ip,
-    lastScanResults,
-    credentials,
-    { action },
-  );
+  let result;
+  try {
+    result = await deployAgentToHostInternal(
+      ip,
+      lastScanResults,
+      credentials,
+      { action },
+    );
+  } catch (err) {
+    if (!hadPreExistingClient) {
+      try {
+        const depRecord = await DiscoveryRepository.findDeploymentRecordByIp(ip);
+        if (depRecord?.agent_id) {
+          await archiveClient(depRecord.agent_id);
+        }
+      } catch {}
+    }
+    throw err;
+  }
+
   const deploymentStatus = result.success ? "requested" : "failed";
 
   // If the SMB push failed and a ghost provisioning record was created by generateProvisioningToken,

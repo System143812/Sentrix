@@ -191,7 +191,9 @@ async function deployAgentViaSMBInternal(ip, arg2, arg3, arg4, arg5, arg6) {
       ...localAssets
     ];
 
-    const localCertPath = path.resolve(__dirname, "../../../.certs/server.crt");
+    const rootCaPath = path.resolve(__dirname, "../../../.certs/root-ca.crt");
+    const serverCertPath = path.resolve(__dirname, "../../../.certs/server.crt");
+    const localCertPath = fs.existsSync(rootCaPath) ? rootCaPath : serverCertPath;
     let localCertSrc = "";
     if (fs.existsSync(localCertPath)) {
       localCertSrc = localCertPath;
@@ -204,7 +206,7 @@ async function deployAgentViaSMBInternal(ip, arg2, arg3, arg4, arg5, arg6) {
         type: "config"
       });
     } else {
-      throw new Error(`Required canonical TLS certificate not found at ${localCertPath}.`);
+      throw new Error(`Required canonical TLS certificate / Root CA not found at ${localCertPath}.`);
     }
 
     const envContentStr = `SENTRIX_SERVER_URL=${cleanServerUrl}\nSENTRIX_AGENT_ID=${cleanAgentId}${cleanToken ? `\nSENTRIX_PROVISIONING_TOKEN=${cleanToken}` : ""}`;
