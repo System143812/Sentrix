@@ -5,6 +5,7 @@ import {
   getPruningSettings,
   recordPruningRun,
 } from "../../modules/settings/settings.service.js";
+import { ClientRepository } from "../../modules/clients/clients.repository.js";
 
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 const configuredBatchSize = Number(process.env.PRUNE_BATCH_SIZE || 500);
@@ -89,7 +90,10 @@ export async function runPruneSweep() {
         total += await pruneTableByTimestamp(table, column, threshold);
       }
     }
-    
+
+    // Prune expired/orphaned pending provisioning clients
+    total += await ClientRepository.deleteStalePendingClients(now);
+
     // Record the successful run
     await recordPruningRun();
     
@@ -114,6 +118,9 @@ export function startPruningService() {
     clearInterval(livePruningTimer);
     livePruningTimer = null;
   }
+
+  // Run initial startup cleanup sweep immediately upon service start
+  runPruneSweep().catch(err => log(`[PRUNER] Startup sweep error: ${err.message}`));
 
   // Live Pruning: Every 60 seconds
   livePruningTimer = setInterval(async () => {
