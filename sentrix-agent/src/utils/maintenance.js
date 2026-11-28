@@ -605,6 +605,7 @@ export async function runMaintenanceAction(action, args = {}) {
           type: "broadcast",
           text,
           senderRole: args.senderRole,
+          senderUsername: args.senderUsername,
           dataDir,
         }))
       );

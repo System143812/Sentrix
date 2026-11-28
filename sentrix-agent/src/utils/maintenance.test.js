@@ -35,9 +35,9 @@ describe("Maintenance Utility", () => {
     delete process.env.SENTRIX_AGENT_DATA_DIR;
   });
 
-  it("should generate a broadcast command that uses EncodedCommand with BurntToast support", () => {
+  it("should generate a broadcast command that uses EncodedCommand with BurntToast support and sender info", () => {
     const text = "Hello Lab";
-    const command = MAINTENANCE_COMMANDS["broadcast-message"](text, "");
+    const command = MAINTENANCE_COMMANDS["broadcast-message"](text, "", { senderUsername: "gabby", senderRole: "network-admin" });
 
     expect(command).toContain("-EncodedCommand");
 
@@ -47,6 +47,7 @@ describe("Maintenance Utility", () => {
 
     expect(decoded).toContain("New-BurntToastNotification");
     expect(decoded).toContain("Hello Lab");
+    expect(decoded).toContain("@gabby");
   });
 
   it("should handle BurntToast module loading and logo paths", () => {
