@@ -161,7 +161,7 @@ try {
       return { success: false, error: "Invalid payload: must be a JSON object" };
     }
 
-    const { type, text, senderRole } = payload;
+    const { type, text, senderRole, senderUsername } = payload;
     if (typeof type !== "string") {
       return { success: false, error: "Invalid message type" };
     }
@@ -428,6 +428,18 @@ try {
         formattedRole = cleanedRole ? cleanedRole.charAt(0).toUpperCase() + cleanedRole.slice(1) : "Administrator";
       }
 
+      let username = senderUsername;
+      if (username !== undefined && username !== null) {
+        if (typeof username !== "string") {
+          return { success: false, error: "Invalid senderUsername parameter: must be a string" };
+        }
+        if (username.length > 100) {
+          return { success: false, error: "senderUsername exceeds maximum allowed length (100 characters)" };
+        }
+      }
+
+      const senderDisplay = username ? `@${username}` : formattedRole;
+
       activeOperations++;
       let decremented = false;
       const decrementOnce = () => {
@@ -437,13 +449,13 @@ try {
         }
       };
 
-      log(`[Helper] Received broadcast: "${text.substring(0, 30)}..." from role: ${formattedRole}`);
+      log(`[Helper] Received broadcast: "${text.substring(0, 30)}..." from sender: ${senderDisplay}`);
 
       const debugLogPath = "C:\\ProgramData\\SentrixAgent\\native-toast-debug.log";
       const agentDataDir = "C:\\ProgramData\\SentrixAgent";
 
       const escapedMsg = text.replace(/'/g, "''");
-      const escapedRole = formattedRole.replace(/'/g, "''");
+      const escapedSender = senderDisplay.replace(/'/g, "''");
       const escapedDebugLog = debugLogPath.replace(/'/g, "''");
       const escapedDataDir = agentDataDir.replace(/'/g, "''");
 
@@ -455,7 +467,7 @@ try {
         "    Add-Content -Path $logFile -Value $line",
         "}",
         "Log-Debug 'BurntToast script started.'",
-        `$rawRole = '${escapedRole}'`,
+        `$rawSender = '${escapedSender}'`,
         `$rawMsg = '${escapedMsg}'`,
         `$baseDir = '${escapedDataDir}'`,
         "try {",
@@ -481,7 +493,7 @@ try {
         "        $localDevLogo = Join-Path (Get-Location) 'src\\assets\\sentrix-dark.png'",
         "        if (Test-Path $localDevLogo) { $logoPath = $localDevLogo }",
         "    }",
-        "    $params = @{ Text = @(\"Message from $rawRole\", $rawMsg) }",
+        "    $params = @{ Text = @(\"Message from $rawSender\", $rawMsg) }",
         "    if (Test-Path $logoPath) { $params['AppLogo'] = $logoPath }",
         "    New-BurntToastNotification @params | Out-Null",
         "    Log-Debug 'SUCCESS: BurntToast notification displayed successfully.'",
