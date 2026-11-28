@@ -113,8 +113,8 @@ cd sentrix
     ```
 4.  Import the schema:
     *   In the terminal, navigate to the `sentrix-core` folder.
-    *   Run: `mysql -u your_username -p sentrix < schema.sql` (Replace `your_username` with your MySQL username).
-    *   *Alternatively:* Open `sentrix-core/schema.sql` in MySQL Workbench and execute the entire script.
+    *   Run: `mysql -u your_username -p sentrix < src/database/schema.sql` (Replace `your_username` with your MySQL username).
+    *   *Alternatively:* Open `sentrix-core/src/database/schema.sql` in MySQL Workbench and execute the entire script.
 
 ### Step 3: Backend Configuration (Core)
 1.  Navigate to the core directory:
